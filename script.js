@@ -16,7 +16,27 @@ let gameState = {
     capacity: 0
   },
   map: [],
+  character: null, // "miner" | "farmer" | null
   timestamp: Date.now()
+};
+
+// Character types with bonuses
+const characterTypes = {
+  miner: {
+    name: "Miner",
+    icon: "⛏",
+    upgradeDiscount: 0.8, // 20% discount on mineral building upgrades
+    miningProductionMultiplier: 1.5, // 50% bonus to mineral production
+    uniqueBuildings: ["deepMine", "oreRefinery"]
+  },
+  farmer: {
+    name: "Farmer",
+    icon: "🌾",
+    buildDiscount: 0.8, // 20% discount on farm building placement
+    farmingProductionMultiplier: 1.5, // 50% bonus to farming production
+    populationMultiplier: 1.3, // 30% faster population growth
+    uniqueBuildings: ["advancedFarm", "orchard"]
+  }
 };
 
 // Selected building type for placement
@@ -87,7 +107,8 @@ const buildingTypes = {
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "buildingCount", buildingType: "farm", threshold: 3 }
+    unlockCondition: { type: "buildingCount", buildingType: "farm", threshold: 3 },
+    requiredCharacter: "farmer" // Farmer-only building
   },
   advancedLumberMill: {
     displayName: "Advanced Lumber Mill",
@@ -109,7 +130,32 @@ const buildingTypes = {
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "minerals", threshold: 50 }
+    unlockCondition: { type: "minerals", threshold: 50 },
+    requiredCharacter: "miner" // Miner-only building
+  },
+  oreRefinery: {
+    displayName: "Ore Refinery",
+    category: "minerals",
+    baseCost: { wood: 150, minerals: 50 },
+    costGrowthFactor: 1.5,
+    baseProduction: { wood: 0, minerals: 1.5, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.4,
+    maxLevel: null,
+    unlocked: false,
+    unlockCondition: { type: "buildingCount", buildingType: "deepMine", threshold: 1 },
+    requiredCharacter: "miner" // Miner-only building
+  },
+  orchard: {
+    displayName: "Orchard",
+    category: "farming",
+    baseCost: { wood: 120, minerals: 0 },
+    costGrowthFactor: 1.5,
+    baseProduction: { wood: 0, minerals: 0, population: 2.0, capacity: 0 },
+    productionGrowthFactor: 1.4,
+    maxLevel: null,
+    unlocked: false,
+    unlockCondition: { type: "buildingCount", buildingType: "advancedFarm", threshold: 1 },
+    requiredCharacter: "farmer" // Farmer-only building
   }
 };
 
@@ -133,12 +179,35 @@ function getBuildingProduction(buildingType, level) {
   if (!building || level < 1) return { wood: 0, minerals: 0, population: 0, capacity: 0 };
   
   const factor = Math.pow(building.productionGrowthFactor, level - 1);
-  return {
+  let production = {
     wood: building.baseProduction.wood * factor,
     minerals: building.baseProduction.minerals * factor,
     population: building.baseProduction.population * factor,
     capacity: building.baseProduction.capacity * factor
   };
+  
+  // Apply character bonuses
+  if (gameState.character) {
+    const character = characterTypes[gameState.character];
+    
+    // Miner: 50% bonus to mining production
+    if (gameState.character === 'miner' && building.category === 'minerals') {
+      production.minerals *= character.miningProductionMultiplier;
+    }
+    
+    // Farmer: 50% bonus to farming production, 30% bonus to population growth
+    if (gameState.character === 'farmer') {
+      if (building.category === 'farming') {
+        production.population *= character.farmingProductionMultiplier;
+      }
+      // Apply population multiplier to all population production
+      if (production.population > 0) {
+        production.population *= character.populationMultiplier;
+      }
+    }
+  }
+  
+  return production;
 }
 
 // Calculate cost for a building at a given level
@@ -146,15 +215,35 @@ function getBuildingCost(buildingType, level) {
   const building = buildingTypes[buildingType];
   if (!building) return { wood: 0, minerals: 0 };
   
+  let cost;
   if (level === 1) {
-    return { ...building.baseCost };
+    cost = { ...building.baseCost };
+  } else {
+    const factor = Math.pow(building.costGrowthFactor, level - 1);
+    cost = {
+      wood: Math.floor(building.baseCost.wood * factor),
+      minerals: Math.floor(building.baseCost.minerals * factor)
+    };
   }
   
-  const factor = Math.pow(building.costGrowthFactor, level - 1);
-  return {
-    wood: Math.floor(building.baseCost.wood * factor),
-    minerals: Math.floor(building.baseCost.minerals * factor)
-  };
+  // Apply character bonuses
+  if (gameState.character) {
+    const character = characterTypes[gameState.character];
+    
+    // Farmer: 20% discount on farm buildings (level 1 placement only)
+    if (gameState.character === 'farmer' && level === 1 && building.category === 'farming') {
+      cost.wood = Math.floor(cost.wood * character.buildDiscount);
+      cost.minerals = Math.floor(cost.minerals * character.buildDiscount);
+    }
+    
+    // Miner: 20% discount on mineral buildings (all levels)
+    if (gameState.character === 'miner' && building.category === 'minerals') {
+      cost.wood = Math.floor(cost.wood * character.upgradeDiscount);
+      cost.minerals = Math.floor(cost.minerals * character.upgradeDiscount);
+    }
+  }
+  
+  return cost;
 }
 
 // Calculate total cost spent on a building (for refund calculation)
@@ -202,6 +291,12 @@ function calculateProduction() {
 // Check unlock conditions
 function checkUnlocks() {
   for (const [key, building] of Object.entries(buildingTypes)) {
+    // Check character requirement first
+    if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
+      building.unlocked = false;
+      continue;
+    }
+    
     if (building.unlocked || !building.unlockCondition) continue;
     
     const condition = building.unlockCondition;
@@ -251,11 +346,16 @@ function placeBuilding(row, col, buildingType) {
   const building = buildingTypes[buildingType];
   if (!building || !building.unlocked) return false;
   
-  const cost = getBuildingCost(buildingType, 1);
-  if (gameState.resources.wood < cost.wood || gameState.resources.minerals < cost.minerals) {
+  // Check character requirement
+  if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
     return false;
   }
   
+  const cost = getBuildingCost(buildingType, 1);
+  if (gameState.resources.wood < cost.wood || gameState.resources.minerals < cost.minerals) {
+  return false;
+}
+
   // Deduct resources
   gameState.resources.wood -= cost.wood;
   gameState.resources.minerals -= cost.minerals;
@@ -437,7 +537,7 @@ function selectBuildingType(buildingType) {
   if (selectedBuildingType === buildingType) {
     // Deselect if clicking same building
     selectedBuildingType = null;
-  } else {
+    } else {
     selectedBuildingType = buildingType;
     selectedTile = null; // Clear tile selection when selecting building
   }
@@ -480,7 +580,7 @@ function updateTileInfo() {
     html += `<p><strong>Upgrade Cost:</strong></p>`;
     html += `<p>Wood: ${upgradeCost.wood} | Minerals: ${upgradeCost.minerals}</p>`;
     html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
-  } else {
+    } else {
     html += `<p>Max level reached</p>`;
   }
   
@@ -494,7 +594,7 @@ function updateTileInfo() {
     upgradeBtn.addEventListener('click', () => {
       if (upgradeBuilding(selectedTile.row, selectedTile.col)) {
         showMessage("Building upgraded!");
-      } else {
+    } else {
         showMessage("Cannot upgrade: insufficient resources or max level reached.");
       }
     });
@@ -552,6 +652,16 @@ function hideCellTooltip() {
 
 // Update UI
 function updateUI() {
+  // Update character indicator
+  const charIndicator = document.getElementById('character-indicator');
+  if (charIndicator && gameState.character) {
+    const character = characterTypes[gameState.character];
+    charIndicator.textContent = `${character.icon} Playing as ${character.name}`;
+    charIndicator.style.display = 'block';
+  } else if (charIndicator) {
+    charIndicator.style.display = 'none';
+  }
+  
   // Update resources
   const woodEl = document.getElementById('wood');
   const wpsEl = document.getElementById('wps');
@@ -576,6 +686,14 @@ function updateBuildMenu() {
   for (const [key, building] of Object.entries(buildingTypes)) {
     const btn = document.querySelector(`[data-building-type="${key}"]`);
     if (!btn) continue;
+    
+    // Hide buildings that require a different character
+    if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
+      btn.style.display = 'none';
+      continue;
+    } else {
+      btn.style.display = 'block';
+    }
     
     const cost = getBuildingCost(key, 1);
     const canAfford = gameState.resources.wood >= cost.wood && 
@@ -622,6 +740,11 @@ function loadGame() {
       const loaded = JSON.parse(saved);
       gameState = loaded;
       
+      // Ensure character field exists (for old saves)
+      if (!gameState.character) {
+        gameState.character = null;
+      }
+      
       // Ensure map is initialized
       if (!gameState.map || gameState.map.length === 0) {
         initializeGrid();
@@ -648,6 +771,7 @@ function resetGame() {
       rates: { wps: 1, mps: 0 }, // Base 1 wps
       population: { current: 0, capacity: 0 },
       map: [],
+      character: null, // Reset character selection
       timestamp: Date.now()
     };
     initializeGrid();
@@ -660,6 +784,8 @@ function resetGame() {
     selectedTile = null;
     updateBuildingSelection();
     updateTileInfo();
+    // Show character selection screen
+    showCharacterSelection();
   }
 }
 
@@ -680,8 +806,11 @@ function showBuildingTooltip(event, buildingType) {
   const building = buildingTypes[buildingType];
   if (!building) return;
   
-  const cost = getBuildingCost(buildingType, 1);
-  const production = getBuildingProduction(buildingType, 1);
+  // Building buttons always show level 1 (new placement)
+  const level = 1;
+  
+  const cost = getBuildingCost(buildingType, level);
+  const production = getBuildingProduction(buildingType, level);
   const canAfford = gameState.resources.wood >= cost.wood && 
                    gameState.resources.minerals >= cost.minerals;
   
@@ -725,6 +854,26 @@ function showBuildingTooltip(event, buildingType) {
     html += `<span style="color: #888;">None</span>`;
   }
   html += `</p>`;
+  
+  // Character requirement
+  if (building.requiredCharacter) {
+    const charName = characterTypes[building.requiredCharacter]?.name || building.requiredCharacter;
+    html += `<p style="margin: 3px 0; color: #FFD700;"><strong>Character:</strong> ${charName} only</p>`;
+  }
+  
+  // Character bonus info
+  if (gameState.character) {
+    const character = characterTypes[gameState.character];
+    if (gameState.character === 'farmer' && building.category === 'farming') {
+      html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Farmer Bonus:</strong> +50% production, +30% population growth</p>`;
+    }
+    if (gameState.character === 'miner' && building.category === 'minerals') {
+      html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Miner Bonus:</strong> +50% production, 20% discount</p>`;
+    }
+    if (gameState.character === 'farmer' && level === 1 && building.category === 'farming') {
+      html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Farmer Bonus:</strong> 20% discount on farm buildings</p>`;
+    }
+  }
   
   // Unlock condition if locked
   if (!building.unlocked && building.unlockCondition) {
@@ -802,7 +951,7 @@ setInterval(() => {
     saveGame();
     lastAutoSave = now;
   }
-  
+
   updateUI();
   // Only re-render grid if needed (unlocks might have changed button states)
   // Grid visual updates happen on user interaction
@@ -838,12 +987,60 @@ function initializeResourceTooltips() {
   });
 }
 
-// Initialize on page load
-window.addEventListener('DOMContentLoaded', () => {
-  if (!loadGame()) {
+// Show character selection screen
+function showCharacterSelection() {
+  const selectionScreen = document.getElementById('character-selection');
+  const mainGame = document.getElementById('main-game');
+  
+  if (selectionScreen) {
+    selectionScreen.style.display = 'flex';
+  }
+  if (mainGame) {
+    mainGame.style.display = 'none';
+  }
+}
+
+// Hide character selection and show main game
+function hideCharacterSelection() {
+  const selectionScreen = document.getElementById('character-selection');
+  const mainGame = document.getElementById('main-game');
+  
+  if (selectionScreen) {
+    selectionScreen.style.display = 'none';
+  }
+  if (mainGame) {
+    mainGame.style.display = 'block';
+  }
+}
+
+// Select character
+function selectCharacter(characterType) {
+  if (!characterTypes[characterType]) {
+    console.error('Invalid character type:', characterType);
+    return;
+  }
+  
+  gameState.character = characterType;
+  
+  // Highlight selected character card
+  const cards = document.querySelectorAll('.character-card');
+  cards.forEach(card => {
+    if (card.dataset.character === characterType) {
+      card.classList.add('selected');
+    } else {
+      card.classList.remove('selected');
+    }
+  });
+  
+  // Hide selection screen and show main game
+  hideCharacterSelection();
+  
+  // Initialize game if not already initialized
+  if (!gameState.map || gameState.map.length === 0) {
     initializeGrid();
   }
-  // Calculate production and unlocks on initialization
+  
+  // Update UI to reflect character bonuses
   calculateProduction();
   checkUnlocks();
   renderGrid();
@@ -852,4 +1049,32 @@ window.addEventListener('DOMContentLoaded', () => {
   initializeBuildMenu();
   updateBuildMenu();
   initializeResourceTooltips();
+  
+  // Save the character selection
+  saveGame();
+}
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const loaded = loadGame();
+  
+  if (!loaded) {
+    initializeGrid();
+  }
+  
+  // Check if character is selected
+  if (!gameState.character) {
+    showCharacterSelection();
+  } else {
+    hideCharacterSelection();
+    // Calculate production and unlocks on initialization
+    calculateProduction();
+    checkUnlocks();
+    renderGrid();
+updateUI();
+updateSaveStatus();
+    initializeBuildMenu();
+    updateBuildMenu();
+    initializeResourceTooltips();
+  }
 });

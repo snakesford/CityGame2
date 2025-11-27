@@ -326,6 +326,129 @@ h4 {
 }
 
 /* Responsive */
+/* Character Selection Screen */
+.character-selection-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.character-selection-screen h1 {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.selection-subtitle {
+  font-size: 18px;
+  color: #ccc;
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.character-cards {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 1000px;
+}
+
+.character-card {
+  background: rgba(0,0,0,0.4);
+  border: 3px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 30px;
+  min-width: 300px;
+  max-width: 400px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.character-card:hover {
+  border-color: rgba(255,215,0,0.6);
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.character-card.selected {
+  border-color: #FFD700;
+  box-shadow: 0 0 20px rgba(255,215,0,0.5);
+  background: rgba(255,215,0,0.1);
+}
+
+.character-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+
+.character-card h2 {
+  font-size: 32px;
+  color: #FFD700;
+  margin-bottom: 20px;
+}
+
+.character-benefits {
+  text-align: left;
+  margin: 20px 0;
+}
+
+.character-benefits h3 {
+  color: #FFD700;
+  font-size: 18px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.character-benefits ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.character-benefits li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.character-benefits li:last-child {
+  border-bottom: none;
+}
+
+.character-benefits li:before {
+  content: "✓ ";
+  color: #4CAF50;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.select-character-btn {
+  margin-top: 20px;
+  padding: 15px 40px;
+  font-size: 18px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.select-character-btn:hover {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+}
+
+.select-character-btn:active {
+  transform: translateY(0);
+}
+
 @media (max-width: 1200px) {
   .main-container {
     flex-direction: column;
@@ -340,5 +463,10 @@ h4 {
   
   .grid-wrapper {
     width: 100%;
+  }
+  
+  .character-cards {
+    flex-direction: column;
+    align-items: center;
   }
 }

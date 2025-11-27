@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Build a City</title>
   <link rel="stylesheet" type="text/css" href="style.css">
 </head>
@@ -8,10 +9,50 @@
   <div id="tooltip" style="display: none;"></div>
   <div id="message" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.8); color: white; padding: 10px 20px; border-radius: 5px; z-index: 2000;"></div>
 
+  <!-- Character Selection Screen -->
+  <div id="character-selection" class="character-selection-screen">
+    <h1>Choose Your Character</h1>
+    <p class="selection-subtitle">Select a character to begin your city building journey</p>
+    <div class="character-cards">
+      <div class="character-card" data-character="miner">
+        <div class="character-icon"><img src="images/pickaxe.png" alt="Miner" style="width: 80px; height: 80px;"></div>
+        <h2>Miner</h2>
+        <div class="character-benefits">
+          <h3>Special Abilities:</h3>
+          <ul>
+            <li>20% discount on mineral buildings</li>
+            <li>50% bonus to mineral production</li>
+            <li>Access to unique mining buildings</li>
+            <li>Deep Mine &amp; Ore Refinery</li>
+          </ul>
+        </div>
+        <button class="select-character-btn" onclick="selectCharacter('miner')">Select Miner</button>
+      </div>
+      <div class="character-card" data-character="farmer">
+        <div class="character-icon" style="font-size: 80px; line-height: 1;">🌾</div>
+        <h2>Farmer</h2>
+        <div class="character-benefits">
+          <h3>Special Abilities:</h3>
+          <ul>
+            <li>20% discount on farm buildings</li>
+            <li>50% bonus to farming production</li>
+            <li>30% faster population growth</li>
+            <li>Access to unique farming buildings</li>
+            <li>Advanced Farm &amp; Orchard</li>
+          </ul>
+        </div>
+        <button class="select-character-btn" onclick="selectCharacter('farmer')">Select Farmer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Game UI (hidden initially) -->
+  <div id="main-game" style="display: none;">
   <h1>Build a City</h1>
 
   <!-- Top HUD -->
   <div id="hud" class="hud">
+    <div id="character-indicator" class="character-indicator" style="text-align: center; margin-bottom: 10px; font-size: 18px; color: #FFD700; display: none;"></div>
     <div class="resource-display">
       <span class="resource-item">
         <img src="images/wood-log.png" alt="Wood" data-tooltip="Wood" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
@@ -55,6 +96,11 @@
         <h4>Minerals</h4>
         <button class="building-btn" data-building-type="quarry">Quarry</button>
         <button class="building-btn" data-building-type="deepMine" disabled>Deep Mine</button>
+        <button class="building-btn" data-building-type="oreRefinery" disabled>Ore Refinery</button>
+      </div>
+      <div class="building-category">
+        <h4>Farming (Farmer Only)</h4>
+        <button class="building-btn" data-building-type="orchard" disabled>Orchard</button>
       </div>
     </div>
 
@@ -76,6 +122,7 @@
     <button onclick="resetGame()">Reset Game</button>
     <p id="saveStatus" class="save-status"></p>
   </div>
+  </div> <!-- End main-game -->
 
   <script type="text/javascript" src="script.js"></script>
 </body>

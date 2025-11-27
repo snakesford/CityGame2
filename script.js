@@ -508,12 +508,20 @@ function handleCellClick(row, col) {
 }
 
 // Show message
-function showMessage(text) {
+function showMessage(text, type = 'error') {
   // Simple alert for now, can be improved with a toast notification
   const messageDiv = document.getElementById('message');
   if (messageDiv) {
     messageDiv.textContent = text;
     messageDiv.style.display = 'block';
+    
+    // Set different colors based on message type
+    if (type === 'success') {
+      messageDiv.style.background = 'rgba(76, 175, 80, 0.9)'; // Green for success
+    } else {
+      messageDiv.style.background = 'rgba(255, 0, 0, 0.8)'; // Red for error
+    }
+    
     setTimeout(() => {
       messageDiv.style.display = 'none';
     }, 2000);
@@ -601,7 +609,9 @@ function updateTileInfo() {
   if (upgradeBtn) {
     upgradeBtn.addEventListener('click', () => {
       if (upgradeBuilding(selectedTile.row, selectedTile.col)) {
-        showMessage("Building upgraded!");
+        const building = buildingTypes[gameState.map[selectedTile.row][selectedTile.col].type];
+        const newLevel = gameState.map[selectedTile.row][selectedTile.col].level;
+        showMessage(`${building.displayName} upgraded to Level ${newLevel}!`, 'success');
     } else {
         showMessage("Cannot upgrade: insufficient resources or max level reached.");
       }

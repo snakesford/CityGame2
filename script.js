@@ -578,7 +578,15 @@ function updateTileInfo() {
   
   if (canUpgrade) {
     html += `<p><strong>Upgrade Cost:</strong></p>`;
-    html += `<p>Wood: ${upgradeCost.wood} | Minerals: ${upgradeCost.minerals}</p>`;
+    html += `<p>`;
+    if (upgradeCost.wood > 0) {
+      html += `<span style="font-size: 20px; font-weight: bold;">-${upgradeCost.wood}</span> <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;">`;
+    }
+    if (upgradeCost.minerals > 0) {
+      if (upgradeCost.wood > 0) html += ` `;
+      html += `<span style="font-size: 20px; font-weight: bold;">${upgradeCost.minerals}</span> <img src="images/rock.png" alt="Minerals" style="width: 30px; height: 30px; vertical-align: middle;">`;
+    }
+    html += `</p>`;
     html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
     } else {
     html += `<p>Max level reached</p>`;
@@ -630,10 +638,10 @@ function showCellTooltip(event, row, col) {
   
   let html = `<strong>${building.displayName}</strong><br>`;
   html += `Level: ${tile.level}<br>`;
-  if (production.wood > 0) html += `Wood/sec: ${production.wood.toFixed(2)}<br>`;
-  if (production.minerals > 0) html += `Minerals/sec: ${production.minerals.toFixed(2)}<br>`;
-  if (production.population > 0) html += `Population/sec: ${production.population.toFixed(2)}<br>`;
-  if (production.capacity > 0) html += `Capacity: ${production.capacity}<br>`;
+  if (production.wood > 0) html += `<img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;"> <span style="font-size: 18px; font-weight: bold;">${production.wood.toFixed(2)}/sec</span><br>`;
+  if (production.minerals > 0) html += `<img src="images/rock.png" alt="Minerals" style="width: 35px; height: 35px; vertical-align: middle;"> <span style="font-size: 18px; font-weight: bold;">${production.minerals.toFixed(2)}/sec</span><br>`;
+  if (production.population > 0) html += `<img src="images/population.png" alt="Population" style="width: 35px; height: 35px; vertical-align: middle;"> <span style="font-size: 18px; font-weight: bold;">${production.population.toFixed(2)}/sec</span><br>`;
+  if (production.capacity > 0) html += `<img src="images/house.png" alt="Capacity" style="width: 35px; height: 35px; vertical-align: middle;"> Capacity: <span style="font-size: 18px; font-weight: bold;">${production.capacity}</span><br>`;
   
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
@@ -832,22 +840,22 @@ function showBuildingTooltip(event, buildingType) {
   html += `<p style="margin: 3px 0;"><strong>Produces:</strong> `;
   let hasProduction = false;
   if (production.wood > 0) {
-    html += `<span style="color: #8B4513;">${production.wood.toFixed(2)} W/s</span>`;
+    html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${production.wood.toFixed(2)} <img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
     hasProduction = true;
   }
   if (production.minerals > 0) {
     if (hasProduction) html += `, `;
-    html += `<span style="color: #9E9E9E;">${production.minerals.toFixed(2)} M/s</span>`;
+    html += `<span style="color: #9E9E9E; font-size: 18px; font-weight: bold;">${production.minerals.toFixed(2)} <img src="images/rock.png" alt="Minerals" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
     hasProduction = true;
   }
   if (production.population > 0) {
     if (hasProduction) html += `, `;
-    html += `<span style="color: #4CAF50;">${production.population.toFixed(2)} P/s</span>`;
+    html += `<span style="color: #4CAF50; font-size: 18px; font-weight: bold;">${production.population.toFixed(2)} <img src="images/population.png" alt="Population" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
     hasProduction = true;
   }
   if (production.capacity > 0) {
     if (hasProduction) html += `, `;
-    html += `<span style="color: #FF9800;">+${production.capacity} Cap</span>`;
+    html += `<span style="color: #FF9800; font-size: 18px; font-weight: bold;">+${production.capacity} <img src="images/house.png" alt="Capacity" style="width: 35px; height:35px; vertical-align: middle;"></span>`;
     hasProduction = true;
   }
   if (!hasProduction) {

@@ -226,6 +226,16 @@ h4 {
   border-color: #9E9E9E;
 }
 
+.cell-clayPool {
+  background: linear-gradient(135deg, #8D6E63 0%, #A1887F 100%);
+  border-color: #BCAAA4;
+}
+
+.cell-ironMine {
+  background: linear-gradient(135deg, #424242 0%, #616161 100%);
+  border-color: #757575;
+}
+
 .cell-deepMine {
   background: linear-gradient(135deg, #424242 0%, #616161 100%);
   border-color: #757575;

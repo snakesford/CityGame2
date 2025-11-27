@@ -5,11 +5,15 @@ const GRID_SIZE = 15;
 let gameState = {
   resources: {
     wood: 50,
-    stone: 0
+    stone: 0,
+    clay: 0,
+    iron: 0
   },
   rates: {
     wps: 1, // Base 1 wps
-    sps: 0 // Stone per second
+    sps: 0, // Stone per second
+    cps: 0, // Clay per second
+    ips: 0 // Iron per second
   },
   population: {
     current: 0,
@@ -83,6 +87,26 @@ const buildingTypes = {
     baseCost: { wood: 40, stone: 0 },
     costGrowthFactor: 1.5,
     baseProduction: { wood: 0, stone: 0.3, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.4,
+    maxLevel: null,
+    unlocked: true
+  },
+  clayPool: {
+    displayName: "Clay Pool",
+    category: "stone",
+    baseCost: { wood: 30, stone: 15 },
+    costGrowthFactor: 1.5,
+    baseProduction: { wood: 0, stone: 0, clay: 0.4, iron: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.4,
+    maxLevel: null,
+    unlocked: true
+  },
+  ironMine: {
+    displayName: "Iron Mine",
+    category: "stone",
+    baseCost: { wood: 50, stone: 30 },
+    costGrowthFactor: 1.5,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0.5, population: 0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: true
@@ -176,14 +200,16 @@ function initializeGrid() {
 // Calculate production for a building at a given level
 function getBuildingProduction(buildingType, level) {
   const building = buildingTypes[buildingType];
-  if (!building || level < 1) return { wood: 0, stone: 0, population: 0, capacity: 0 };
+  if (!building || level < 1) return { wood: 0, stone: 0, clay: 0, iron: 0, population: 0, capacity: 0 };
   
   const factor = Math.pow(building.productionGrowthFactor, level - 1);
   let production = {
-    wood: building.baseProduction.wood * factor,
-    stone: building.baseProduction.stone * factor,
-    population: building.baseProduction.population * factor,
-    capacity: building.baseProduction.capacity * factor
+    wood: (building.baseProduction.wood || 0) * factor,
+    stone: (building.baseProduction.stone || 0) * factor,
+    clay: (building.baseProduction.clay || 0) * factor,
+    iron: (building.baseProduction.iron || 0) * factor,
+    population: (building.baseProduction.population || 0) * factor,
+    capacity: (building.baseProduction.capacity || 0) * factor
   };
   
   // Apply character bonuses
@@ -261,6 +287,8 @@ function getTotalBuildingCost(buildingType, level) {
 function calculateProduction() {
   let totalWood = 1; // Base 1 wps always
   let totalStone = 0;
+  let totalClay = 0;
+  let totalIron = 0;
   let totalPopulation = 0;
   let totalCapacity = 0;
   
@@ -271,6 +299,8 @@ function calculateProduction() {
         const production = getBuildingProduction(tile.type, tile.level);
         totalWood += production.wood;
         totalStone += production.stone;
+        totalClay += production.clay;
+        totalIron += production.iron;
         totalPopulation += production.population;
         totalCapacity += production.capacity;
       }
@@ -279,6 +309,8 @@ function calculateProduction() {
   
   gameState.rates.wps = totalWood;
   gameState.rates.sps = totalStone;
+  gameState.rates.cps = totalClay;
+  gameState.rates.ips = totalIron;
   gameState.population.capacity = totalCapacity;
   
   // Update population (capped by capacity)
@@ -573,6 +605,8 @@ function updateTileInfo() {
   html += `<p><strong>Production per second:</strong></p>`;
   if (production.wood > 0) html += `<p>Wood: ${production.wood.toFixed(2)}</p>`;
   if (production.stone > 0) html += `<p>Stone: ${production.stone.toFixed(2)}</p>`;
+  if (production.clay > 0) html += `<p>Clay: ${production.clay.toFixed(2)}</p>`;
+  if (production.iron > 0) html += `<p>Iron: ${production.iron.toFixed(2)}</p>`;
   if (production.population > 0) html += `<p>Population: ${production.population.toFixed(2)}</p>`;
   if (production.capacity > 0) html += `<p>Capacity: ${production.capacity}</p>`;
   
@@ -634,6 +668,8 @@ function showCellTooltip(event, row, col) {
   html += `Level: ${tile.level}<br>`;
   if (production.wood > 0) html += `Wood/sec: ${production.wood.toFixed(2)}<br>`;
   if (production.stone > 0) html += `Stone/sec: ${production.stone.toFixed(2)}<br>`;
+  if (production.clay > 0) html += `Clay/sec: ${production.clay.toFixed(2)}<br>`;
+  if (production.iron > 0) html += `Iron/sec: ${production.iron.toFixed(2)}<br>`;
   if (production.population > 0) html += `Population/sec: ${production.population.toFixed(2)}<br>`;
   if (production.capacity > 0) html += `Capacity: ${production.capacity}<br>`;
   
@@ -669,6 +705,10 @@ function updateUI() {
   const wpsEl = document.getElementById('wps');
   const stoneEl = document.getElementById('stone');
   const spsEl = document.getElementById('sps');
+  const clayEl = document.getElementById('clay');
+  const cpsEl = document.getElementById('cps');
+  const ironEl = document.getElementById('iron');
+  const ipsEl = document.getElementById('ips');
   const populationEl = document.getElementById('population');
   const capacityEl = document.getElementById('housingCapacity');
   
@@ -676,6 +716,10 @@ function updateUI() {
   if (wpsEl) wpsEl.textContent = gameState.rates.wps.toFixed(2);
   if (stoneEl) stoneEl.textContent = Math.floor(gameState.resources.stone);
   if (spsEl) spsEl.textContent = gameState.rates.sps.toFixed(2);
+  if (clayEl) clayEl.textContent = Math.floor(gameState.resources.clay);
+  if (cpsEl) cpsEl.textContent = gameState.rates.cps.toFixed(2);
+  if (ironEl) ironEl.textContent = Math.floor(gameState.resources.iron);
+  if (ipsEl) ipsEl.textContent = gameState.rates.ips.toFixed(2);
   if (populationEl) populationEl.textContent = Math.floor(gameState.population.current);
   if (capacityEl) capacityEl.textContent = Math.floor(gameState.population.capacity);
   
@@ -769,8 +813,8 @@ function resetGame() {
   if (confirm('Are you sure you want to reset your game? This cannot be undone.')) {
     localStorage.removeItem('cityBuilderSave');
     gameState = {
-      resources: { wood: 50, stone: 0 },
-      rates: { wps: 1, sps: 0 }, // Base 1 wps
+      resources: { wood: 50, stone: 0, clay: 0, iron: 0 },
+      rates: { wps: 1, sps: 0, cps: 0, ips: 0 }, // Base 1 wps
       population: { current: 0, capacity: 0 },
       map: [],
       character: null, // Reset character selection
@@ -840,6 +884,16 @@ function showBuildingTooltip(event, buildingType) {
   if (production.stone > 0) {
     if (hasProduction) html += `, `;
     html += `<span style="color: #9E9E9E; font-size: 18px; font-weight: bold;">${production.stone.toFixed(2)} <img src="images/rock.png" alt="Stone" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+    hasProduction = true;
+  }
+  if (production.clay > 0) {
+    if (hasProduction) html += `, `;
+    html += `<span style="color: #8D6E63; font-size: 18px; font-weight: bold;">${production.clay.toFixed(2)} <img src="images/claybricks.png" alt="Clay" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+    hasProduction = true;
+  }
+  if (production.iron > 0) {
+    if (hasProduction) html += `, `;
+    html += `<span style="color: #424242; font-size: 18px; font-weight: bold;">${production.iron.toFixed(2)} <img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
     hasProduction = true;
   }
   if (production.population > 0) {
@@ -942,6 +996,8 @@ setInterval(() => {
   // Update resources based on production
   gameState.resources.wood += gameState.rates.wps;
   gameState.resources.stone += gameState.rates.sps;
+  gameState.resources.clay += gameState.rates.cps;
+  gameState.resources.iron += gameState.rates.ips;
   
   // Update population
   calculateProduction();

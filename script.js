@@ -702,24 +702,16 @@ function updateUI() {
   
   // Update resources
   const woodEl = document.getElementById('wood');
-  const wpsEl = document.getElementById('wps');
   const stoneEl = document.getElementById('stone');
-  const spsEl = document.getElementById('sps');
   const clayEl = document.getElementById('clay');
-  const cpsEl = document.getElementById('cps');
   const ironEl = document.getElementById('iron');
-  const ipsEl = document.getElementById('ips');
   const populationEl = document.getElementById('population');
   const capacityEl = document.getElementById('housingCapacity');
   
   if (woodEl) woodEl.textContent = Math.floor(gameState.resources.wood);
-  if (wpsEl) wpsEl.textContent = gameState.rates.wps.toFixed(2);
   if (stoneEl) stoneEl.textContent = Math.floor(gameState.resources.stone);
-  if (spsEl) spsEl.textContent = gameState.rates.sps.toFixed(2);
   if (clayEl) clayEl.textContent = Math.floor(gameState.resources.clay);
-  if (cpsEl) cpsEl.textContent = gameState.rates.cps.toFixed(2);
   if (ironEl) ironEl.textContent = Math.floor(gameState.resources.iron);
-  if (ipsEl) ipsEl.textContent = gameState.rates.ips.toFixed(2);
   if (populationEl) populationEl.textContent = Math.floor(gameState.population.current);
   if (capacityEl) capacityEl.textContent = Math.floor(gameState.population.capacity);
   
@@ -1016,11 +1008,48 @@ setInterval(() => {
 }, 1000);
 
 // Show resource icon tooltip
-function showResourceTooltip(event, text) {
+function showResourceTooltip(event, resourceType) {
   const tooltip = document.getElementById('tooltip');
   if (!tooltip) return;
   
-  tooltip.innerHTML = `<strong>${text}</strong>`;
+  const resourceNames = {
+    wood: 'Wood',
+    stone: 'Stone',
+    clay: 'Clay',
+    iron: 'Iron'
+  };
+  
+  const resourceIcons = {
+    wood: 'images/wood-log.png',
+    stone: 'images/rock.png',
+    clay: 'images/claybricks.png',
+    iron: 'images/iron.png'
+  };
+  
+  const resourceColors = {
+    wood: '#8B4513',
+    stone: '#9E9E9E',
+    clay: '#8D6E63',
+    iron: '#708090'
+  };
+  
+  const rateKeys = {
+    wood: 'wps',
+    stone: 'sps',
+    clay: 'cps',
+    iron: 'ips'
+  };
+  
+  const resourceName = resourceNames[resourceType] || resourceType;
+  const resourceIcon = resourceIcons[resourceType] || '';
+  const resourceColor = resourceColors[resourceType] || '#ffffff';
+  const rateKey = rateKeys[resourceType];
+  const rate = gameState.rates[rateKey] || 0;
+  
+  let html = `<strong>${resourceName}</strong><br>`;
+  html += `<span style="font-size: 18px; color: ${resourceColor};">${rate.toFixed(2)}</span> <img src="${resourceIcon}" alt="${resourceName}" style="width: 35px; height: 35px; vertical-align: middle;">/sec`;
+  
+  tooltip.innerHTML = html;
   tooltip.style.display = 'block';
   
   const rect = event.target.getBoundingClientRect();
@@ -1037,11 +1066,31 @@ function hideResourceTooltip() {
 
 // Initialize resource icon tooltips
 function initializeResourceTooltips() {
-  const resourceIcons = document.querySelectorAll('[data-tooltip]');
+  // Handle resource icons with data-resource attribute
+  const resourceIcons = document.querySelectorAll('[data-resource]');
   resourceIcons.forEach(icon => {
-    const tooltipText = icon.getAttribute('data-tooltip');
-    icon.addEventListener('mouseenter', (e) => showResourceTooltip(e, tooltipText));
+    const resourceType = icon.getAttribute('data-resource');
+    icon.addEventListener('mouseenter', (e) => showResourceTooltip(e, resourceType));
     icon.addEventListener('mouseleave', hideResourceTooltip);
+  });
+  
+  // Handle other icons with data-tooltip attribute (like population, capacity)
+  const otherIcons = document.querySelectorAll('[data-tooltip]');
+  otherIcons.forEach(icon => {
+    // Skip if it also has data-resource (already handled above)
+    if (!icon.hasAttribute('data-resource')) {
+      const tooltipText = icon.getAttribute('data-tooltip');
+      icon.addEventListener('mouseenter', (e) => {
+        const tooltip = document.getElementById('tooltip');
+        if (!tooltip) return;
+        tooltip.innerHTML = `<strong>${tooltipText}</strong>`;
+        tooltip.style.display = 'block';
+        const rect = e.target.getBoundingClientRect();
+        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (rect.bottom + 10) + 'px';
+      });
+      icon.addEventListener('mouseleave', hideResourceTooltip);
+    }
   });
 }
 

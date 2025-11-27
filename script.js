@@ -721,7 +721,7 @@ function updateBuildMenu() {
     
     if (!building.unlocked && building.unlockCondition) {
       const condition = building.unlockCondition;
-      let tooltipText = `Unlock: `;
+      let tooltipText = `To Unlock: `;
       switch (condition.type) {
         case "population":
           tooltipText += `${condition.threshold} population`;
@@ -896,7 +896,7 @@ function showBuildingTooltip(event, buildingType) {
   // Unlock condition if locked
   if (!building.unlocked && building.unlockCondition) {
     const condition = building.unlockCondition;
-    html += `<p style="margin: 3px 0; color: #ff9800;"><strong>Unlock:</strong> `;
+    html += `<p style="margin: 3px 0; color: #ff9800;"><strong>To Unlock:</strong> `;
     switch (condition.type) {
       case "population":
         html += `${condition.threshold} pop`;

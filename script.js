@@ -808,6 +808,36 @@ setInterval(() => {
   // Grid visual updates happen on user interaction
 }, 1000);
 
+// Show resource icon tooltip
+function showResourceTooltip(event, text) {
+  const tooltip = document.getElementById('tooltip');
+  if (!tooltip) return;
+  
+  tooltip.innerHTML = `<strong>${text}</strong>`;
+  tooltip.style.display = 'block';
+  
+  const rect = event.target.getBoundingClientRect();
+  tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+  tooltip.style.top = (rect.bottom + 10) + 'px';
+}
+
+function hideResourceTooltip() {
+  const tooltip = document.getElementById('tooltip');
+  if (tooltip) {
+    tooltip.style.display = 'none';
+  }
+}
+
+// Initialize resource icon tooltips
+function initializeResourceTooltips() {
+  const resourceIcons = document.querySelectorAll('[data-tooltip]');
+  resourceIcons.forEach(icon => {
+    const tooltipText = icon.getAttribute('data-tooltip');
+    icon.addEventListener('mouseenter', (e) => showResourceTooltip(e, tooltipText));
+    icon.addEventListener('mouseleave', hideResourceTooltip);
+  });
+}
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
   if (!loadGame()) {
@@ -817,8 +847,9 @@ window.addEventListener('DOMContentLoaded', () => {
   calculateProduction();
   checkUnlocks();
   renderGrid();
-updateUI();
-updateSaveStatus();
+  updateUI();
+  updateSaveStatus();
   initializeBuildMenu();
   updateBuildMenu();
+  initializeResourceTooltips();
 });

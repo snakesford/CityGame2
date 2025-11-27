@@ -51,6 +51,18 @@ h4 {
   font-weight: bold;
 }
 
+.resource-item img {
+  text-decoration: none;
+  border: none;
+  outline: none;
+}
+
+.resource-item img:hover {
+  text-decoration: none;
+  border: none;
+  outline: none;
+}
+
 /* Main Container */
 .main-container {
   display: flex;

@@ -479,12 +479,12 @@ function updateTileInfo() {
   if (canUpgrade) {
     html += `<p><strong>Upgrade Cost:</strong></p>`;
     html += `<p>Wood: ${upgradeCost.wood} | Minerals: ${upgradeCost.minerals}</p>`;
-    html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
+    html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
   } else {
     html += `<p>Max level reached</p>`;
   }
   
-  html += `<button id="remove-btn"><img src="images/sell.png" alt="Sell" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Remove (50% refund)</button>`;
+  html += `<button id="remove-btn"><img src="images/sell.png" alt="Sell" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;">50% refund</button>`;
   
   infoPanel.innerHTML = html;
   

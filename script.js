@@ -479,12 +479,12 @@ function updateTileInfo() {
   if (canUpgrade) {
     html += `<p><strong>Upgrade Cost:</strong></p>`;
     html += `<p>Wood: ${upgradeCost.wood} | Minerals: ${upgradeCost.minerals}</p>`;
-    html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}>Upgrade</button>`;
+    html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
   } else {
     html += `<p>Max level reached</p>`;
   }
   
-  html += `<button id="remove-btn">Remove (50% refund)</button>`;
+  html += `<button id="remove-btn"><img src="images/sell.png" alt="Sell" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 5px;"> Remove (50% refund)</button>`;
   
   infoPanel.innerHTML = html;
   
@@ -691,11 +691,11 @@ function showBuildingTooltip(event, buildingType) {
   html += `<p style="margin: 3px 0;"><strong>Cost:</strong> `;
   html += `<span style="color: ${canAfford ? '#4CAF50' : '#f44336'}">`;
   if (cost.wood > 0) {
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.wood}</span> <img src="wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    html += `<span style="font-size: 20px; font-weight: bold;">${cost.wood}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
   }
   if (cost.minerals > 0) {
     if (cost.wood > 0) html += ` `;
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.minerals}</span> <img src="rock.png" alt="Minerals" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    html += `<span style="font-size: 20px; font-weight: bold;">${cost.minerals}</span> <img src="images/rock.png" alt="Minerals" style="width: 50px; height: 50px; vertical-align: middle;">`;
   }
   html += `</span></p>`;
   

@@ -14,24 +14,25 @@
   <div id="hud" class="hud">
     <div class="resource-display">
       <span class="resource-item">
-        <img src="wood-log.png" alt="Wood" data-tooltip="Wood" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
+        <img src="images/wood-log.png" alt="Wood" data-tooltip="Wood" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
         <span id="wood" style="font-size: 24px; font-weight: bold;">0</span> | 
-        <img src="wood-log.png" alt="Wood" data-tooltip="Wood per second" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> /sec: <span id="wps" style="font-size: 20px; font-weight: bold;">0</span>
+        <img src="images/wood-log.png" alt="Wood" data-tooltip="Wood per second" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> /sec: <span id="wps" style="font-size: 20px; font-weight: bold;">0</span>
       </span>
       <span class="resource-item">
-        <img src="rock.png" alt="Minerals" data-tooltip="Minerals" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
+        <img src="images/rock.png" alt="Minerals" data-tooltip="Minerals" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
         <span id="minerals" style="font-size: 24px; font-weight: bold;">0</span> | 
-        <img src="rock.png" alt="Minerals" data-tooltip="Minerals per second" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> /sec: <span id="mps" style="font-size: 20px; font-weight: bold;">0</span>
+        <img src="images/rock.png" alt="Minerals" data-tooltip="Minerals per second" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> /sec: <span id="mps" style="font-size: 20px; font-weight: bold;">0</span>
       </span>
       <span class="resource-item">
-        <img src="population.png" alt="Population" data-tooltip="Population" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
+        <img src="images/population.png" alt="Population" data-tooltip="Population" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
         <span id="population" style="font-size: 24px; font-weight: bold;">0</span> / 
-        <img src="house.png" alt="Capacity" data-tooltip="Housing Capacity" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
+        <img src="images/house.png" alt="Capacity" data-tooltip="Housing Capacity" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px; cursor: help;"> 
         <span id="housingCapacity" style="font-size: 24px; font-weight: bold;">0</span>
       </span>
     </div>
   </div>
-
+  <audio id="buildSound" src="sounds/build.mp3" preload="auto"></audio>
+  <audio id="errorSound" src="sounds/error.wav" preload="auto"></audio>
   <div class="main-container">
     <!-- Left Panel: Build Menu -->
     <div id="build-menu" class="build-menu">

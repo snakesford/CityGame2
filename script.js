@@ -5,11 +5,11 @@ const GRID_SIZE = 15;
 let gameState = {
   resources: {
     wood: 50,
-    minerals: 0
+    stone: 0
   },
   rates: {
     wps: 1, // Base 1 wps
-    mps: 0
+    sps: 0 // Stone per second
   },
   population: {
     current: 0,
@@ -25,8 +25,8 @@ const characterTypes = {
   miner: {
     name: "Miner",
     icon: "⛏",
-    upgradeDiscount: 0.8, // 20% discount on mineral building upgrades
-    miningProductionMultiplier: 1.5, // 50% bonus to mineral production
+    upgradeDiscount: 0.8, // 20% discount on stone building upgrades
+    miningProductionMultiplier: 1.5, // 50% bonus to stone production
     uniqueBuildings: ["deepMine", "oreRefinery"]
   },
   farmer: {
@@ -50,9 +50,9 @@ const buildingTypes = {
   house: {
     displayName: "House",
     category: "housing",
-    baseCost: { wood: 20, minerals: 0 },
+    baseCost: { wood: 20, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 0, population: 0, capacity: 3 },
+    baseProduction: { wood: 0, stone: 0, population: 0, capacity: 3 },
     productionGrowthFactor: 1.4,
     maxLevel: null, // Infinite
     unlocked: true
@@ -60,9 +60,9 @@ const buildingTypes = {
   farm: {
     displayName: "Farm",
     category: "farming",
-    baseCost: { wood: 20, minerals: 0 },
+    baseCost: { wood: 20, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 0, population: 0.4, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0, population: 0.4, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: true
@@ -70,19 +70,19 @@ const buildingTypes = {
   lumberMill: {
     displayName: "Lumber Mill",
     category: "wood",
-    baseCost: { wood: 35, minerals: 0 },
+    baseCost: { wood: 35, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0.6, minerals: 0, population: 0, capacity: 0 },
+    baseProduction: { wood: 0.6, stone: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: true
   },
   quarry: {
     displayName: "Quarry",
-    category: "minerals",
-    baseCost: { wood: 40, minerals: 0 },
+    category: "stone",
+    baseCost: { wood: 40, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 0.3, population: 0, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0.3, population: 0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: true
@@ -90,9 +90,9 @@ const buildingTypes = {
   cabin: {
     displayName: "Cabin",
     category: "housing",
-    baseCost: { wood: 50, minerals: 0 },
+    baseCost: { wood: 50, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 0, population: 0, capacity: 8 },
+    baseProduction: { wood: 0, stone: 0, population: 0, capacity: 8 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
@@ -101,9 +101,9 @@ const buildingTypes = {
   advancedFarm: {
     displayName: "Advanced Farm",
     category: "farming",
-    baseCost: { wood: 60, minerals: 0 },
+    baseCost: { wood: 60, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 0, population: 1.0, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0, population: 1.0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
@@ -113,9 +113,9 @@ const buildingTypes = {
   advancedLumberMill: {
     displayName: "Advanced Lumber Mill",
     category: "wood",
-    baseCost: { wood: 80, minerals: 0 },
+    baseCost: { wood: 80, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 1.8, minerals: 0, population: 0, capacity: 0 },
+    baseProduction: { wood: 1.8, stone: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
@@ -123,22 +123,22 @@ const buildingTypes = {
   },
   deepMine: {
     displayName: "Deep Mine",
-    category: "minerals",
-    baseCost: { wood: 100, minerals: 20 },
+    category: "stone",
+    baseCost: { wood: 100, stone: 20 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 0.8, population: 0, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0.8, population: 0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "minerals", threshold: 50 },
+    unlockCondition: { type: "stone", threshold: 50 },
     requiredCharacter: "miner" // Miner-only building
   },
   oreRefinery: {
     displayName: "Ore Refinery",
-    category: "minerals",
-    baseCost: { wood: 150, minerals: 50 },
+    category: "stone",
+    baseCost: { wood: 150, stone: 50 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 1.5, population: 0, capacity: 0 },
+    baseProduction: { wood: 0, stone: 1.5, population: 0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
@@ -148,9 +148,9 @@ const buildingTypes = {
   orchard: {
     displayName: "Orchard",
     category: "farming",
-    baseCost: { wood: 120, minerals: 0 },
+    baseCost: { wood: 120, stone: 0 },
     costGrowthFactor: 1.5,
-    baseProduction: { wood: 0, minerals: 0, population: 2.0, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0, population: 2.0, capacity: 0 },
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
@@ -176,12 +176,12 @@ function initializeGrid() {
 // Calculate production for a building at a given level
 function getBuildingProduction(buildingType, level) {
   const building = buildingTypes[buildingType];
-  if (!building || level < 1) return { wood: 0, minerals: 0, population: 0, capacity: 0 };
+  if (!building || level < 1) return { wood: 0, stone: 0, population: 0, capacity: 0 };
   
   const factor = Math.pow(building.productionGrowthFactor, level - 1);
   let production = {
     wood: building.baseProduction.wood * factor,
-    minerals: building.baseProduction.minerals * factor,
+    stone: building.baseProduction.stone * factor,
     population: building.baseProduction.population * factor,
     capacity: building.baseProduction.capacity * factor
   };
@@ -190,9 +190,9 @@ function getBuildingProduction(buildingType, level) {
   if (gameState.character) {
     const character = characterTypes[gameState.character];
     
-    // Miner: 50% bonus to mining production
-    if (gameState.character === 'miner' && building.category === 'minerals') {
-      production.minerals *= character.miningProductionMultiplier;
+    // Miner: 50% bonus to stone production
+    if (gameState.character === 'miner' && building.category === 'stone') {
+      production.stone *= character.miningProductionMultiplier;
     }
     
     // Farmer: 50% bonus to farming production, 30% bonus to population growth
@@ -213,7 +213,7 @@ function getBuildingProduction(buildingType, level) {
 // Calculate cost for a building at a given level
 function getBuildingCost(buildingType, level) {
   const building = buildingTypes[buildingType];
-  if (!building) return { wood: 0, minerals: 0 };
+  if (!building) return { wood: 0, stone: 0 };
   
   let cost;
   if (level === 1) {
@@ -222,7 +222,7 @@ function getBuildingCost(buildingType, level) {
     const factor = Math.pow(building.costGrowthFactor, level - 1);
     cost = {
       wood: Math.floor(building.baseCost.wood * factor),
-      minerals: Math.floor(building.baseCost.minerals * factor)
+      stone: Math.floor(building.baseCost.stone * factor)
     };
   }
   
@@ -233,13 +233,13 @@ function getBuildingCost(buildingType, level) {
     // Farmer: 20% discount on farm buildings (level 1 placement only)
     if (gameState.character === 'farmer' && level === 1 && building.category === 'farming') {
       cost.wood = Math.floor(cost.wood * character.buildDiscount);
-      cost.minerals = Math.floor(cost.minerals * character.buildDiscount);
+      cost.stone = Math.floor(cost.stone * character.buildDiscount);
     }
     
-    // Miner: 20% discount on mineral buildings (all levels)
-    if (gameState.character === 'miner' && building.category === 'minerals') {
+    // Miner: 20% discount on stone buildings (all levels)
+    if (gameState.character === 'miner' && building.category === 'stone') {
       cost.wood = Math.floor(cost.wood * character.upgradeDiscount);
-      cost.minerals = Math.floor(cost.minerals * character.upgradeDiscount);
+      cost.stone = Math.floor(cost.stone * character.upgradeDiscount);
     }
   }
   
@@ -248,11 +248,11 @@ function getBuildingCost(buildingType, level) {
 
 // Calculate total cost spent on a building (for refund calculation)
 function getTotalBuildingCost(buildingType, level) {
-  let total = { wood: 0, minerals: 0 };
+  let total = { wood: 0, stone: 0 };
   for (let l = 1; l <= level; l++) {
     const cost = getBuildingCost(buildingType, l);
     total.wood += cost.wood;
-    total.minerals += cost.minerals;
+    total.stone += cost.stone;
   }
   return total;
 }
@@ -260,7 +260,7 @@ function getTotalBuildingCost(buildingType, level) {
 // Calculate production from all buildings
 function calculateProduction() {
   let totalWood = 1; // Base 1 wps always
-  let totalMinerals = 0;
+  let totalStone = 0;
   let totalPopulation = 0;
   let totalCapacity = 0;
   
@@ -270,7 +270,7 @@ function calculateProduction() {
       if (tile.type !== "empty") {
         const production = getBuildingProduction(tile.type, tile.level);
         totalWood += production.wood;
-        totalMinerals += production.minerals;
+        totalStone += production.stone;
         totalPopulation += production.population;
         totalCapacity += production.capacity;
       }
@@ -278,7 +278,7 @@ function calculateProduction() {
   }
   
   gameState.rates.wps = totalWood;
-  gameState.rates.mps = totalMinerals;
+  gameState.rates.sps = totalStone;
   gameState.population.capacity = totalCapacity;
   
   // Update population (capped by capacity)
@@ -309,8 +309,8 @@ function checkUnlocks() {
       case "wps":
         unlocked = gameState.rates.wps >= condition.threshold;
         break;
-      case "minerals":
-        unlocked = gameState.resources.minerals >= condition.threshold;
+      case "stone":
+        unlocked = gameState.resources.stone >= condition.threshold;
         break;
       case "buildingCount":
         let count = 0;
@@ -352,13 +352,13 @@ function placeBuilding(row, col, buildingType) {
   }
   
   const cost = getBuildingCost(buildingType, 1);
-  if (gameState.resources.wood < cost.wood || gameState.resources.minerals < cost.minerals) {
+  if (gameState.resources.wood < cost.wood || gameState.resources.stone < cost.stone) {
   return false;
 }
 
   // Deduct resources
   gameState.resources.wood -= cost.wood;
-  gameState.resources.minerals -= cost.minerals;
+  gameState.resources.stone -= cost.stone;
   
   // Place building
   tile.type = buildingType;
@@ -388,13 +388,13 @@ function upgradeBuilding(row, col) {
   const nextLevel = tile.level + 1;
   const cost = getBuildingCost(tile.type, nextLevel);
   
-  if (gameState.resources.wood < cost.wood || gameState.resources.minerals < cost.minerals) {
+  if (gameState.resources.wood < cost.wood || gameState.resources.stone < cost.stone) {
     return false;
   }
   
   // Deduct resources
   gameState.resources.wood -= cost.wood;
-  gameState.resources.minerals -= cost.minerals;
+  gameState.resources.stone -= cost.stone;
   
   // Upgrade building
   tile.level = nextLevel;
@@ -418,11 +418,11 @@ function removeBuilding(row, col) {
   const totalCost = getTotalBuildingCost(tile.type, tile.level);
   const refund = {
     wood: Math.floor(totalCost.wood * 0.5),
-    minerals: Math.floor(totalCost.minerals * 0.5)
+    stone: Math.floor(totalCost.stone * 0.5)
   };
   
   gameState.resources.wood += refund.wood;
-  gameState.resources.minerals += refund.minerals;
+  gameState.resources.stone += refund.stone;
   
   // Remove building
   tile.type = "empty";
@@ -508,20 +508,12 @@ function handleCellClick(row, col) {
 }
 
 // Show message
-function showMessage(text, type = 'error') {
+function showMessage(text) {
   // Simple alert for now, can be improved with a toast notification
   const messageDiv = document.getElementById('message');
   if (messageDiv) {
     messageDiv.textContent = text;
     messageDiv.style.display = 'block';
-    
-    // Set different colors based on message type
-    if (type === 'success') {
-      messageDiv.style.background = 'rgba(76, 175, 80, 0.9)'; // Green for success
-    } else {
-      messageDiv.style.background = 'rgba(255, 0, 0, 0.8)'; // Red for error
-    }
-    
     setTimeout(() => {
       messageDiv.style.display = 'none';
     }, 2000);
@@ -575,26 +567,18 @@ function updateTileInfo() {
   const upgradeCost = getBuildingCost(tile.type, tile.level + 1);
   const canUpgrade = building.maxLevel === null || tile.level < building.maxLevel;
   const canAffordUpgrade = gameState.resources.wood >= upgradeCost.wood && 
-                          gameState.resources.minerals >= upgradeCost.minerals;
+                          gameState.resources.stone >= upgradeCost.stone;
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
   html += `<p><strong>Production per second:</strong></p>`;
   if (production.wood > 0) html += `<p>Wood: ${production.wood.toFixed(2)}</p>`;
-  if (production.minerals > 0) html += `<p>Minerals: ${production.minerals.toFixed(2)}</p>`;
+  if (production.stone > 0) html += `<p>Stone: ${production.stone.toFixed(2)}</p>`;
   if (production.population > 0) html += `<p>Population: ${production.population.toFixed(2)}</p>`;
   if (production.capacity > 0) html += `<p>Capacity: ${production.capacity}</p>`;
   
   if (canUpgrade) {
     html += `<p><strong>Upgrade Cost:</strong></p>`;
-    html += `<p>`;
-    if (upgradeCost.wood > 0) {
-      html += `<span style="font-size: 20px; font-weight: bold;">-${upgradeCost.wood}</span> <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;">`;
-    }
-    if (upgradeCost.minerals > 0) {
-      if (upgradeCost.wood > 0) html += ` `;
-      html += `<span style="font-size: 20px; font-weight: bold;">${upgradeCost.minerals}</span> <img src="images/rock.png" alt="Minerals" style="width: 30px; height: 30px; vertical-align: middle;">`;
-    }
-    html += `</p>`;
+    html += `<p>Wood: ${upgradeCost.wood} | Stone: ${upgradeCost.stone}</p>`;
     html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
     } else {
     html += `<p>Max level reached</p>`;
@@ -648,10 +632,10 @@ function showCellTooltip(event, row, col) {
   
   let html = `<strong>${building.displayName}</strong><br>`;
   html += `Level: ${tile.level}<br>`;
-  if (production.wood > 0) html += `<img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;"> <span style="font-size: 18px; font-weight: bold;">${production.wood.toFixed(2)}/sec</span><br>`;
-  if (production.minerals > 0) html += `<img src="images/rock.png" alt="Minerals" style="width: 35px; height: 35px; vertical-align: middle;"> <span style="font-size: 18px; font-weight: bold;">${production.minerals.toFixed(2)}/sec</span><br>`;
-  if (production.population > 0) html += `<img src="images/population.png" alt="Population" style="width: 35px; height: 35px; vertical-align: middle;"> <span style="font-size: 18px; font-weight: bold;">${production.population.toFixed(2)}/sec</span><br>`;
-  if (production.capacity > 0) html += `<img src="images/house.png" alt="Capacity" style="width: 35px; height: 35px; vertical-align: middle;"> Capacity: <span style="font-size: 18px; font-weight: bold;">${production.capacity}</span><br>`;
+  if (production.wood > 0) html += `Wood/sec: ${production.wood.toFixed(2)}<br>`;
+  if (production.stone > 0) html += `Stone/sec: ${production.stone.toFixed(2)}<br>`;
+  if (production.population > 0) html += `Population/sec: ${production.population.toFixed(2)}<br>`;
+  if (production.capacity > 0) html += `Capacity: ${production.capacity}<br>`;
   
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
@@ -683,15 +667,15 @@ function updateUI() {
   // Update resources
   const woodEl = document.getElementById('wood');
   const wpsEl = document.getElementById('wps');
-  const mineralsEl = document.getElementById('minerals');
-  const mpsEl = document.getElementById('mps');
+  const stoneEl = document.getElementById('stone');
+  const spsEl = document.getElementById('sps');
   const populationEl = document.getElementById('population');
   const capacityEl = document.getElementById('housingCapacity');
   
   if (woodEl) woodEl.textContent = Math.floor(gameState.resources.wood);
   if (wpsEl) wpsEl.textContent = gameState.rates.wps.toFixed(2);
-  if (mineralsEl) mineralsEl.textContent = Math.floor(gameState.resources.minerals);
-  if (mpsEl) mpsEl.textContent = gameState.rates.mps.toFixed(2);
+  if (stoneEl) stoneEl.textContent = Math.floor(gameState.resources.stone);
+  if (spsEl) spsEl.textContent = gameState.rates.sps.toFixed(2);
   if (populationEl) populationEl.textContent = Math.floor(gameState.population.current);
   if (capacityEl) capacityEl.textContent = Math.floor(gameState.population.capacity);
   
@@ -715,13 +699,13 @@ function updateBuildMenu() {
     
     const cost = getBuildingCost(key, 1);
     const canAfford = gameState.resources.wood >= cost.wood && 
-                     gameState.resources.minerals >= cost.minerals;
+                     gameState.resources.stone >= cost.stone;
     
     btn.disabled = !building.unlocked || !canAfford;
     
     if (!building.unlocked && building.unlockCondition) {
       const condition = building.unlockCondition;
-      let tooltipText = `To Unlock: `;
+      let tooltipText = `Unlock: `;
       switch (condition.type) {
         case "population":
           tooltipText += `${condition.threshold} population`;
@@ -729,8 +713,8 @@ function updateBuildMenu() {
         case "wps":
           tooltipText += `${condition.threshold} wood/sec`;
           break;
-        case "minerals":
-          tooltipText += `${condition.threshold} minerals`;
+        case "stone":
+          tooltipText += `${condition.threshold} stone`;
           break;
         case "buildingCount":
           tooltipText += `${condition.threshold} ${condition.buildingType}s`;
@@ -738,7 +722,7 @@ function updateBuildMenu() {
       }
       btn.title = tooltipText;
     } else {
-      btn.title = `${building.displayName} - Cost: ${cost.wood} wood${cost.minerals > 0 ? `, ${cost.minerals} minerals` : ''}`;
+      btn.title = `${building.displayName} - Cost: ${cost.wood} wood${cost.stone > 0 ? `, ${cost.stone} stone` : ''}`;
     }
   }
 }
@@ -785,8 +769,8 @@ function resetGame() {
   if (confirm('Are you sure you want to reset your game? This cannot be undone.')) {
     localStorage.removeItem('cityBuilderSave');
     gameState = {
-      resources: { wood: 50, minerals: 0 },
-      rates: { wps: 1, mps: 0 }, // Base 1 wps
+      resources: { wood: 50, stone: 0 },
+      rates: { wps: 1, sps: 0 }, // Base 1 wps
       population: { current: 0, capacity: 0 },
       map: [],
       character: null, // Reset character selection
@@ -830,7 +814,7 @@ function showBuildingTooltip(event, buildingType) {
   const cost = getBuildingCost(buildingType, level);
   const production = getBuildingProduction(buildingType, level);
   const canAfford = gameState.resources.wood >= cost.wood && 
-                   gameState.resources.minerals >= cost.minerals;
+                   gameState.resources.stone >= cost.stone;
   
   let html = `<strong>${building.displayName}</strong><br>`;
   
@@ -840,9 +824,9 @@ function showBuildingTooltip(event, buildingType) {
   if (cost.wood > 0) {
     html += `<span style="font-size: 20px; font-weight: bold;">${cost.wood}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
   }
-  if (cost.minerals > 0) {
+  if (cost.stone > 0) {
     if (cost.wood > 0) html += ` `;
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.minerals}</span> <img src="images/rock.png" alt="Minerals" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    html += `<span style="font-size: 20px; font-weight: bold;">${cost.stone}</span> <img src="images/rock.png" alt="Stone" style="width: 50px; height: 50px; vertical-align: middle;">`;
   }
   html += `</span></p>`;
   
@@ -853,9 +837,9 @@ function showBuildingTooltip(event, buildingType) {
     html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${production.wood.toFixed(2)} <img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
     hasProduction = true;
   }
-  if (production.minerals > 0) {
+  if (production.stone > 0) {
     if (hasProduction) html += `, `;
-    html += `<span style="color: #9E9E9E; font-size: 18px; font-weight: bold;">${production.minerals.toFixed(2)} <img src="images/rock.png" alt="Minerals" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+    html += `<span style="color: #9E9E9E; font-size: 18px; font-weight: bold;">${production.stone.toFixed(2)} <img src="images/rock.png" alt="Stone" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
     hasProduction = true;
   }
   if (production.population > 0) {
@@ -885,7 +869,7 @@ function showBuildingTooltip(event, buildingType) {
     if (gameState.character === 'farmer' && building.category === 'farming') {
       html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Farmer Bonus:</strong> +50% production, +30% population growth</p>`;
     }
-    if (gameState.character === 'miner' && building.category === 'minerals') {
+    if (gameState.character === 'miner' && building.category === 'stone') {
       html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Miner Bonus:</strong> +50% production, 20% discount</p>`;
     }
     if (gameState.character === 'farmer' && level === 1 && building.category === 'farming') {
@@ -904,8 +888,8 @@ function showBuildingTooltip(event, buildingType) {
       case "wps":
         html += `${condition.threshold} W/s`;
         break;
-      case "minerals":
-        html += `${condition.threshold} minerals`;
+      case "stone":
+        html += `${condition.threshold} stone`;
         break;
       case "buildingCount":
         html += `${condition.threshold} ${condition.buildingType}s`;
@@ -957,7 +941,7 @@ let lastAutoSave = Date.now();
 setInterval(() => {
   // Update resources based on production
   gameState.resources.wood += gameState.rates.wps;
-  gameState.resources.minerals += gameState.rates.mps;
+  gameState.resources.stone += gameState.rates.sps;
   
   // Update population
   calculateProduction();

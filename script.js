@@ -7,14 +7,19 @@ let gameState = {
     wood: 50,
     stone: 0,
     clay: 0,
-    iron: 0
+    iron: 0,
+    gold: 0,
+    bricks: 0
   },
   rates: {
     wps: 1, // Base 1 wps
     sps: 0, // Stone per second
     cps: 0, // Clay per second
-    ips: 0 // Iron per second
+    ips: 0, // Iron per second
+    gps: 0, // Gold per second
+    bps: 0 // Bricks per second
   },
+  kilns: {}, // Store kiln data: {row_col: {clay: amount, bricks: amount}}
   population: {
     current: 0,
     capacity: 0
@@ -180,6 +185,29 @@ const buildingTypes = {
     unlocked: false,
     unlockCondition: { type: "buildingCount", buildingType: "advancedFarm", threshold: 1 },
     requiredCharacter: "farmer" // Farmer-only building
+  },
+  brickKiln: {
+    displayName: "Brick Kiln",
+    category: "production",
+    baseCost: { wood: 60, stone: 20 },
+    costGrowthFactor: 1.5,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.4,
+    maxLevel: null,
+    unlocked: true,
+    kilnConversionRate: 1.0, // 1 clay = 1 brick per second (with fuel)
+    maxClayStorage: 100
+  },
+  brickHouse: {
+    displayName: "Brick House",
+    category: "housing",
+    baseCost: { wood: 30, bricks: 40 },
+    costGrowthFactor: 1.5,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 12 },
+    productionGrowthFactor: 1.4,
+    maxLevel: null,
+    unlocked: false,
+    unlockCondition: { type: "buildingCount", buildingType: "brickKiln", threshold: 1 }
   }
 };
 
@@ -200,7 +228,7 @@ function initializeGrid() {
 // Calculate production for a building at a given level
 function getBuildingProduction(buildingType, level) {
   const building = buildingTypes[buildingType];
-  if (!building || level < 1) return { wood: 0, stone: 0, clay: 0, iron: 0, population: 0, capacity: 0 };
+  if (!building || level < 1) return { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, gold: 0, population: 0, capacity: 0 };
   
   const factor = Math.pow(building.productionGrowthFactor, level - 1);
   let production = {
@@ -208,6 +236,8 @@ function getBuildingProduction(buildingType, level) {
     stone: (building.baseProduction.stone || 0) * factor,
     clay: (building.baseProduction.clay || 0) * factor,
     iron: (building.baseProduction.iron || 0) * factor,
+    bricks: (building.baseProduction.bricks || 0) * factor,
+    gold: (building.baseProduction.gold || 0) * factor,
     population: (building.baseProduction.population || 0) * factor,
     capacity: (building.baseProduction.capacity || 0) * factor
   };
@@ -239,16 +269,23 @@ function getBuildingProduction(buildingType, level) {
 // Calculate cost for a building at a given level
 function getBuildingCost(buildingType, level) {
   const building = buildingTypes[buildingType];
-  if (!building) return { wood: 0, stone: 0 };
+  if (!building) return { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0 };
   
   let cost;
   if (level === 1) {
     cost = { ...building.baseCost };
+    // Ensure all resource fields exist
+    if (!cost.clay) cost.clay = 0;
+    if (!cost.iron) cost.iron = 0;
+    if (!cost.bricks) cost.bricks = 0;
   } else {
     const factor = Math.pow(building.costGrowthFactor, level - 1);
     cost = {
-      wood: Math.floor(building.baseCost.wood * factor),
-      stone: Math.floor(building.baseCost.stone * factor)
+      wood: Math.floor((building.baseCost.wood || 0) * factor),
+      stone: Math.floor((building.baseCost.stone || 0) * factor),
+      clay: Math.floor((building.baseCost.clay || 0) * factor),
+      iron: Math.floor((building.baseCost.iron || 0) * factor),
+      bricks: Math.floor((building.baseCost.bricks || 0) * factor)
     };
   }
   
@@ -260,12 +297,18 @@ function getBuildingCost(buildingType, level) {
     if (gameState.character === 'farmer' && level === 1 && building.category === 'farming') {
       cost.wood = Math.floor(cost.wood * character.buildDiscount);
       cost.stone = Math.floor(cost.stone * character.buildDiscount);
+      cost.clay = Math.floor(cost.clay * character.buildDiscount);
+      cost.iron = Math.floor(cost.iron * character.buildDiscount);
+      cost.bricks = Math.floor(cost.bricks * character.buildDiscount);
     }
     
     // Miner: 20% discount on stone buildings (all levels)
     if (gameState.character === 'miner' && building.category === 'stone') {
       cost.wood = Math.floor(cost.wood * character.upgradeDiscount);
       cost.stone = Math.floor(cost.stone * character.upgradeDiscount);
+      cost.clay = Math.floor(cost.clay * character.upgradeDiscount);
+      cost.iron = Math.floor(cost.iron * character.upgradeDiscount);
+      cost.bricks = Math.floor(cost.bricks * character.upgradeDiscount);
     }
   }
   
@@ -274,11 +317,14 @@ function getBuildingCost(buildingType, level) {
 
 // Calculate total cost spent on a building (for refund calculation)
 function getTotalBuildingCost(buildingType, level) {
-  let total = { wood: 0, stone: 0 };
+  let total = { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0 };
   for (let l = 1; l <= level; l++) {
     const cost = getBuildingCost(buildingType, l);
-    total.wood += cost.wood;
-    total.stone += cost.stone;
+    total.wood += cost.wood || 0;
+    total.stone += cost.stone || 0;
+    total.clay += cost.clay || 0;
+    total.iron += cost.iron || 0;
+    total.bricks += cost.bricks || 0;
   }
   return total;
 }
@@ -289,6 +335,8 @@ function calculateProduction() {
   let totalStone = 0;
   let totalClay = 0;
   let totalIron = 0;
+  let totalBricks = 0;
+  let totalGold = 0;
   let totalPopulation = 0;
   let totalCapacity = 0;
   
@@ -296,11 +344,18 @@ function calculateProduction() {
     for (let col = 0; col < GRID_SIZE; col++) {
       const tile = gameState.map[row][col];
       if (tile.type !== "empty") {
+        // Handle kiln processing
+        if (tile.type === "brickKiln") {
+          processKiln(row, col, tile.level);
+        }
+        
         const production = getBuildingProduction(tile.type, tile.level);
         totalWood += production.wood;
         totalStone += production.stone;
         totalClay += production.clay;
         totalIron += production.iron;
+        totalBricks += production.bricks;
+        totalGold += production.gold;
         totalPopulation += production.population;
         totalCapacity += production.capacity;
       }
@@ -311,6 +366,8 @@ function calculateProduction() {
   gameState.rates.sps = totalStone;
   gameState.rates.cps = totalClay;
   gameState.rates.ips = totalIron;
+  gameState.rates.bps = totalBricks;
+  gameState.rates.gps = totalGold;
   gameState.population.capacity = totalCapacity;
   
   // Update population (capped by capacity)
@@ -318,6 +375,83 @@ function calculateProduction() {
     gameState.population.current + totalPopulation,
     gameState.population.capacity
   );
+}
+
+// Process kiln conversion (clay -> bricks)
+function processKiln(row, col, level) {
+  // Ensure kilns object exists
+  if (!gameState.kilns) {
+    gameState.kilns = {};
+  }
+  
+  const kilnKey = `${row}_${col}`;
+  if (!gameState.kilns[kilnKey]) {
+    gameState.kilns[kilnKey] = { clay: 0, bricks: 0 };
+  }
+  
+  const kiln = gameState.kilns[kilnKey];
+  const building = buildingTypes.brickKiln;
+  const factor = Math.pow(building.productionGrowthFactor, level - 1);
+  const conversionRate = building.kilnConversionRate * factor;
+  const maxStorage = building.maxClayStorage * factor;
+  
+  // Convert clay to bricks (requires wood as fuel - 1 wood per brick)
+  if (kiln.clay > 0 && gameState.resources.wood >= conversionRate) {
+    const amountToConvert = Math.min(kiln.clay, conversionRate);
+    kiln.clay -= amountToConvert;
+    kiln.bricks += amountToConvert;
+    gameState.resources.wood -= amountToConvert; // Fuel cost
+  }
+}
+
+// Add clay to kiln
+function addClayToKiln(row, col, amount) {
+  // Ensure kilns object exists
+  if (!gameState.kilns) {
+    gameState.kilns = {};
+  }
+  
+  const kilnKey = `${row}_${col}`;
+  if (!gameState.kilns[kilnKey]) {
+    gameState.kilns[kilnKey] = { clay: 0, bricks: 0 };
+  }
+  
+  const kiln = gameState.kilns[kilnKey];
+  const tile = gameState.map[row][col];
+  if (tile.type !== "brickKiln") return false;
+  
+  const building = buildingTypes.brickKiln;
+  const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
+  const maxStorage = building.maxClayStorage * factor;
+  
+  const availableSpace = maxStorage - kiln.clay;
+  const amountToAdd = Math.min(amount, availableSpace, gameState.resources.clay);
+  
+  if (amountToAdd > 0) {
+    kiln.clay += amountToAdd;
+    gameState.resources.clay -= amountToAdd;
+    return true;
+  }
+  return false;
+}
+
+// Harvest bricks from kiln
+function harvestBricksFromKiln(row, col) {
+  // Ensure kilns object exists
+  if (!gameState.kilns) {
+    gameState.kilns = {};
+  }
+  
+  const kilnKey = `${row}_${col}`;
+  if (!gameState.kilns[kilnKey]) return false;
+  
+  const kiln = gameState.kilns[kilnKey];
+  if (kiln.bricks > 0) {
+    gameState.resources.bricks += kiln.bricks;
+    kiln.bricks = 0;
+    return true;
+  }
+  return false;
 }
 
 // Check unlock conditions
@@ -384,17 +518,35 @@ function placeBuilding(row, col, buildingType) {
   }
   
   const cost = getBuildingCost(buildingType, 1);
-  if (gameState.resources.wood < cost.wood || gameState.resources.stone < cost.stone) {
-  return false;
-}
+  // Check if player has enough resources
+  if (gameState.resources.wood < (cost.wood || 0) || 
+      gameState.resources.stone < (cost.stone || 0) ||
+      gameState.resources.clay < (cost.clay || 0) ||
+      gameState.resources.iron < (cost.iron || 0) ||
+      gameState.resources.bricks < (cost.bricks || 0)) {
+    return false;
+  }
 
   // Deduct resources
-  gameState.resources.wood -= cost.wood;
-  gameState.resources.stone -= cost.stone;
+  gameState.resources.wood -= cost.wood || 0;
+  gameState.resources.stone -= cost.stone || 0;
+  gameState.resources.clay -= cost.clay || 0;
+  gameState.resources.iron -= cost.iron || 0;
+  gameState.resources.bricks -= cost.bricks || 0;
   
   // Place building
   tile.type = buildingType;
   tile.level = 1;
+  
+  // Initialize kiln storage if it's a brick kiln
+  if (buildingType === "brickKiln") {
+    // Ensure kilns object exists
+    if (!gameState.kilns) {
+      gameState.kilns = {};
+    }
+    const kilnKey = `${row}_${col}`;
+    gameState.kilns[kilnKey] = { clay: 0, bricks: 0 };
+  }
   
   calculateProduction();
   checkUnlocks();
@@ -420,13 +572,21 @@ function upgradeBuilding(row, col) {
   const nextLevel = tile.level + 1;
   const cost = getBuildingCost(tile.type, nextLevel);
   
-  if (gameState.resources.wood < cost.wood || gameState.resources.stone < cost.stone) {
+  // Check if player has enough resources
+  if (gameState.resources.wood < (cost.wood || 0) || 
+      gameState.resources.stone < (cost.stone || 0) ||
+      gameState.resources.clay < (cost.clay || 0) ||
+      gameState.resources.iron < (cost.iron || 0) ||
+      gameState.resources.bricks < (cost.bricks || 0)) {
     return false;
   }
   
   // Deduct resources
-  gameState.resources.wood -= cost.wood;
-  gameState.resources.stone -= cost.stone;
+  gameState.resources.wood -= cost.wood || 0;
+  gameState.resources.stone -= cost.stone || 0;
+  gameState.resources.clay -= cost.clay || 0;
+  gameState.resources.iron -= cost.iron || 0;
+  gameState.resources.bricks -= cost.bricks || 0;
   
   // Upgrade building
   tile.level = nextLevel;
@@ -449,12 +609,24 @@ function removeBuilding(row, col) {
   // Refund 50% of total cost
   const totalCost = getTotalBuildingCost(tile.type, tile.level);
   const refund = {
-    wood: Math.floor(totalCost.wood * 0.5),
-    stone: Math.floor(totalCost.stone * 0.5)
+    wood: Math.floor((totalCost.wood || 0) * 0.5),
+    stone: Math.floor((totalCost.stone || 0) * 0.5),
+    clay: Math.floor((totalCost.clay || 0) * 0.5),
+    iron: Math.floor((totalCost.iron || 0) * 0.5),
+    bricks: Math.floor((totalCost.bricks || 0) * 0.5)
   };
   
   gameState.resources.wood += refund.wood;
   gameState.resources.stone += refund.stone;
+  gameState.resources.clay += refund.clay;
+  gameState.resources.iron += refund.iron;
+  gameState.resources.bricks += refund.bricks;
+  
+  // Remove kiln storage if it's a brick kiln
+  if (tile.type === "brickKiln" && gameState.kilns) {
+    const kilnKey = `${row}_${col}`;
+    delete gameState.kilns[kilnKey];
+  }
   
   // Remove building
   tile.type = "empty";
@@ -598,8 +770,11 @@ function updateTileInfo() {
   const production = getBuildingProduction(tile.type, tile.level);
   const upgradeCost = getBuildingCost(tile.type, tile.level + 1);
   const canUpgrade = building.maxLevel === null || tile.level < building.maxLevel;
-  const canAffordUpgrade = gameState.resources.wood >= upgradeCost.wood && 
-                          gameState.resources.stone >= upgradeCost.stone;
+  const canAffordUpgrade = gameState.resources.wood >= (upgradeCost.wood || 0) && 
+                          gameState.resources.stone >= (upgradeCost.stone || 0) &&
+                          gameState.resources.clay >= (upgradeCost.clay || 0) &&
+                          gameState.resources.iron >= (upgradeCost.iron || 0) &&
+                          gameState.resources.bricks >= (upgradeCost.bricks || 0);
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
   html += `<p><strong>Production per second:</strong></p>`;
@@ -607,12 +782,39 @@ function updateTileInfo() {
   if (production.stone > 0) html += `<p>Stone: ${production.stone.toFixed(2)}</p>`;
   if (production.clay > 0) html += `<p>Clay: ${production.clay.toFixed(2)}</p>`;
   if (production.iron > 0) html += `<p>Iron: ${production.iron.toFixed(2)}</p>`;
+  if (production.bricks > 0) html += `<p>Bricks: ${production.bricks.toFixed(2)}</p>`;
   if (production.population > 0) html += `<p>Population: ${production.population.toFixed(2)}</p>`;
   if (production.capacity > 0) html += `<p>Capacity: ${production.capacity}</p>`;
   
+  // Special handling for brick kiln
+  if (tile.type === "brickKiln") {
+    // Ensure kilns object exists
+    if (!gameState.kilns) {
+      gameState.kilns = {};
+    }
+    const kilnKey = `${selectedTile.row}_${selectedTile.col}`;
+    const kiln = gameState.kilns[kilnKey] || { clay: 0, bricks: 0 };
+    const building = buildingTypes.brickKiln;
+    const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
+    const maxStorage = building.maxClayStorage * factor;
+    
+    html += `<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.2);">`;
+    html += `<p><strong>Kiln Storage:</strong></p>`;
+    html += `<p>Clay: ${kiln.clay.toFixed(1)} / ${maxStorage.toFixed(0)}</p>`;
+    html += `<p>Ready Bricks: ${kiln.bricks.toFixed(1)}</p>`;
+    html += `<button id="add-clay-btn" style="margin: 5px 0;" ${gameState.resources.clay <= 0 ? 'disabled' : ''}>Add 10 Clay</button>`;
+    html += `<button id="harvest-bricks-btn" style="margin: 5px 0;" ${kiln.bricks <= 0 ? 'disabled' : ''}>Harvest Bricks</button>`;
+  }
+  
   if (canUpgrade) {
     html += `<p><strong>Upgrade Cost:</strong></p>`;
-    html += `<p>Wood: ${upgradeCost.wood} | Stone: ${upgradeCost.stone}</p>`;
+    let costStr = [];
+    if (upgradeCost.wood > 0) costStr.push(`${upgradeCost.wood} Wood`);
+    if (upgradeCost.stone > 0) costStr.push(`${upgradeCost.stone} Stone`);
+    if (upgradeCost.clay > 0) costStr.push(`${upgradeCost.clay} Clay`);
+    if (upgradeCost.iron > 0) costStr.push(`${upgradeCost.iron} Iron`);
+    if (upgradeCost.bricks > 0) costStr.push(`${upgradeCost.bricks} Bricks`);
+    html += `<p>${costStr.join(' | ')}</p>`;
     html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
     } else {
     html += `<p>Max level reached</p>`;
@@ -644,6 +846,40 @@ function updateTileInfo() {
         selectedTile = null;
         updateTileInfo();
         showMessage("Building removed.");
+      }
+    });
+  }
+  
+  // Add kiln management event listeners
+  const addClayBtn = document.getElementById('add-clay-btn');
+  if (addClayBtn) {
+    addClayBtn.addEventListener('click', () => {
+      if (addClayToKiln(selectedTile.row, selectedTile.col, 10)) {
+        updateTileInfo();
+        updateUI();
+        showMessage("Added clay to kiln.");
+      } else {
+        showMessage("Cannot add clay: insufficient clay or kiln is full.");
+      }
+    });
+  }
+  
+  const harvestBricksBtn = document.getElementById('harvest-bricks-btn');
+  if (harvestBricksBtn) {
+    harvestBricksBtn.addEventListener('click', () => {
+      // Ensure kilns object exists
+      if (!gameState.kilns) {
+        gameState.kilns = {};
+      }
+      const kilnKey = `${selectedTile.row}_${selectedTile.col}`;
+      const kiln = gameState.kilns[kilnKey] || { bricks: 0 };
+      const bricksToHarvest = kiln.bricks;
+      if (harvestBricksFromKiln(selectedTile.row, selectedTile.col)) {
+        updateTileInfo();
+        updateUI();
+        showMessage(`Harvested ${bricksToHarvest.toFixed(1)} bricks!`);
+      } else {
+        showMessage("No bricks to harvest.");
       }
     });
   }
@@ -783,6 +1019,11 @@ function loadGame() {
         gameState.character = null;
       }
       
+      // Ensure kilns field exists (for old saves)
+      if (!gameState.kilns) {
+        gameState.kilns = {};
+      }
+      
       // Ensure map is initialized
       if (!gameState.map || gameState.map.length === 0) {
         initializeGrid();
@@ -805,8 +1046,9 @@ function resetGame() {
   if (confirm('Are you sure you want to reset your game? This cannot be undone.')) {
     localStorage.removeItem('cityBuilderSave');
     gameState = {
-      resources: { wood: 50, stone: 0, clay: 0, iron: 0 },
-      rates: { wps: 1, sps: 0, cps: 0, ips: 0 }, // Base 1 wps
+      resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0 },
+      rates: { wps: 1, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0 }, // Base 1 wps
+      kilns: {},
       population: { current: 0, capacity: 0 },
       map: [],
       character: null, // Reset character selection
@@ -990,6 +1232,8 @@ setInterval(() => {
   gameState.resources.stone += gameState.rates.sps;
   gameState.resources.clay += gameState.rates.cps;
   gameState.resources.iron += gameState.rates.ips;
+  gameState.resources.gold += gameState.rates.gps;
+  gameState.resources.bricks += gameState.rates.bps;
   
   // Update population
   calculateProduction();

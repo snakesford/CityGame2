@@ -218,7 +218,7 @@ h4 {
 /* Farming - Green */
 .cell-farm {
   background: 
-    url('images/population.png'),
+    url('images/Farm.png'),
     linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%);
   background-size: 95% 95%, cover;
   background-position: center, center;
@@ -228,7 +228,7 @@ h4 {
 
 .cell-advancedFarm {
   background: 
-    url('images/population.png'),
+    url('images/AdvancedFarm.png'),
     linear-gradient(135deg, #4a7c2a 0%, #6b9e3d 100%);
   background-size: 95% 95%, cover;
   background-position: center, center;
@@ -320,7 +320,7 @@ h4 {
 
 .cell-orchard {
   background: 
-    url('images/population.png'),
+    url('images/orchard.png'),
     linear-gradient(135deg, #6b9e3d 0%, #8BC34A 100%);
   background-size: 95% 95%, cover;
   background-position: center, center;

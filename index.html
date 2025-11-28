@@ -141,18 +141,69 @@
     <div id="tile-info" class="tile-info">
       <h3>Building Info</h3>
       <p>Select a building to place or click on a placed building to view details.</p>
+      
+      <!-- Control Buttons -->
+      <div class="tile-info-controls">
+        <button id="edit-mode-btn" class="edit-mode-btn" onclick="toggleEditMode()">
+          <img src="images/edit.png" alt="Edit" class="edit-icon">
+          <span class="edit-text">Edit Mode</span>
+        </button>
+        <button class="icon-btn" onclick="saveGame()">
+          <img src="images/save.png" alt="Save" class="btn-icon">
+          <span class="btn-text">Save Game</span>
+        </button>
+        <button class="icon-btn" onclick="showLoadMenu()">
+          <img src="images/load.png" alt="Load" class="btn-icon">
+          <span class="btn-text">Load Game</span>
+        </button>
+        <button class="icon-btn" onclick="exportSave()">
+          <img src="images/export.png" alt="Export" class="btn-icon">
+          <span class="btn-text">Export Save</span>
+        </button>
+        <button class="icon-btn" onclick="document.getElementById('import-file').click()">
+          <img src="images/import.png" alt="Import" class="btn-icon">
+          <span class="btn-text">Import Save</span>
+        </button>
+        <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importSave(event)">
+        <button class="icon-btn" onclick="resetGame()">
+          <img src="images/reset.png" alt="Reset" class="btn-icon">
+          <span class="btn-text">Reset Game</span>
+        </button>
+        <p id="saveStatus" class="save-status"></p>
+      </div>
     </div>
   </div>
-
-  <!-- Bottom: Save/Reset Controls -->
-  <div class="controls">
-    <button id="edit-mode-btn" class="edit-mode-btn" onclick="toggleEditMode()">
-      <img src="images/edit.png" alt="Edit" class="edit-icon">
-      <span class="edit-text">Edit Mode</span>
-    </button>
-    <button onclick="saveGame()">Save Game</button>
-    <button onclick="resetGame()">Reset Game</button>
-    <p id="saveStatus" class="save-status"></p>
+    
+    <!-- Load Game Modal -->
+    <div id="load-modal" class="load-modal" style="display: none;">
+      <div class="load-content">
+        <div class="load-header">
+          <h2>Load Game</h2>
+          <button class="load-close" onclick="hideLoadMenu()">&times;</button>
+        </div>
+        <div class="load-body">
+          <div class="save-slots">
+            <div class="save-slot" data-slot="1" onclick="loadGameSlot(1)">
+              <h3>Save Slot 1</h3>
+              <p class="slot-info" id="slot-1-info">Empty</p>
+            </div>
+            <div class="save-slot" data-slot="2" onclick="loadGameSlot(2)">
+              <h3>Save Slot 2</h3>
+              <p class="slot-info" id="slot-2-info">Empty</p>
+            </div>
+            <div class="save-slot" data-slot="3" onclick="loadGameSlot(3)">
+              <h3>Save Slot 3</h3>
+              <p class="slot-info" id="slot-3-info">Empty</p>
+            </div>
+          </div>
+          <div class="load-actions">
+            <button onclick="saveGameSlot(1)">Save to Slot 1</button>
+            <button onclick="saveGameSlot(2)">Save to Slot 2</button>
+            <button onclick="saveGameSlot(3)">Save to Slot 3</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   </div> <!-- End main-game -->
 

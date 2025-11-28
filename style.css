@@ -113,10 +113,11 @@ h4 {
 }
 
 .building-btn .building-icon {
-  width: 30px;
-  height: 30px;
+  width: 80%;
   flex-shrink: 0;
   object-fit: contain;
+  width: 150px;
+  height: 150px;
 }
 
 .building-btn:hover:not(:disabled) {

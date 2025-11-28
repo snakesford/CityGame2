@@ -712,6 +712,12 @@ function renderGrid() {
       
       // Add hover tooltip
       cell.addEventListener('mouseenter', (e) => showCellTooltip(e, row, col));
+      cell.addEventListener('mousemove', (e) => {
+        const tooltip = document.getElementById('tooltip');
+        if (tooltip && tooltip.style.display === 'block') {
+          positionTooltip(e, tooltip);
+        }
+      });
       cell.addEventListener('mouseleave', hideCellTooltip);
       
       gridContainer.appendChild(cell);
@@ -963,6 +969,27 @@ function updateTileInfo() {
   }
 }
 
+// Position tooltip to follow cursor
+function positionTooltip(event, tooltip) {
+  if (!tooltip) return;
+  
+  // Position tooltip just below the cursor
+  tooltip.style.left = (event.clientX - tooltip.offsetWidth / 2) + 'px';
+  tooltip.style.top = (event.clientY + 15) + 'px';
+  
+  // Ensure tooltip stays within viewport bounds
+  const tooltipRect = tooltip.getBoundingClientRect();
+  if (tooltipRect.right > window.innerWidth) {
+    tooltip.style.left = (window.innerWidth - tooltipRect.width - 10) + 'px';
+  }
+  if (tooltipRect.left < 0) {
+    tooltip.style.left = '10px';
+  }
+  if (tooltipRect.bottom > window.innerHeight) {
+    tooltip.style.top = (event.clientY - tooltipRect.height - 15) + 'px';
+  }
+}
+
 // Show cell tooltip
 function showCellTooltip(event, row, col) {
   const tooltip = document.getElementById('tooltip');
@@ -995,9 +1022,8 @@ function showCellTooltip(event, row, col) {
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
   
-  const rect = event.target.getBoundingClientRect();
-  tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-  tooltip.style.top = (rect.bottom + 10) + 'px';
+  // Position tooltip
+  positionTooltip(event, tooltip);
 }
 
 function hideCellTooltip() {
@@ -1311,20 +1337,8 @@ function showBuildingTooltip(event, buildingType) {
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
   
-  const rect = event.target.getBoundingClientRect();
-  // Position tooltip to the right of the button (since buttons are on the left)
-  let leftPos = rect.right + 10;
-  // If tooltip would go off screen, position it to the left instead
-  if (leftPos + 200 > window.innerWidth) {
-    leftPos = rect.left - 220;
-  }
-  tooltip.style.left = leftPos + 'px';
-  tooltip.style.top = (rect.top + rect.height / 2 - tooltip.offsetHeight / 2) + 'px';
-  
-  // Ensure tooltip stays on screen
-  if (parseInt(tooltip.style.top) < 10) {
-    tooltip.style.top = '10px';
-  }
+  // Position tooltip
+  positionTooltip(event, tooltip);
 }
 
 function hideBuildingTooltip() {
@@ -1341,6 +1355,12 @@ function initializeBuildMenu() {
     if (btn) {
       btn.addEventListener('click', () => selectBuildingType(key));
       btn.addEventListener('mouseenter', (e) => showBuildingTooltip(e, key));
+      btn.addEventListener('mousemove', (e) => {
+        const tooltip = document.getElementById('tooltip');
+        if (tooltip && tooltip.style.display === 'block') {
+          positionTooltip(e, tooltip);
+        }
+      });
       btn.addEventListener('mouseleave', hideBuildingTooltip);
     }
   }
@@ -1436,9 +1456,8 @@ function showResourceTooltip(event, resourceType) {
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
   
-  const rect = event.target.getBoundingClientRect();
-  tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-  tooltip.style.top = (rect.bottom + 10) + 'px';
+  // Position tooltip
+  positionTooltip(event, tooltip);
 }
 
 function hideResourceTooltip() {
@@ -1455,6 +1474,12 @@ function initializeResourceTooltips() {
   resourceIcons.forEach(icon => {
     const resourceType = icon.getAttribute('data-resource');
     icon.addEventListener('mouseenter', (e) => showResourceTooltip(e, resourceType));
+    icon.addEventListener('mousemove', (e) => {
+      const tooltip = document.getElementById('tooltip');
+      if (tooltip && tooltip.style.display === 'block') {
+        positionTooltip(e, tooltip);
+      }
+    });
     icon.addEventListener('mouseleave', hideResourceTooltip);
   });
   
@@ -1469,9 +1494,13 @@ function initializeResourceTooltips() {
         if (!tooltip) return;
         tooltip.innerHTML = `<strong>${tooltipText}</strong>`;
         tooltip.style.display = 'block';
-        const rect = e.target.getBoundingClientRect();
-        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top = (rect.bottom + 10) + 'px';
+        positionTooltip(e, tooltip);
+      });
+      icon.addEventListener('mousemove', (e) => {
+        const tooltip = document.getElementById('tooltip');
+        if (tooltip && tooltip.style.display === 'block') {
+          positionTooltip(e, tooltip);
+        }
       });
       icon.addEventListener('mouseleave', hideResourceTooltip);
     }

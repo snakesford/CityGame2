@@ -933,10 +933,11 @@ function handleDragOver(e, row, col) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   
-  // Add visual feedback for valid drop target
+  // Add visual feedback for valid drop target (empty cells or other buildings for swapping)
   if (draggedCell) {
     const tile = gameState.map[row][col];
-    if (tile.type === "empty") {
+    // Allow dropping on empty cells or other buildings (for swapping)
+    if (tile.type === "empty" || (draggedCell.row !== row || draggedCell.col !== col)) {
       e.currentTarget.classList.add('cell-drag-over');
     }
   }
@@ -967,9 +968,11 @@ function handleDrop(e, row, col) {
   }
   
   const toTile = gameState.map[toRow][toCol];
+  const fromTile = gameState.map[fromRow][fromCol];
   
-  // Only allow dropping on empty cells
+  // Allow dropping on empty cells or swapping with other buildings
   if (toTile.type === "empty") {
+    // Move to empty cell
     if (moveBuilding(fromRow, fromCol, toRow, toCol)) {
       showMessage("Building moved!");
       renderGrid();
@@ -978,7 +981,14 @@ function handleDrop(e, row, col) {
       showMessage("Cannot move building.");
     }
   } else {
-    showMessage("Cannot place here - cell is occupied.");
+    // Swap buildings
+    if (swapBuildings(fromRow, fromCol, toRow, toCol)) {
+      showMessage("Buildings swapped!");
+      renderGrid();
+      updateTileInfo();
+    } else {
+      showMessage("Cannot swap buildings.");
+    }
   }
   
   draggedCell = null;
@@ -2251,6 +2261,72 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
     }
     const newKey = `${toRow}_${toCol}`;
     gameState.kilns[newKey] = kilnData;
+  }
+  
+  calculateProduction();
+  updateUI();
+  updateTileInfo();
+  
+  return true;
+}
+
+// Swap two buildings
+function swapBuildings(row1, col1, row2, col2) {
+  if (row1 < 0 || row1 >= GRID_SIZE || col1 < 0 || col1 >= GRID_SIZE) return false;
+  if (row2 < 0 || row2 >= GRID_SIZE || col2 < 0 || col2 >= GRID_SIZE) return false;
+  
+  const tile1 = gameState.map[row1][col1];
+  const tile2 = gameState.map[row2][col2];
+  
+  if (tile1.type === "empty" || tile2.type === "empty") return false;
+  
+  // Save building data from both locations
+  const buildingType1 = tile1.type;
+  const buildingLevel1 = tile1.level;
+  const buildingType2 = tile2.type;
+  const buildingLevel2 = tile2.level;
+  
+  // Handle special data (kiln data) for both buildings
+  let kilnData1 = null;
+  let kilnData2 = null;
+  
+  if (buildingType1 === "brickKiln" && gameState.kilns) {
+    const key1 = `${row1}_${col1}`;
+    kilnData1 = gameState.kilns[key1];
+    if (kilnData1) {
+      delete gameState.kilns[key1];
+    }
+  }
+  
+  if (buildingType2 === "brickKiln" && gameState.kilns) {
+    const key2 = `${row2}_${col2}`;
+    kilnData2 = gameState.kilns[key2];
+    if (kilnData2) {
+      delete gameState.kilns[key2];
+    }
+  }
+  
+  // Swap buildings
+  tile1.type = buildingType2;
+  tile1.level = buildingLevel2;
+  tile2.type = buildingType1;
+  tile2.level = buildingLevel1;
+  
+  // Restore special data at new locations
+  if (kilnData1 && buildingType1 === "brickKiln") {
+    if (!gameState.kilns) {
+      gameState.kilns = {};
+    }
+    const newKey1 = `${row2}_${col2}`;
+    gameState.kilns[newKey1] = kilnData1;
+  }
+  
+  if (kilnData2 && buildingType2 === "brickKiln") {
+    if (!gameState.kilns) {
+      gameState.kilns = {};
+    }
+    const newKey2 = `${row1}_${col1}`;
+    gameState.kilns[newKey2] = kilnData2;
   }
   
   calculateProduction();

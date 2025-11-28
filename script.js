@@ -1921,12 +1921,23 @@ function hideLoadMenu() {
 
 // Update save slots display
 function updateSaveSlots() {
+  const currentActiveSlot = getLastSaveSlot();
+  
   for (let slot = 1; slot <= 3; slot++) {
     const slotKey = `cityBuilderSave_slot${slot}`;
     const saved = localStorage.getItem(slotKey);
     const slotInfo = document.getElementById(`slot-${slot}-info`);
     const slotElement = document.querySelector(`.save-slot[data-slot="${slot}"]`);
     const deleteBtn = document.querySelector(`.slot-delete-btn[data-slot="${slot}"]`);
+    
+    // Update active state
+    if (slotElement) {
+      if (slot === currentActiveSlot) {
+        slotElement.classList.add('active-slot');
+      } else {
+        slotElement.classList.remove('active-slot');
+      }
+    }
     
     if (slotInfo) {
       if (saved) {

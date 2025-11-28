@@ -1691,6 +1691,27 @@ function selectCharacter(characterType) {
   saveGame();
 }
 
+// Toggle shop window
+function toggleShop() {
+  const shopModal = document.getElementById('shop-modal');
+  if (shopModal) {
+    if (shopModal.style.display === 'none' || shopModal.style.display === '') {
+      shopModal.style.display = 'flex';
+    } else {
+      shopModal.style.display = 'none';
+    }
+  }
+}
+
+// Close shop when clicking outside
+window.addEventListener('click', (event) => {
+  const shopModal = document.getElementById('shop-modal');
+  const shopContent = document.querySelector('.shop-content');
+  if (shopModal && event.target === shopModal) {
+    shopModal.style.display = 'none';
+  }
+});
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
   const loaded = loadGame();

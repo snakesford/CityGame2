@@ -330,7 +330,7 @@ h4 {
 
 .cell-brickKiln {
   background: 
-    url('images/claybricks.png'),
+    url('images/kiln.png'),
     linear-gradient(135deg, #8D6E63 0%, #A1887F 100%);
   background-size: 95% 95%, cover;
   background-position: center, center;

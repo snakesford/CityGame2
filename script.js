@@ -236,7 +236,7 @@ const buildingIcons = {
   ironMine: 'images/iron.png',
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
-  brickKiln: 'images/claybricks.png'
+  brickKiln: 'images/kiln.png'
 };
 
 // Building category colors - matches cell tile colors exactly

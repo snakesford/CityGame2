@@ -56,8 +56,8 @@ let selectedTile = null;
 
 // Building type definitions
 const buildingTypes = {
-  house: {
-    displayName: "House",
+  tepee: {
+    displayName: "Tepee",
     category: "housing",
     baseCost: { wood: 20, stone: 0 },
     costGrowthFactor: 1.5,
@@ -213,6 +213,67 @@ const buildingTypes = {
     unlockCondition: { type: "buildingCount", buildingType: "brickKiln", threshold: 1 }
   }
 };
+
+// Building icon mapping
+const buildingIcons = {
+  tepee: 'images/tepee.png',
+  cabin: 'images/cabin.png',
+  brickHouse: 'images/brickHouse.png',
+  farm: 'images/population.png',
+  advancedFarm: 'images/population.png',
+  orchard: 'images/population.png',
+  lumberMill: 'images/wood-log.png',
+  advancedLumberMill: 'images/wood-log.png',
+  quarry: 'images/rock.png',
+  clayPool: 'images/clay.png',
+  ironMine: 'images/iron.png',
+  deepMine: 'images/pickaxe.png',
+  oreRefinery: 'images/gold.png',
+  brickKiln: 'images/claybricks.png'
+};
+
+// Building category colors
+function getCategoryColors(category, buildingType) {
+  switch (category) {
+    case 'housing':
+      return {
+        gradient: 'linear-gradient(135deg, #EF6C00 0%, #FB8C00 100%)',
+        border: '#FF9800'
+      };
+    case 'farming':
+      return {
+        gradient: 'linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%)',
+        border: '#4a7c2a'
+      };
+    case 'wood':
+      return {
+        gradient: 'linear-gradient(135deg, #5D4037 0%, #6D4C41 100%)',
+        border: '#8D6E63'
+      };
+    case 'stone':
+      // Special case for iron mine
+      if (buildingType === 'ironMine') {
+        return {
+          gradient: 'linear-gradient(135deg, #708090 0%, #5a6a7a 100%)',
+          border: '#708090'
+        };
+      }
+      return {
+        gradient: 'linear-gradient(135deg, #616161 0%, #757575 100%)',
+        border: '#9E9E9E'
+      };
+    case 'production':
+      return {
+        gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
+        border: '#BCAAA4'
+      };
+    default:
+      return {
+        gradient: 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)',
+        border: 'rgba(255,255,255,0.2)'
+      };
+  }
+}
 
 // Initialize empty grid
 function initializeGrid() {
@@ -1006,6 +1067,12 @@ function showCellTooltip(event, row, col) {
   }
   
   const building = buildingTypes[tile.type];
+  
+  if (!building) {
+    tooltip.style.display = 'none';
+    return;
+  }
+  
   const production = getBuildingProduction(tile.type, tile.level);
   
   let html = `<strong>${building.displayName}</strong><br>`;
@@ -1085,6 +1152,11 @@ function updateBuildMenu() {
       btn.style.display = 'block';
     }
     
+    // Apply category-based colors
+    const colors = getCategoryColors(building.category, key);
+    btn.style.background = colors.gradient;
+    btn.style.borderColor = colors.border;
+    
     const cost = getBuildingCost(key, 1);
     const canAfford = gameState.resources.wood >= (cost.wood || 0) && 
                      gameState.resources.stone >= (cost.stone || 0) &&
@@ -1154,6 +1226,17 @@ function loadGame() {
       // Ensure map is initialized
       if (!gameState.map || gameState.map.length === 0) {
         initializeGrid();
+      }
+      
+      // Migrate old "house" buildings to "tepee"
+      if (gameState.map && gameState.map.length > 0) {
+        for (let row = 0; row < gameState.map.length; row++) {
+          for (let col = 0; col < gameState.map[row].length; col++) {
+            if (gameState.map[row][col].type === "house") {
+              gameState.map[row][col].type = "tepee";
+            }
+          }
+        }
       }
       
       // Recompute derived values
@@ -1294,7 +1377,7 @@ function showBuildingTooltip(event, buildingType) {
   }
   if (production.capacity > 0) {
     if (hasProduction) html += `, `;
-    html += `<span style="color: #FF9800; font-size: 18px; font-weight: bold;">+${production.capacity} <img src="images/house.png" alt="Capacity" style="width: 35px; height:35px; vertical-align: middle;"></span>`;
+    html += `<span style="color: #FF9800; font-size: 18px; font-weight: bold;">+${production.capacity} <img src="images/cabin.png" alt="Capacity" style="width: 35px; height:35px; vertical-align: middle;"></span>`;
     hasProduction = true;
   }
   if (!hasProduction) {
@@ -1372,6 +1455,21 @@ function initializeBuildMenu() {
   for (const [key, building] of Object.entries(buildingTypes)) {
     const btn = document.querySelector(`[data-building-type="${key}"]`);
     if (btn) {
+      // Add icon to button if it exists
+      const iconPath = buildingIcons[key];
+      if (iconPath && !btn.querySelector('img')) {
+        const icon = document.createElement('img');
+        icon.src = iconPath;
+        icon.alt = building.displayName;
+        icon.className = 'building-icon';
+        btn.insertBefore(icon, btn.firstChild);
+      }
+      
+      // Apply category-based colors
+      const colors = getCategoryColors(building.category, key);
+      btn.style.background = colors.gradient;
+      btn.style.borderColor = colors.border;
+      
       btn.addEventListener('click', () => selectBuildingType(key));
       btn.addEventListener('mouseenter', (e) => showBuildingTooltip(e, key));
       btn.addEventListener('mousemove', (e) => {

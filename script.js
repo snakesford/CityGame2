@@ -973,9 +973,12 @@ function updateTileInfo() {
 function positionTooltip(event, tooltip) {
   if (!tooltip) return;
   
-  // Position tooltip just below the cursor
-  tooltip.style.left = (event.clientX - tooltip.offsetWidth / 2) + 'px';
-  tooltip.style.top = (event.clientY + 15) + 'px';
+  // Position tooltip below the cursor with offset so it doesn't block what cursor is pointing at
+  const offsetX = 0; // Small horizontal offset
+  const offsetY = 60; // Vertical offset below cursor
+  
+  tooltip.style.left = (event.clientX + offsetX) + 'px';
+  tooltip.style.top = (event.clientY + offsetY) + 'px';
   
   // Ensure tooltip stays within viewport bounds
   const tooltipRect = tooltip.getBoundingClientRect();

@@ -33,7 +33,8 @@ let gameState = {
     clayProduction: false, // +20% clay production
     housingCapacity: false, // +20% housing capacity
     smeltingSpeed: false // +20% smelting speed
-  }
+  },
+  quests: [] // Array of quest progress: [{id, completed, claimed}]
 };
 
 // Character types with bonuses
@@ -67,6 +68,146 @@ let tileBeingMoved = null; // {row, col, type, level}
 
 // Shift key state for multiple building placement
 let shiftHeld = false;
+
+// Quest definitions
+const questDefinitions = [
+  {
+    id: 'first_shelter',
+    title: 'A Place to Sleep',
+    description: 'Build 1 Tepee to start housing your population.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'tepee') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { wood: 20 }
+  },
+  {
+    id: 'basic_sustenance',
+    title: 'Feeding the Tribe',
+    description: 'Build 1 Farm.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'farm') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { stone: 20 }
+  },
+  {
+    id: 'timber',
+    title: 'Timber Production',
+    description: 'Reach a wood production rate of 5 per second.',
+    checkCondition: () => gameState.rates.wps >= 5,
+    reward: { wood: 50 }
+  },
+  {
+    id: 'growing_community',
+    title: 'Growing Community',
+    description: 'Reach a total population of 10.',
+    checkCondition: () => gameState.population.current >= 10,
+    reward: { stone: 50 }
+  },
+  {
+    id: 'stone_age',
+    title: 'The Stone Age',
+    description: 'Build a Quarry to start gathering stone.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'quarry') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { clay: 30 }
+  },
+  {
+    id: 'expansion',
+    title: 'Better Buildings',
+    description: 'Upgrade any building to Level 2.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].level >= 2) {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { wood: 50, stone: 50 }
+  },
+  {
+    id: 'clay_industry',
+    title: 'Mud to Materials',
+    description: 'Build a Clay Pool and reach 100 stored Clay.',
+    checkCondition: () => {
+      let hasClayPool = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'clayPool') {
+            hasClayPool = true;
+            break;
+          }
+        }
+        if (hasClayPool) break;
+      }
+      return hasClayPool && gameState.resources.clay >= 100;
+    },
+    reward: { iron: 20 }
+  },
+  {
+    id: 'firing_up',
+    title: 'Industrialization',
+    description: 'Build a Brick Kiln.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'brickKiln') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { wood: 20 }
+  },
+  {
+    id: 'master_smelter',
+    title: 'Heavy Industry',
+    description: 'Produce a total of 20 Clay Bricks.',
+    checkCondition: () => gameState.resources.bricks >= 20,
+    reward: { gold: 5 }
+  },
+  {
+    id: 'urban_living',
+    title: 'Modern Living',
+    description: 'Build a Brick House.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'brickHouse') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { gold: 100 }
+  }
+];
 
 // Building type definitions
 const buildingTypes = {
@@ -753,6 +894,7 @@ function placeBuilding(row, col, buildingType) {
   
   calculateProduction();
   checkUnlocks();
+  checkQuests();
   updateBuildMenu();
   renderGrid();
   updateUI();
@@ -796,6 +938,8 @@ function upgradeBuilding(row, col) {
   tile.level = nextLevel;
   
   calculateProduction();
+  checkUnlocks();
+  checkQuests();
   renderGrid();
   updateUI();
   updateTileInfo();
@@ -1579,15 +1723,27 @@ function loadGameSlot(slot) {
         }
       }
       
-      calculateProduction();
-      checkUnlocks();
-      renderGrid();
-      updateUI();
-      updateSaveStatus();
-      setLastSaveSlot(slot);
-      updateSaveSlots();
-      hideLoadMenu();
-      showMessage(`Game loaded from slot ${slot}!`);
+      // Ensure quests field exists (for old saves)
+      if (!gameState.quests) {
+        gameState.quests = [];
+      }
+      initializeQuests();
+      
+        calculateProduction();
+        checkUnlocks();
+        checkQuests();
+        renderGrid();
+        updateUI();
+        updateSaveStatus();
+        updateQuestIndicator();
+        initializeBuildMenu();
+        updateBuildMenu();
+        initializeResourceTooltips();
+        setLastSaveSlot(slot);
+        updateSaveSlots();
+        startGameLoop();
+        hideLoadMenu();
+        showMessage(`Game loaded from slot ${slot}!`);
     } catch (e) {
       console.error('Error loading game:', e);
       showMessage("Error loading save file.");
@@ -1667,9 +1823,16 @@ function loadGame() {
         };
       }
       
+      // Ensure quests field exists (for old saves)
+      if (!gameState.quests) {
+        gameState.quests = [];
+      }
+      initializeQuests();
+      
       // Recompute derived values
       calculateProduction();
       checkUnlocks();
+      checkQuests();
       
       return true;
     } catch (e) {
@@ -1709,14 +1872,18 @@ function resetGame() {
         clayProduction: false,
         housingCapacity: false,
         smeltingSpeed: false
-      }
+      },
+      quests: []
     };
+    initializeQuests();
     initializeGrid();
     calculateProduction();
     checkUnlocks();
+    checkQuests();
     renderGrid();
     updateUI();
     updateSaveStatus();
+    updateQuestIndicator();
     selectedBuildingType = null;
     selectedTile = null;
     updateBuildingSelection();
@@ -1846,12 +2013,24 @@ function importSave(event) {
           }
         }
         
+        // Ensure quests field exists and is an array
+        if (!gameState.quests || !Array.isArray(gameState.quests)) {
+          gameState.quests = [];
+        }
+        initializeQuests();
+        
         calculateProduction();
         checkUnlocks();
+        checkQuests();
         renderGrid();
         updateUI();
         updateSaveStatus();
+        updateQuestIndicator();
+        initializeBuildMenu();
+        updateBuildMenu();
+        initializeResourceTooltips();
         updateSaveSlots();
+        startGameLoop();
         showMessage("Save file imported!");
       }
     } catch (e) {
@@ -2060,40 +2239,56 @@ function initializeBuildMenu() {
 
 // Main game loop
 let lastAutoSave = Date.now();
-setInterval(() => {
-  // Update resources based on production
-  gameState.resources.wood += gameState.rates.wps;
-  gameState.resources.stone += gameState.rates.sps;
-  gameState.resources.clay += gameState.rates.cps;
-  gameState.resources.iron += gameState.rates.ips;
-  gameState.resources.gold += gameState.rates.gps;
-  gameState.resources.bricks += gameState.rates.bps;
-  
-  // Update population
-  calculateProduction();
-  checkUnlocks();
-  updateBuildMenu();
-  
-  // Auto-save every 20 seconds
-  const now = Date.now();
-  if (now - lastAutoSave >= 20000) {
-    saveGame();
-    lastAutoSave = now;
-  }
+let gameLoopInterval = null;
 
-  updateUI();
-  
-  // Update tile info panel if a kiln is selected (to show smelting progress)
-  if (selectedTile) {
-    const tile = gameState.map[selectedTile.row] && gameState.map[selectedTile.row][selectedTile.col];
-    if (tile && tile.type === "brickKiln") {
-      updateTileInfo();
-    }
+function startGameLoop() {
+  if (gameLoopInterval) {
+    clearInterval(gameLoopInterval);
   }
   
-  // Only re-render grid if needed (unlocks might have changed button states)
-  // Grid visual updates happen on user interaction
-}, 1000);
+  gameLoopInterval = setInterval(() => {
+    try {
+      // Only run if game is initialized
+      if (!gameState || !gameState.map || gameState.map.length === 0) {
+        return;
+      }
+      
+      // Update resources based on production
+      if (gameState.rates) {
+        gameState.resources.wood += gameState.rates.wps || 0;
+        gameState.resources.stone += gameState.rates.sps || 0;
+        gameState.resources.clay += gameState.rates.cps || 0;
+        gameState.resources.iron += gameState.rates.ips || 0;
+        gameState.resources.gold += gameState.rates.gps || 0;
+        gameState.resources.bricks += gameState.rates.bps || 0;
+      }
+      
+      // Update population
+      calculateProduction();
+      checkUnlocks();
+      checkQuests();
+      updateBuildMenu();
+      updateUI();
+      
+      // Auto-save every 20 seconds
+      const now = Date.now();
+      if (now - lastAutoSave >= 20000) {
+        saveGame();
+        lastAutoSave = now;
+      }
+      
+      // Update tile info panel if a kiln is selected (to show smelting progress)
+      if (selectedTile) {
+        const tile = gameState.map[selectedTile.row] && gameState.map[selectedTile.row][selectedTile.col];
+        if (tile && tile.type === "brickKiln") {
+          updateTileInfo();
+        }
+      }
+    } catch (e) {
+      console.error('Error in game loop:', e);
+    }
+  }, 1000);
+}
 
 // Show resource icon tooltip
 function showResourceTooltip(event, resourceType) {
@@ -2250,6 +2445,7 @@ function selectCharacter(characterType) {
   // Initialize game if not already initialized
   const isNewGame = !gameState.map || gameState.map.length === 0;
   if (isNewGame) {
+    initializeQuests();
     initializeGrid();
     // Cycle to next save slot for new game
     cycleToNextSaveSlot();
@@ -2258,12 +2454,17 @@ function selectCharacter(characterType) {
   // Update UI to reflect character bonuses
   calculateProduction();
   checkUnlocks();
+  checkQuests();
   renderGrid();
   updateUI();
   updateSaveStatus();
+  updateQuestIndicator();
   initializeBuildMenu();
   updateBuildMenu();
   initializeResourceTooltips();
+  
+  // Start the game loop
+  startGameLoop();
   
   // Save the character selection
   saveGame();
@@ -2421,12 +2622,227 @@ function toggleShop() {
   }
 }
 
+// Initialize quests in gameState
+function initializeQuests() {
+  // Ensure quests is always an array
+  if (!gameState.quests || !Array.isArray(gameState.quests)) {
+    gameState.quests = [];
+  }
+  
+  if (gameState.quests.length === 0) {
+    // Initialize all quests
+    gameState.quests = questDefinitions.map(quest => ({
+      id: quest.id,
+      completed: false,
+      claimed: false
+    }));
+  } else {
+    // Ensure all quests are in the array (for new quests added later)
+    // Double-check it's still an array before using find
+    if (!Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+      gameState.quests = questDefinitions.map(quest => ({
+        id: quest.id,
+        completed: false,
+        claimed: false
+      }));
+      return;
+    }
+    
+    questDefinitions.forEach(questDef => {
+      const existingQuest = gameState.quests.find(q => q.id === questDef.id);
+      if (!existingQuest) {
+        gameState.quests.push({
+          id: questDef.id,
+          completed: false,
+          claimed: false
+        });
+      }
+    });
+  }
+}
+
+// Check quest progress
+function checkQuests() {
+  try {
+    // Ensure quests is an array
+    if (!gameState.quests || !Array.isArray(gameState.quests) || gameState.quests.length === 0) {
+      initializeQuests();
+    }
+    
+    if (!gameState.map || gameState.map.length === 0) {
+      return; // Can't check quests if map isn't initialized
+    }
+    
+    if (!questDefinitions || questDefinitions.length === 0) {
+      return; // Quest definitions not loaded
+    }
+    
+    // Double-check quests is an array before using find
+    if (!Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+      initializeQuests();
+    }
+    
+    questDefinitions.forEach(questDef => {
+      const quest = gameState.quests.find(q => q.id === questDef.id);
+      if (quest && !quest.completed) {
+        try {
+          if (questDef.checkCondition && questDef.checkCondition()) {
+            quest.completed = true;
+            updateQuestIndicator();
+            // Update UI if quests modal is open
+            const questsModal = document.getElementById('quests-modal');
+            if (questsModal && questsModal.style.display === 'flex') {
+              renderQuests();
+            }
+          }
+        } catch (e) {
+          console.error(`Error checking quest ${questDef.id}:`, e);
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error in checkQuests:', e);
+  }
+}
+
+// Claim quest reward
+function claimQuestReward(questId) {
+  // Ensure quests is an array
+  if (!gameState.quests || !Array.isArray(gameState.quests)) {
+    initializeQuests();
+  }
+  
+  const quest = gameState.quests.find(q => q.id === questId);
+  const questDef = questDefinitions.find(q => q.id === questId);
+  
+  if (!quest || !questDef) return;
+  if (!quest.completed || quest.claimed) return;
+  
+  // Apply rewards
+  Object.keys(questDef.reward).forEach(resource => {
+    gameState.resources[resource] = (gameState.resources[resource] || 0) + questDef.reward[resource];
+  });
+  
+  quest.claimed = true;
+  updateUI();
+  updateQuestIndicator();
+  renderQuests();
+  showMessage(`Quest reward claimed!`);
+}
+
+// Update quest indicator on button
+function updateQuestIndicator() {
+  const questsBtn = document.getElementById('quests-btn');
+  if (!questsBtn) return;
+  
+  // Ensure quests is an array
+  if (!gameState.quests || !Array.isArray(gameState.quests) || gameState.quests.length === 0) {
+    const indicator = questsBtn.querySelector('.quest-indicator');
+    if (indicator) indicator.remove();
+    return;
+  }
+  
+  const hasUnclaimedQuests = gameState.quests.some(q => q.completed && !q.claimed);
+  
+  if (hasUnclaimedQuests) {
+    // Add red dot indicator
+    let indicator = questsBtn.querySelector('.quest-indicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'quest-indicator';
+      questsBtn.appendChild(indicator);
+    }
+  } else {
+    // Remove indicator
+    const indicator = questsBtn.querySelector('.quest-indicator');
+    if (indicator) {
+      indicator.remove();
+    }
+  }
+}
+
+// Render quests in the modal
+function renderQuests() {
+  try {
+    const questsBody = document.querySelector('.quests-body');
+    if (!questsBody) {
+      console.error('Quest body not found');
+      return;
+    }
+    
+    // Ensure quests is an array
+    if (!gameState.quests || !Array.isArray(gameState.quests) || gameState.quests.length === 0) {
+      initializeQuests();
+    }
+    
+    if (!questDefinitions || questDefinitions.length === 0) {
+      questsBody.innerHTML = '<p>No quests available.</p>';
+      return;
+    }
+    
+    // Double-check quests is an array before using find
+    if (!Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+      initializeQuests();
+    }
+    
+    let html = '';
+    questDefinitions.forEach(questDef => {
+      const quest = gameState.quests.find(q => q.id === questDef.id);
+      if (!quest) return;
+      
+      const isCompleted = quest.completed;
+      const isClaimed = quest.claimed;
+      
+      html += `<div class="quest-item ${isCompleted ? 'quest-completed' : ''} ${isClaimed ? 'quest-claimed' : ''}">`;
+      html += `<div class="quest-info">`;
+      html += `<h3>${questDef.title}</h3>`;
+      html += `<p>${questDef.description}</p>`;
+      
+      // Show rewards
+      html += `<div class="quest-reward">`;
+      html += `<strong>Reward: </strong>`;
+      const rewardParts = [];
+      Object.keys(questDef.reward).forEach(resource => {
+        const amount = questDef.reward[resource];
+        const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+        rewardParts.push(`${amount} ${resourceName}`);
+      });
+      html += rewardParts.join(', ');
+      html += `</div>`;
+      html += `</div>`;
+      
+      // Status and claim button
+      if (isClaimed) {
+        html += `<div class="quest-status">Claimed ✓</div>`;
+      } else if (isCompleted) {
+        html += `<button class="quest-claim-btn" onclick="claimQuestReward('${questDef.id}')">Claim Reward</button>`;
+      } else {
+        html += `<div class="quest-status">In Progress...</div>`;
+      }
+      
+      html += `</div>`;
+    });
+    
+    questsBody.innerHTML = html || '<p>No quests available.</p>';
+  } catch (e) {
+    console.error('Error rendering quests:', e);
+    const questsBody = document.querySelector('.quests-body');
+    if (questsBody) {
+      questsBody.innerHTML = '<p>Error loading quests.</p>';
+    }
+  }
+}
+
 // Toggle quests window
 function toggleQuests() {
   const questsModal = document.getElementById('quests-modal');
   if (questsModal) {
     if (questsModal.style.display === 'none' || questsModal.style.display === '') {
       questsModal.style.display = 'flex';
+      renderQuests();
     } else {
       questsModal.style.display = 'none';
     }
@@ -2604,26 +3020,40 @@ window.addEventListener('keyup', (e) => {
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
-  const loaded = loadGame();
-  
-  if (!loaded) {
-    initializeGrid();
-  }
-  
-  // Check if character is selected
-  if (!gameState.character) {
-    showCharacterSelection();
-  } else {
-    hideCharacterSelection();
-    // Calculate production and unlocks on initialization
-    calculateProduction();
-    checkUnlocks();
-    renderGrid();
-updateUI();
-updateSaveStatus();
-    initializeBuildMenu();
-    updateBuildMenu();
-    initializeResourceTooltips();
-    updateSaveSlots();
+  try {
+    const loaded = loadGame();
+    
+    if (!loaded) {
+      initializeGrid();
+    }
+    
+    // Ensure quests are initialized and is an array
+    if (!gameState.quests || !Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+    }
+    initializeQuests();
+    
+    // Check if character is selected
+    if (!gameState.character) {
+      showCharacterSelection();
+    } else {
+      hideCharacterSelection();
+      // Calculate production and unlocks on initialization
+      calculateProduction();
+      checkUnlocks();
+      checkQuests();
+      renderGrid();
+      updateUI();
+      updateSaveStatus();
+      updateQuestIndicator();
+      initializeBuildMenu();
+      updateBuildMenu();
+      initializeResourceTooltips();
+      updateSaveSlots();
+      startGameLoop();
+    }
+  } catch (e) {
+    console.error('Error initializing game:', e);
+    alert('Error loading game. Please refresh the page.');
   }
 });

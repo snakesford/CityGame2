@@ -679,6 +679,7 @@ h4 {
 
 /* Quests Button */
 .quests-btn {
+  position: relative;
   background: rgba(0,0,0,0.3);
   border: 3px solid #9E9E9E;
   border-radius: 50%;
@@ -993,6 +994,98 @@ h4 {
 .quests-body {
   padding: 20px;
   min-height: 200px;
+}
+
+/* Quest Items */
+.quest-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.quest-item:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.quest-item.quest-completed {
+  border-color: #4CAF50;
+}
+
+.quest-item.quest-claimed {
+  opacity: 0.6;
+  border-color: #9E9E9E;
+}
+
+.quest-info {
+  flex: 1;
+}
+
+.quest-info h3 {
+  margin: 0 0 8px 0;
+  color: #FFD700;
+  font-size: 18px;
+}
+
+.quest-info p {
+  margin: 0 0 10px 0;
+  color: #ccc;
+  font-size: 14px;
+}
+
+.quest-reward {
+  color: #FFD700;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.quest-status {
+  color: #9E9E9E;
+  font-size: 14px;
+  font-style: italic;
+  padding: 10px 20px;
+}
+
+.quest-claim-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.quest-claim-btn:hover {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+/* Quest Indicator on Button */
+.quest-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  background: #f44336;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.3);
+  animation: pulse 1s infinite;
+}
+
+.quests-btn {
+  position: relative;
 }
 
 /* Load Game Modal */

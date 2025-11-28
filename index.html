@@ -155,7 +155,24 @@
         <button class="shop-close" onclick="toggleShop()">&times;</button>
       </div>
       <div class="shop-body">
-        <!-- Shop content will go here -->
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <h3>Sell Clay Bricks</h3>
+            <p>Trade 5 Clay Bricks for 1 Gold Coin</p>
+            <div class="shop-item-cost">
+              <span class="shop-cost-item">
+                <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">
+                <span>5</span>
+              </span>
+              <span style="margin: 0 10px;">→</span>
+              <span class="shop-cost-item">
+                <img src="images/gold.png" alt="Gold" style="width: 30px; height: 30px; vertical-align: middle;">
+                <span>1</span>
+              </span>
+            </div>
+          </div>
+          <button id="sell-bricks-btn" class="shop-buy-btn" onclick="sellBricksForGold()">Sell</button>
+        </div>
       </div>
     </div>
   </div>

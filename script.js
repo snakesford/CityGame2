@@ -1697,9 +1697,37 @@ function toggleShop() {
   if (shopModal) {
     if (shopModal.style.display === 'none' || shopModal.style.display === '') {
       shopModal.style.display = 'flex';
+      updateShopUI();
     } else {
       shopModal.style.display = 'none';
     }
+  }
+}
+
+// Update shop UI to reflect current resources
+function updateShopUI() {
+  const sellBricksBtn = document.getElementById('sell-bricks-btn');
+  if (sellBricksBtn) {
+    const canAfford = gameState.resources.bricks >= 5;
+    sellBricksBtn.disabled = !canAfford;
+    if (!canAfford) {
+      sellBricksBtn.title = `Not enough bricks (need 5, have ${Math.floor(gameState.resources.bricks)})`;
+    } else {
+      sellBricksBtn.title = 'Sell 5 Clay Bricks for 1 Gold Coin';
+    }
+  }
+}
+
+// Sell bricks for gold
+function sellBricksForGold() {
+  if (gameState.resources.bricks >= 5) {
+    gameState.resources.bricks -= 5;
+    gameState.resources.gold += 1;
+    updateUI();
+    updateShopUI();
+    showMessage('Sold 5 Clay Bricks for 1 Gold Coin!');
+  } else {
+    showMessage('Not enough bricks! Need 5 bricks.');
   }
 }
 

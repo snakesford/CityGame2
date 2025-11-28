@@ -649,6 +649,80 @@ h4 {
   min-height: 200px;
 }
 
+/* Shop Items */
+.shop-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.shop-item:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.shop-item-info {
+  flex: 1;
+}
+
+.shop-item-info h3 {
+  margin: 0 0 8px 0;
+  color: #FFD700;
+  font-size: 18px;
+}
+
+.shop-item-info p {
+  margin: 0 0 10px 0;
+  color: #ccc;
+  font-size: 14px;
+}
+
+.shop-item-cost {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: white;
+  font-size: 16px;
+}
+
+.shop-cost-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.shop-buy-btn {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.shop-buy-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.shop-buy-btn:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
 @media (max-width: 1200px) {
   .main-container {
     flex-direction: column;

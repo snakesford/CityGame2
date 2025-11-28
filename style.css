@@ -383,6 +383,21 @@ h4 {
   font-size: 14px;
 }
 
+.tile-info-controls {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tile-info-controls .icon-btn,
+.tile-info-controls .edit-mode-btn {
+  width: 100%;
+  min-width: auto;
+}
+
 /* Controls */
 .controls {
   text-align: center;
@@ -403,7 +418,8 @@ h4 {
   color: white;
 }
 
-.edit-mode-btn {
+.edit-mode-btn,
+.icon-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -412,13 +428,15 @@ h4 {
   min-width: 100px;
 }
 
-.edit-mode-btn .edit-icon {
+.edit-mode-btn .edit-icon,
+.icon-btn .btn-icon {
   width: 30px;
   height: 30px;
   object-fit: contain;
 }
 
-.edit-mode-btn .edit-text {
+.edit-mode-btn .edit-text,
+.icon-btn .btn-text {
   font-size: 14px;
   line-height: 1.2;
 }
@@ -757,6 +775,132 @@ h4 {
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
+}
+
+/* Load Game Modal */
+.load-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.load-content {
+  background: rgba(20, 20, 30, 0.95);
+  border: 2px solid #FFD700;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.load-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.load-header h2 {
+  margin: 0;
+  color: #FFD700;
+}
+
+.load-close {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 32px;
+  cursor: pointer;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  line-height: 1;
+  transition: color 0.3s ease;
+}
+
+.load-close:hover {
+  color: #f44336;
+}
+
+.load-body {
+  padding: 20px;
+}
+
+.save-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.save-slot {
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.save-slot:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.4);
+}
+
+.save-slot.has-save {
+  border-color: #4CAF50;
+}
+
+.save-slot.has-save:hover {
+  border-color: #66BB6A;
+  box-shadow: 0 0 10px rgba(76,175,80,0.3);
+}
+
+.save-slot h3 {
+  margin: 0 0 8px 0;
+  color: #FFD700;
+  font-size: 18px;
+}
+
+.save-slot .slot-info {
+  margin: 0;
+  color: #ccc;
+  font-size: 14px;
+}
+
+.load-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.load-actions button {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.load-actions button:hover {
+  background: linear-gradient(135deg, #5a6578 0%, #3d4758 100%);
+  transform: translateY(-2px);
 }
 
 @media (max-width: 1200px) {

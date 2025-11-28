@@ -1319,11 +1319,78 @@ function updateBuildMenu() {
   }
 }
 
-// Save game
+// Save game (default slot)
 function saveGame() {
   gameState.timestamp = Date.now();
   localStorage.setItem('cityBuilderSave', JSON.stringify(gameState));
   updateSaveStatus();
+  showMessage("Game saved!");
+}
+
+// Save game to specific slot
+function saveGameSlot(slot) {
+  gameState.timestamp = Date.now();
+  const slotKey = `cityBuilderSave_slot${slot}`;
+  localStorage.setItem(slotKey, JSON.stringify(gameState));
+  updateSaveSlots();
+  showMessage(`Game saved to slot ${slot}!`);
+  hideLoadMenu();
+}
+
+// Load game from specific slot
+function loadGameSlot(slot) {
+  const slotKey = `cityBuilderSave_slot${slot}`;
+  const saved = localStorage.getItem(slotKey);
+  if (saved) {
+    if (confirm('Load this save? Current progress will be lost.')) {
+      try {
+        const loaded = JSON.parse(saved);
+        gameState = loaded;
+        
+        // Ensure all required fields exist
+        if (!gameState.character) gameState.character = null;
+        if (!gameState.kilns) gameState.kilns = {};
+        
+        // Migrate old data
+        for (const key in gameState.kilns) {
+          const kiln = gameState.kilns[key];
+          if (kiln && !kiln.hasOwnProperty('smeltingStartTime')) {
+            kiln.smeltingStartTime = null;
+            kiln.smeltingAmount = 0;
+          }
+        }
+        
+        if (!gameState.map || gameState.map.length === 0) {
+          initializeGrid();
+        }
+        
+        // Migrate old "house" to "tepee"
+        if (gameState.map && gameState.map.length > 0) {
+          for (let row = 0; row < gameState.map.length; row++) {
+            for (let col = 0; col < gameState.map[row].length; col++) {
+              if (gameState.map[row][col].type === "house") {
+                gameState.map[row][col].type = "tepee";
+              }
+            }
+          }
+        }
+        
+        calculateProduction();
+        checkUnlocks();
+        renderGrid();
+        updateUI();
+        updateSaveStatus();
+        updateSaveSlots();
+        hideLoadMenu();
+        showMessage(`Game loaded from slot ${slot}!`);
+      } catch (e) {
+        console.error('Error loading game:', e);
+        showMessage("Error loading save file.");
+      }
+    }
+  } else {
+    showMessage("No save found in this slot.");
+  }
 }
 
 // Load game
@@ -1415,6 +1482,129 @@ function updateSaveStatus() {
     const saveDate = new Date(gameState.timestamp);
     saveStatusEl.textContent = `Last saved: ${saveDate.toLocaleString()}`;
   }
+}
+
+// Show load menu
+function showLoadMenu() {
+  const loadModal = document.getElementById('load-modal');
+  if (loadModal) {
+    loadModal.style.display = 'flex';
+    updateSaveSlots();
+  }
+}
+
+// Hide load menu
+function hideLoadMenu() {
+  const loadModal = document.getElementById('load-modal');
+  if (loadModal) {
+    loadModal.style.display = 'none';
+  }
+}
+
+// Update save slots display
+function updateSaveSlots() {
+  for (let slot = 1; slot <= 3; slot++) {
+    const slotKey = `cityBuilderSave_slot${slot}`;
+    const saved = localStorage.getItem(slotKey);
+    const slotInfo = document.getElementById(`slot-${slot}-info`);
+    const slotElement = document.querySelector(`[data-slot="${slot}"]`);
+    
+    if (slotInfo) {
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          if (data.timestamp) {
+            const saveDate = new Date(data.timestamp);
+            slotInfo.textContent = `Saved: ${saveDate.toLocaleString()}`;
+            if (slotElement) slotElement.classList.add('has-save');
+          } else {
+            slotInfo.textContent = 'Empty';
+            if (slotElement) slotElement.classList.remove('has-save');
+          }
+        } catch (e) {
+          slotInfo.textContent = 'Empty';
+          if (slotElement) slotElement.classList.remove('has-save');
+        }
+      } else {
+        slotInfo.textContent = 'Empty';
+        if (slotElement) slotElement.classList.remove('has-save');
+      }
+    }
+  }
+}
+
+// Export save to file
+function exportSave() {
+  gameState.timestamp = Date.now();
+  const saveData = JSON.stringify(gameState, null, 2);
+  const blob = new Blob([saveData], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `city-builder-save-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showMessage("Save file exported!");
+}
+
+// Import save from file
+function importSave(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const loaded = JSON.parse(e.target.result);
+      
+      if (confirm('Import this save? Current progress will be lost.')) {
+        gameState = loaded;
+        
+        // Ensure all required fields exist
+        if (!gameState.character) gameState.character = null;
+        if (!gameState.kilns) gameState.kilns = {};
+        
+        // Migrate old data
+        for (const key in gameState.kilns) {
+          const kiln = gameState.kilns[key];
+          if (kiln && !kiln.hasOwnProperty('smeltingStartTime')) {
+            kiln.smeltingStartTime = null;
+            kiln.smeltingAmount = 0;
+          }
+        }
+        
+        if (!gameState.map || gameState.map.length === 0) {
+          initializeGrid();
+        }
+        
+        // Migrate old "house" to "tepee"
+        if (gameState.map && gameState.map.length > 0) {
+          for (let row = 0; row < gameState.map.length; row++) {
+            for (let col = 0; col < gameState.map[row].length; col++) {
+              if (gameState.map[row][col].type === "house") {
+                gameState.map[row][col].type = "tepee";
+              }
+            }
+          }
+        }
+        
+        calculateProduction();
+        checkUnlocks();
+        renderGrid();
+        updateUI();
+        updateSaveStatus();
+        updateSaveSlots();
+        showMessage("Save file imported!");
+      }
+    } catch (e) {
+      console.error('Error importing save:', e);
+      showMessage("Error: Invalid save file.");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // Reset file input
 }
 
 // Show building button tooltip
@@ -1940,6 +2130,12 @@ window.addEventListener('click', (event) => {
   if (shopModal && event.target === shopModal) {
     shopModal.style.display = 'none';
   }
+  
+  // Close load menu when clicking outside
+  const loadModal = document.getElementById('load-modal');
+  if (loadModal && event.target === loadModal) {
+    loadModal.style.display = 'none';
+  }
 });
 
 // Track Shift key state for multiple building placement
@@ -1983,5 +2179,6 @@ updateSaveStatus();
     initializeBuildMenu();
     updateBuildMenu();
     initializeResourceTooltips();
+    updateSaveSlots();
   }
 });

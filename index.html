@@ -345,6 +345,10 @@
         <h2>Quests</h2>
         <button class="quests-close" onclick="toggleQuests()">&times;</button>
       </div>
+      <div class="quests-tabs">
+        <button class="quest-tab active" data-tab="incomplete" onclick="switchQuestTab('incomplete')">Incomplete</button>
+        <button class="quest-tab" data-tab="completed" onclick="switchQuestTab('completed')">Completed</button>
+      </div>
       <div class="quests-body">
         <!-- Quest content will go here -->
       </div>

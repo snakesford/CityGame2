@@ -2765,6 +2765,27 @@ function updateQuestIndicator() {
   }
 }
 
+// Current quest tab (incomplete or completed)
+let currentQuestTab = 'incomplete';
+
+// Switch quest tab
+function switchQuestTab(tab) {
+  currentQuestTab = tab;
+  
+  // Update tab buttons
+  const tabs = document.querySelectorAll('.quest-tab');
+  tabs.forEach(t => {
+    if (t.dataset.tab === tab) {
+      t.classList.add('active');
+    } else {
+      t.classList.remove('active');
+    }
+  });
+  
+  // Re-render quests with the new filter
+  renderQuests();
+}
+
 // Render quests in the modal
 function renderQuests() {
   try {
@@ -2791,12 +2812,24 @@ function renderQuests() {
     }
     
     let html = '';
+    let hasQuests = false;
+    
     questDefinitions.forEach(questDef => {
       const quest = gameState.quests.find(q => q.id === questDef.id);
       if (!quest) return;
       
       const isCompleted = quest.completed;
       const isClaimed = quest.claimed;
+      
+      // Filter based on current tab
+      if (currentQuestTab === 'incomplete' && isCompleted) {
+        return; // Skip completed quests in incomplete tab
+      }
+      if (currentQuestTab === 'completed' && !isCompleted) {
+        return; // Skip incomplete quests in completed tab
+      }
+      
+      hasQuests = true;
       
       html += `<div class="quest-item ${isCompleted ? 'quest-completed' : ''} ${isClaimed ? 'quest-claimed' : ''}">`;
       html += `<div class="quest-info">`;
@@ -2828,7 +2861,15 @@ function renderQuests() {
       html += `</div>`;
     });
     
-    questsBody.innerHTML = html || '<p>No quests available.</p>';
+    if (!hasQuests) {
+      if (currentQuestTab === 'incomplete') {
+        html = '<p style="text-align: center; color: #ccc; padding: 20px;">All quests completed! 🎉</p>';
+      } else {
+        html = '<p style="text-align: center; color: #ccc; padding: 20px;">No completed quests yet.</p>';
+      }
+    }
+    
+    questsBody.innerHTML = html;
   } catch (e) {
     console.error('Error rendering quests:', e);
     const questsBody = document.querySelector('.quests-body');
@@ -2844,6 +2885,16 @@ function toggleQuests() {
   if (questsModal) {
     if (questsModal.style.display === 'none' || questsModal.style.display === '') {
       questsModal.style.display = 'flex';
+      // Reset to incomplete tab when opening
+      currentQuestTab = 'incomplete';
+      const tabs = document.querySelectorAll('.quest-tab');
+      tabs.forEach(t => {
+        if (t.dataset.tab === 'incomplete') {
+          t.classList.add('active');
+        } else {
+          t.classList.remove('active');
+        }
+      });
       renderQuests();
     } else {
       questsModal.style.display = 'none';

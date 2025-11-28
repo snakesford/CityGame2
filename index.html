@@ -218,20 +218,99 @@
         <div class="shop-item">
           <div class="shop-item-info">
             <h3>Sell Clay Bricks</h3>
-            <p>Trade 5 Clay Bricks for 1 Gold Coin</p>
+            <p>Trade Clay Bricks for Gold Coins (5 bricks = 1 gold)</p>
+            <div style="margin: 15px 0;">
+              <label for="brick-slider" style="display: block; margin-bottom: 10px; color: #fff;">
+                Amount: <span id="brick-amount">5</span> bricks
+              </label>
+              <input type="range" id="brick-slider" min="5" max="100" step="5" value="5" 
+                     oninput="updateBrickTrade(this.value)">
+            </div>
             <div class="shop-item-cost">
               <span class="shop-cost-item">
                 <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">
-                <span>5</span>
+                <span id="brick-cost-display">5</span>
               </span>
               <span style="margin: 0 10px;">→</span>
               <span class="shop-cost-item">
                 <img src="images/gold.png" alt="Gold" style="width: 30px; height: 30px; vertical-align: middle;">
-                <span>1</span>
+                <span id="gold-reward-display">1</span>
               </span>
             </div>
           </div>
           <button id="sell-bricks-btn" class="shop-buy-btn" onclick="sellBricksForGold()">Sell</button>
+        </div>
+        
+        <h3 style="margin-top: 20px; margin-bottom: 10px; color: #FFD700;">Upgrades</h3>
+        
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <h3>Wood Production Boost</h3>
+            <p>+20% wood production across all buildings</p>
+            <div class="shop-item-cost">
+              <span class="shop-cost-item">
+                <img src="images/gold.png" alt="Gold" style="width: 30px; height: 30px; vertical-align: middle;">
+                <span>100</span>
+              </span>
+            </div>
+          </div>
+          <button id="upgrade-wood-btn" class="shop-buy-btn" onclick="purchaseUpgrade('woodProduction', 100)">Purchase</button>
+        </div>
+        
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <h3>Stone Production Boost</h3>
+            <p>+20% stone production across all buildings</p>
+            <div class="shop-item-cost">
+              <span class="shop-cost-item">
+                <img src="images/gold.png" alt="Gold" style="width: 30px; height: 30px; vertical-align: middle;">
+                <span>100</span>
+              </span>
+            </div>
+          </div>
+          <button id="upgrade-stone-btn" class="shop-buy-btn" onclick="purchaseUpgrade('stoneProduction', 100)">Purchase</button>
+        </div>
+        
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <h3>Clay Production Boost</h3>
+            <p>+20% clay production across all buildings</p>
+            <div class="shop-item-cost">
+              <span class="shop-cost-item">
+                <img src="images/gold.png" alt="Gold" style="width: 30px; height: 30px; vertical-align: middle;">
+                <span>100</span>
+              </span>
+            </div>
+          </div>
+          <button id="upgrade-clay-btn" class="shop-buy-btn" onclick="purchaseUpgrade('clayProduction', 100)">Purchase</button>
+        </div>
+        
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <h3>Housing Capacity Boost</h3>
+            <p>+20% housing capacity across all buildings</p>
+            <div class="shop-item-cost">
+              <span class="shop-cost-item">
+                <img src="images/gold.png" alt="Gold" style="width: 30px; height: 30px; vertical-align: middle;">
+                <span>100</span>
+              </span>
+            </div>
+          </div>
+          <button id="upgrade-housing-btn" class="shop-buy-btn" onclick="purchaseUpgrade('housingCapacity', 100)">Purchase</button>
+        </div>
+        
+        <div class="shop-item">
+          <div class="shop-item-info">
+            <h3>Smelting Speed Boost</h3>
+            <p>+20% clay brick smelting speed</p>
+            <div class="shop-item-cost">
+              <span class="shop-cost-item">
+                <img src="images/gold.png" alt="Gold" style="width: 30px; height: 30px; vertical-align: middle;">
+                <span>100</span>
+              </span>
+            </div>
+          </div>
+          <button id="upgrade-smelting-btn" class="shop-buy-btn" onclick="purchaseUpgrade('smeltingSpeed', 100)">Purchase</button>
         </div>
       </div>
     </div>

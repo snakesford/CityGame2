@@ -26,7 +26,14 @@ let gameState = {
   },
   map: [],
   character: null, // "miner" | "farmer" | null
-  timestamp: Date.now()
+  timestamp: Date.now(),
+  upgrades: {
+    woodProduction: false, // +20% wood production
+    stoneProduction: false, // +20% stone production
+    clayProduction: false, // +20% clay production
+    housingCapacity: false, // +20% housing capacity
+    smeltingSpeed: false // +20% smelting speed
+  }
 };
 
 // Character types with bonuses
@@ -402,6 +409,17 @@ function getBuildingProduction(buildingType, level) {
     }
   }
   
+  // Apply shop upgrades
+  if (gameState.upgrades.woodProduction && production.wood > 0) {
+    production.wood *= 1.2;
+  }
+  if (gameState.upgrades.stoneProduction && production.stone > 0) {
+    production.stone *= 1.2;
+  }
+  if (gameState.upgrades.clayProduction && production.clay > 0) {
+    production.clay *= 1.2;
+  }
+  
   return production;
 }
 
@@ -501,6 +519,11 @@ function calculateProduction() {
     }
   }
   
+  // Apply housing capacity upgrade
+  if (gameState.upgrades.housingCapacity) {
+    totalCapacity *= 1.2;
+  }
+  
   gameState.rates.wps = totalWood;
   gameState.rates.sps = totalStone;
   gameState.rates.cps = totalClay;
@@ -540,7 +563,11 @@ function processKiln(row, col, level) {
   
   const kiln = gameState.kilns[kilnKey];
   const building = buildingTypes.brickKiln;
-  const smeltTime = building.smeltTime;
+  let smeltTime = building.smeltTime;
+  // Apply smelting speed upgrade (20% faster = 80% of original time)
+  if (gameState.upgrades.smeltingSpeed) {
+    smeltTime = smeltTime * 0.8;
+  }
   const smeltClayAmount = building.smeltClayAmount;
   const smeltWoodAmount = building.smeltWoodAmount;
   const smeltBrickOutput = building.smeltBrickOutput;
@@ -1134,7 +1161,11 @@ function updateTileInfo() {
     if (kiln.smeltingStartTime !== null) {
       const now = Date.now();
       const elapsed = now - kiln.smeltingStartTime;
-      const smeltTime = building.smeltTime;
+      let smeltTime = building.smeltTime;
+      // Apply smelting speed upgrade (20% faster = 80% of original time)
+      if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
+        smeltTime = smeltTime * 0.8;
+      }
       smeltingProgress = Math.min(100, (elapsed / smeltTime) * 100);
       smeltingTimeLeft = Math.max(0, Math.ceil((smeltTime - elapsed) / 1000));
     }
@@ -1442,7 +1473,7 @@ function saveGame() {
   gameState.timestamp = Date.now();
   localStorage.setItem('cityBuilderSave', JSON.stringify(gameState));
   updateSaveStatus();
-  showMessage("Game saved!");
+  // showMessage("Game saved!");
 }
 
 // Save game to specific slot
@@ -1553,6 +1584,17 @@ function loadGame() {
         }
       }
       
+      // Ensure upgrades field exists (for old saves)
+      if (!gameState.upgrades) {
+        gameState.upgrades = {
+          woodProduction: false,
+          stoneProduction: false,
+          clayProduction: false,
+          housingCapacity: false,
+          smeltingSpeed: false
+        };
+      }
+      
       // Recompute derived values
       calculateProduction();
       checkUnlocks();
@@ -1567,6 +1609,16 @@ function loadGame() {
 
 // Reset game
 function resetGame() {
+  // Initialize upgrades object if it doesn't exist
+  if (!gameState.upgrades) {
+    gameState.upgrades = {
+      woodProduction: false,
+      stoneProduction: false,
+      clayProduction: false,
+      housingCapacity: false,
+      smeltingSpeed: false
+    };
+  }
   if (confirm('Are you sure you want to reset your game? This cannot be undone.')) {
     localStorage.removeItem('cityBuilderSave');
     gameState = {
@@ -1576,7 +1628,14 @@ function resetGame() {
       population: { current: 0, capacity: 0 },
       map: [],
       character: null, // Reset character selection
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      upgrades: {
+        woodProduction: false,
+        stoneProduction: false,
+        clayProduction: false,
+        housingCapacity: false,
+        smeltingSpeed: false
+      }
     };
     initializeGrid();
     calculateProduction();
@@ -2214,31 +2273,125 @@ function toggleShop() {
   }
 }
 
-// Update shop UI to reflect current resources
-function updateShopUI() {
+// Update brick trade display
+function updateBrickTrade(amount) {
+  const slider = document.getElementById('brick-slider');
+  if (!slider) return;
+  
+  // Always update slider max based on available bricks (rounded down to nearest 5)
+  const maxBricks = Math.floor(gameState.resources.bricks);
+  const maxSliderValue = Math.max(5, Math.floor(maxBricks / 5) * 5); // Round down to nearest 5
+  slider.max = maxSliderValue;
+  
+  // Ensure current value doesn't exceed max
+  const brickAmount = Math.min(parseInt(amount || slider.value), maxSliderValue);
+  slider.value = brickAmount;
+  
+  const goldReward = Math.floor(brickAmount / 5);
+  
+  document.getElementById('brick-amount').textContent = brickAmount;
+  document.getElementById('brick-cost-display').textContent = brickAmount;
+  document.getElementById('gold-reward-display').textContent = goldReward;
+  
+  // Update button state
   const sellBricksBtn = document.getElementById('sell-bricks-btn');
   if (sellBricksBtn) {
-    const canAfford = gameState.resources.bricks >= 5;
+    const canAfford = gameState.resources.bricks >= brickAmount;
     sellBricksBtn.disabled = !canAfford;
     if (!canAfford) {
-      sellBricksBtn.title = `Not enough bricks (need 5, have ${Math.floor(gameState.resources.bricks)})`;
+      sellBricksBtn.title = `Not enough bricks (need ${brickAmount}, have ${Math.floor(gameState.resources.bricks)})`;
     } else {
-      sellBricksBtn.title = 'Sell 5 Clay Bricks for 1 Gold Coin';
+      sellBricksBtn.title = `Sell ${brickAmount} Clay Bricks for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}`;
     }
   }
 }
 
+// Update shop UI to reflect current resources
+function updateShopUI() {
+  const slider = document.getElementById('brick-slider');
+  if (slider) {
+    // Update the slider max first, then update the trade display
+    updateBrickTrade(slider.value);
+  }
+  
+  // Update upgrade buttons
+  const upgrades = [
+    { id: 'upgrade-wood-btn', key: 'woodProduction', cost: 100 },
+    { id: 'upgrade-stone-btn', key: 'stoneProduction', cost: 100 },
+    { id: 'upgrade-clay-btn', key: 'clayProduction', cost: 100 },
+    { id: 'upgrade-housing-btn', key: 'housingCapacity', cost: 100 },
+    { id: 'upgrade-smelting-btn', key: 'smeltingSpeed', cost: 100 }
+  ];
+  
+  upgrades.forEach(upgrade => {
+    const btn = document.getElementById(upgrade.id);
+    if (btn) {
+      const purchased = gameState.upgrades[upgrade.key];
+      const canAfford = gameState.resources.gold >= upgrade.cost;
+      
+      if (purchased) {
+        btn.disabled = true;
+        btn.textContent = 'Purchased';
+        btn.title = 'Already purchased';
+      } else {
+        btn.disabled = !canAfford;
+        btn.textContent = 'Purchase';
+        if (!canAfford) {
+          btn.title = `Not enough gold (need ${upgrade.cost}, have ${Math.floor(gameState.resources.gold)})`;
+        } else {
+          btn.title = `Purchase for ${upgrade.cost} gold`;
+        }
+      }
+    }
+  });
+}
+
 // Sell bricks for gold
 function sellBricksForGold() {
-  if (gameState.resources.bricks >= 5) {
-    gameState.resources.bricks -= 5;
-    gameState.resources.gold += 1;
+  const slider = document.getElementById('brick-slider');
+  const brickAmount = slider ? parseInt(slider.value) : 5;
+  const goldReward = Math.floor(brickAmount / 5);
+  
+  if (gameState.resources.bricks >= brickAmount) {
+    gameState.resources.bricks -= brickAmount;
+    gameState.resources.gold += goldReward;
     updateUI();
     updateShopUI();
-    showMessage('Sold 5 Clay Bricks for 1 Gold Coin!');
+    showMessage(`Sold ${brickAmount} Clay Bricks for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}!`);
   } else {
-    showMessage('Not enough bricks! Need 5 bricks.');
+    showMessage(`Not enough bricks! Need ${brickAmount} bricks, have ${Math.floor(gameState.resources.bricks)}.`);
   }
+}
+
+// Purchase upgrade
+function purchaseUpgrade(upgradeKey, cost) {
+  if (gameState.upgrades[upgradeKey]) {
+    showMessage('Upgrade already purchased!');
+    return;
+  }
+  
+  if (gameState.resources.gold < cost) {
+    showMessage(`Not enough gold! Need ${cost} gold.`);
+    return;
+  }
+  
+  gameState.resources.gold -= cost;
+  gameState.upgrades[upgradeKey] = true;
+  
+  // Recalculate production to apply the upgrade
+  calculateProduction();
+  updateUI();
+  updateShopUI();
+  
+  const upgradeNames = {
+    woodProduction: 'Wood Production Boost',
+    stoneProduction: 'Stone Production Boost',
+    clayProduction: 'Clay Production Boost',
+    housingCapacity: 'Housing Capacity Boost',
+    smeltingSpeed: 'Smelting Speed Boost'
+  };
+  
+  showMessage(`${upgradeNames[upgradeKey]} purchased!`);
 }
 
 // Close shop when clicking outside

@@ -223,8 +223,11 @@
               <label for="brick-slider" style="display: block; margin-bottom: 10px; color: #fff;">
                 Amount: <span id="brick-amount">5</span> bricks
               </label>
-              <input type="range" id="brick-slider" min="5" max="100" step="5" value="5" 
-                     oninput="updateBrickTrade(this.value)">
+              <div class="brick-slider-wrapper">
+                <div class="brick-slider-fill" id="brick-slider-fill"></div>
+                <input type="range" id="brick-slider" min="5" max="100" step="5" value="5" 
+                       oninput="updateBrickTrade(this.value)">
+              </div>
             </div>
             <div class="shop-item-cost">
               <span class="shop-cost-item">

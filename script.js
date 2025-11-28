@@ -2287,6 +2287,13 @@ function updateBrickTrade(amount) {
   const brickAmount = Math.min(parseInt(amount || slider.value), maxSliderValue);
   slider.value = brickAmount;
   
+  // Update slider filled portion (green trail)
+  const progress = maxSliderValue > 0 ? (brickAmount / maxSliderValue) * 100 : 0;
+  const fillBar = document.getElementById('brick-slider-fill');
+  if (fillBar) {
+    fillBar.style.width = `${progress}%`;
+  }
+  
   const goldReward = Math.floor(brickAmount / 5);
   
   document.getElementById('brick-amount').textContent = brickAmount;

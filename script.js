@@ -1500,55 +1500,56 @@ function saveGameSlot(slot) {
 function loadGameSlot(slot) {
   const slotKey = `cityBuilderSave_slot${slot}`;
   const saved = localStorage.getItem(slotKey);
-  if (saved) {
-    if (confirm('Load this save? Current progress will be lost.')) {
-      try {
-        const loaded = JSON.parse(saved);
-        gameState = loaded;
-        
-        // Ensure all required fields exist
-        if (!gameState.character) gameState.character = null;
-        if (!gameState.kilns) gameState.kilns = {};
-        
-        // Migrate old data
-        for (const key in gameState.kilns) {
-          const kiln = gameState.kilns[key];
-          if (kiln && !kiln.hasOwnProperty('smeltingStartTime')) {
-            kiln.smeltingStartTime = null;
-            kiln.smeltingAmount = 0;
-          }
+  if (!saved) {
+    showMessage("No save found in this slot.");
+    return;
+  }
+  
+  if (confirm('Load this save? Current progress will be lost.')) {
+    try {
+      const loaded = JSON.parse(saved);
+      gameState = loaded;
+      
+      // Ensure all required fields exist
+      if (!gameState.character) gameState.character = null;
+      if (!gameState.kilns) gameState.kilns = {};
+      
+      // Migrate old data
+      for (const key in gameState.kilns) {
+        const kiln = gameState.kilns[key];
+        if (kiln && !kiln.hasOwnProperty('smeltingStartTime')) {
+          kiln.smeltingStartTime = null;
+          kiln.smeltingAmount = 0;
         }
-        
-        if (!gameState.map || gameState.map.length === 0) {
-          initializeGrid();
-        }
-        
-        // Migrate old "house" to "tepee"
-        if (gameState.map && gameState.map.length > 0) {
-          for (let row = 0; row < gameState.map.length; row++) {
-            for (let col = 0; col < gameState.map[row].length; col++) {
-              if (gameState.map[row][col].type === "house") {
-                gameState.map[row][col].type = "tepee";
-              }
+      }
+      
+      if (!gameState.map || gameState.map.length === 0) {
+        initializeGrid();
+      }
+      
+      // Migrate old "house" to "tepee"
+      if (gameState.map && gameState.map.length > 0) {
+        for (let row = 0; row < gameState.map.length; row++) {
+          for (let col = 0; col < gameState.map[row].length; col++) {
+            if (gameState.map[row][col].type === "house") {
+              gameState.map[row][col].type = "tepee";
             }
           }
         }
-        
-        calculateProduction();
-        checkUnlocks();
-        renderGrid();
-        updateUI();
-        updateSaveStatus();
-        updateSaveSlots();
-        hideLoadMenu();
-        showMessage(`Game loaded from slot ${slot}!`);
-      } catch (e) {
-        console.error('Error loading game:', e);
-        showMessage("Error loading save file.");
       }
+      
+      calculateProduction();
+      checkUnlocks();
+      renderGrid();
+      updateUI();
+      updateSaveStatus();
+      updateSaveSlots();
+      hideLoadMenu();
+      showMessage(`Game loaded from slot ${slot}!`);
+    } catch (e) {
+      console.error('Error loading game:', e);
+      showMessage("Error loading save file.");
     }
-  } else {
-    showMessage("No save found in this slot.");
   }
 }
 

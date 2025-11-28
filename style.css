@@ -970,30 +970,25 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  margin-bottom: 20px;
+}
+
+.save-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .save-slot {
+  flex: 1;
   background: rgba(255,255,255,0.05);
   border: 2px solid rgba(255,255,255,0.2);
   border-radius: 8px;
   padding: 15px;
-  cursor: pointer;
   transition: all 0.3s ease;
-}
-
-.save-slot:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.4);
 }
 
 .save-slot.has-save {
   border-color: #4CAF50;
-}
-
-.save-slot.has-save:hover {
-  border-color: #66BB6A;
-  box-shadow: 0 0 10px rgba(76,175,80,0.3);
 }
 
 .save-slot h3 {
@@ -1008,29 +1003,51 @@ h4 {
   font-size: 14px;
 }
 
-.load-actions {
+.slot-buttons {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
-.load-actions button {
-  flex: 1;
-  min-width: 120px;
-  padding: 10px;
+.slot-save-btn,
+.slot-load-btn {
+  padding: 10px 20px;
   font-size: 14px;
   font-weight: bold;
-  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
   color: white;
-  border: 2px solid rgba(255,255,255,0.2);
+  border: none;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  min-width: 100px;
 }
 
-.load-actions button:hover {
-  background: linear-gradient(135deg, #5a6578 0%, #3d4758 100%);
+.slot-save-btn {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+}
+
+.slot-save-btn:hover {
+  background: linear-gradient(135deg, #1976D2 0%, #2196F3 100%);
   transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.slot-load-btn {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+}
+
+.slot-load-btn:hover {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.slot-load-btn:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
 }
 
 @media (max-width: 1200px) {

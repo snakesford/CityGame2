@@ -141,6 +141,10 @@
 
   <!-- Bottom: Save/Reset Controls -->
   <div class="controls">
+    <button id="edit-mode-btn" class="edit-mode-btn" onclick="toggleEditMode()">
+      <img src="images/edit.png" alt="Edit" class="edit-icon">
+      <span class="edit-text">Edit Mode</span>
+    </button>
     <button onclick="saveGame()">Save Game</button>
     <button onclick="resetGame()">Reset Game</button>
     <p id="saveStatus" class="save-status"></p>

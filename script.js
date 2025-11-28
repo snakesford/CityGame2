@@ -54,6 +54,10 @@ let selectedBuildingType = null;
 // Selected tile for info panel
 let selectedTile = null;
 
+// Edit mode state
+let editMode = false;
+let tileBeingMoved = null; // {row, col, type, level}
+
 // Building type definitions
 const buildingTypes = {
   tepee: {
@@ -836,6 +840,11 @@ function renderGrid() {
         cell.classList.add('cell-selected');
       }
       
+      // Highlight tile being moved in edit mode
+      if (editMode && tileBeingMoved && tileBeingMoved.row === row && tileBeingMoved.col === col) {
+        cell.classList.add('cell-moving');
+      }
+      
       // Add click handler
       cell.addEventListener('click', () => handleCellClick(row, col));
       
@@ -863,6 +872,28 @@ function handleCellClick(row, col) {
   
   const tile = gameState.map[row][col];
   
+  // Edit mode: move buildings
+  if (editMode) {
+    if (tileBeingMoved) {
+      // Placing the building at new location
+      if (tile.type === "empty") {
+        moveBuilding(tileBeingMoved.row, tileBeingMoved.col, row, col);
+        tileBeingMoved = null;
+        renderGrid();
+        showMessage("Building moved!");
+      } else {
+        showMessage("Cannot place here - cell is occupied.");
+      }
+    } else if (tile.type !== "empty") {
+      // Pick up building to move
+      tileBeingMoved = { row, col, type: tile.type, level: tile.level };
+      renderGrid();
+      showMessage("Building selected. Click an empty cell to place it.");
+    }
+    return;
+  }
+  
+  // Normal mode behavior
   if (selectedBuildingType && tile.type === "empty") {
     // Try to place building
     if (!placeBuilding(row, col, selectedBuildingType)) {
@@ -1757,6 +1788,79 @@ function selectCharacter(characterType) {
   
   // Save the character selection
   saveGame();
+}
+
+// Toggle edit mode
+function toggleEditMode() {
+  editMode = !editMode;
+  tileBeingMoved = null;
+  selectedBuildingType = null;
+  selectedTile = null;
+  
+  const editBtn = document.getElementById('edit-mode-btn');
+  const editText = editBtn ? editBtn.querySelector('.edit-text') : null;
+  
+  if (editBtn && editText) {
+    if (editMode) {
+      editText.textContent = 'Exit Edit Mode';
+      editBtn.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+      showMessage("Edit mode enabled. Click a building to move it, then click an empty cell to place it.");
+    } else {
+      editText.textContent = 'Edit Mode';
+      editBtn.style.background = '';
+      showMessage("Edit mode disabled.");
+    }
+  }
+  
+  updateBuildingSelection();
+  renderGrid();
+  updateTileInfo();
+}
+
+// Move building from one position to another
+function moveBuilding(fromRow, fromCol, toRow, toCol) {
+  if (fromRow < 0 || fromRow >= GRID_SIZE || fromCol < 0 || fromCol >= GRID_SIZE) return false;
+  if (toRow < 0 || toRow >= GRID_SIZE || toCol < 0 || toCol >= GRID_SIZE) return false;
+  
+  const fromTile = gameState.map[fromRow][fromCol];
+  const toTile = gameState.map[toRow][toCol];
+  
+  if (fromTile.type === "empty" || toTile.type !== "empty") return false;
+  
+  // Save building data
+  const buildingType = fromTile.type;
+  const buildingLevel = fromTile.level;
+  
+  // Handle special data (kiln data)
+  let kilnData = null;
+  if (buildingType === "brickKiln" && gameState.kilns) {
+    const oldKey = `${fromRow}_${fromCol}`;
+    kilnData = gameState.kilns[oldKey];
+    if (kilnData) {
+      delete gameState.kilns[oldKey];
+    }
+  }
+  
+  // Move building
+  toTile.type = buildingType;
+  toTile.level = buildingLevel;
+  fromTile.type = "empty";
+  fromTile.level = 0;
+  
+  // Restore special data at new location
+  if (kilnData && buildingType === "brickKiln") {
+    if (!gameState.kilns) {
+      gameState.kilns = {};
+    }
+    const newKey = `${toRow}_${toCol}`;
+    gameState.kilns[newKey] = kilnData;
+  }
+  
+  calculateProduction();
+  updateUI();
+  updateTileInfo();
+  
+  return true;
 }
 
 // Toggle shop window

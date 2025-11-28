@@ -1478,11 +1478,26 @@ function updateBuildMenu() {
   }
 }
 
-// Save game (default slot)
+// Get last used save slot (defaults to 1)
+function getLastSaveSlot() {
+  const lastSlot = localStorage.getItem('cityBuilderLastSlot');
+  return lastSlot ? parseInt(lastSlot) : 1;
+}
+
+// Set last used save slot
+function setLastSaveSlot(slot) {
+  localStorage.setItem('cityBuilderLastSlot', slot.toString());
+}
+
+// Save game (uses last saved slot)
 function saveGame() {
+  const lastSlot = getLastSaveSlot();
   gameState.timestamp = Date.now();
-  localStorage.setItem('cityBuilderSave', JSON.stringify(gameState));
+  const slotKey = `cityBuilderSave_slot${lastSlot}`;
+  localStorage.setItem(slotKey, JSON.stringify(gameState));
+  setLastSaveSlot(lastSlot);
   updateSaveStatus();
+  updateSaveSlots();
   // showMessage("Game saved!");
 }
 
@@ -1491,6 +1506,7 @@ function saveGameSlot(slot) {
   gameState.timestamp = Date.now();
   const slotKey = `cityBuilderSave_slot${slot}`;
   localStorage.setItem(slotKey, JSON.stringify(gameState));
+  setLastSaveSlot(slot);
   updateSaveSlots();
   showMessage(`Game saved to slot ${slot}!`);
   hideLoadMenu();
@@ -1543,6 +1559,7 @@ function loadGameSlot(slot) {
       renderGrid();
       updateUI();
       updateSaveStatus();
+      setLastSaveSlot(slot);
       updateSaveSlots();
       hideLoadMenu();
       showMessage(`Game loaded from slot ${slot}!`);
@@ -1553,13 +1570,32 @@ function loadGameSlot(slot) {
   }
 }
 
-// Load game
+// Load game (checks last used slot first, then old default save)
 function loadGame() {
-  const saved = localStorage.getItem('cityBuilderSave');
+  // First try to load from last used slot
+  const lastSlot = getLastSaveSlot();
+  const slotKey = `cityBuilderSave_slot${lastSlot}`;
+  let saved = localStorage.getItem(slotKey);
+  let loadedFromOldSave = false;
+  
+  // If no save in last slot, try old default save for backward compatibility
+  if (!saved) {
+    saved = localStorage.getItem('cityBuilderSave');
+    loadedFromOldSave = !!saved;
+  }
+  
   if (saved) {
     try {
       const loaded = JSON.parse(saved);
       gameState = loaded;
+      
+      // If loaded from old default save, migrate to slot 1 and set as last slot
+      if (loadedFromOldSave) {
+        setLastSaveSlot(1);
+        const slot1Key = `cityBuilderSave_slot1`;
+        localStorage.setItem(slot1Key, saved);
+        localStorage.removeItem('cityBuilderSave');
+      }
       
       // Ensure character field exists (for old saves)
       if (!gameState.character) {

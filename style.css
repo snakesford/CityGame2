@@ -184,9 +184,9 @@ h4 {
 }
 
 /* Housing - Orange */
-.cell-house {
+.cell-tepee {
   background: 
-    url('images/house.png'),
+    url('images/tepee.png'),
     linear-gradient(135deg, #EF6C00 0%, #FB8C00 100%);
   background-size: 95% 95%, cover;
   background-position: center, center;

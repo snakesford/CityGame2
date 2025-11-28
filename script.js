@@ -56,8 +56,8 @@ let selectedTile = null;
 
 // Building type definitions
 const buildingTypes = {
-  house: {
-    displayName: "House",
+  tepee: {
+    displayName: "Tepee",
     category: "housing",
     baseCost: { wood: 20, stone: 0 },
     costGrowthFactor: 1.5,
@@ -1006,6 +1006,12 @@ function showCellTooltip(event, row, col) {
   }
   
   const building = buildingTypes[tile.type];
+  
+  if (!building) {
+    tooltip.style.display = 'none';
+    return;
+  }
+  
   const production = getBuildingProduction(tile.type, tile.level);
   
   let html = `<strong>${building.displayName}</strong><br>`;
@@ -1154,6 +1160,17 @@ function loadGame() {
       // Ensure map is initialized
       if (!gameState.map || gameState.map.length === 0) {
         initializeGrid();
+      }
+      
+      // Migrate old "house" buildings to "tepee"
+      if (gameState.map && gameState.map.length > 0) {
+        for (let row = 0; row < gameState.map.length; row++) {
+          for (let col = 0; col < gameState.map[row].length; col++) {
+            if (gameState.map[row][col].type === "house") {
+              gameState.map[row][col].type = "tepee";
+            }
+          }
+        }
       }
       
       // Recompute derived values

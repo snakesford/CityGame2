@@ -1216,6 +1216,21 @@ function showBuildingTooltip(event, buildingType) {
   // Building buttons always show level 1 (new placement)
   const level = 1;
   
+  // Determine color based on building category
+  let categoryColor = '#FFD700'; // Default gold
+  if (building.category === 'farming') {
+    categoryColor = '#4CAF50'; // Green
+  } else if (building.category === 'wood') {
+    categoryColor = '#8B4513'; // Brown
+  } else if (building.category === 'stone') {
+    // Check if it's an iron-related building
+    if (buildingType === 'ironMine') {
+      categoryColor = '#708090'; // Iron color
+    } else {
+      categoryColor = '#9E9E9E'; // Grey
+    }
+  }
+  
   const cost = getBuildingCost(buildingType, level);
   const production = getBuildingProduction(buildingType, level);
   const canAfford = gameState.resources.wood >= (cost.wood || 0) && 
@@ -1224,10 +1239,10 @@ function showBuildingTooltip(event, buildingType) {
                    gameState.resources.iron >= (cost.iron || 0) &&
                    gameState.resources.bricks >= (cost.bricks || 0);
   
-  let html = `<strong>${building.displayName}</strong><br>`;
+  let html = `<strong style="color: ${categoryColor};">${building.displayName}</strong><br>`;
   
   // Cost
-  html += `<p style="margin: 3px 0;"><strong>Cost:</strong> `;
+  html += `<p style="margin: 3px 0;"><strong style="color: ${categoryColor};">Cost:</strong> `;
   html += `<span style="color: ${canAfford ? '#4CAF50' : '#f44336'}">`;
   if (cost.wood > 0) {
     html += `<span style="font-size: 20px; font-weight: bold;">${cost.wood}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
@@ -1251,7 +1266,7 @@ function showBuildingTooltip(event, buildingType) {
   html += `</span></p>`;
   
   // Production/Benefits
-  html += `<p style="margin: 3px 0;"><strong>Produces:</strong> `;
+  html += `<p style="margin: 3px 0;"><strong style="color: ${categoryColor};">Produces:</strong> `;
   let hasProduction = false;
   if (production.wood > 0) {
     html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${production.wood.toFixed(2)} <img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
@@ -1269,7 +1284,7 @@ function showBuildingTooltip(event, buildingType) {
   }
   if (production.iron > 0) {
     if (hasProduction) html += `, `;
-    html += `<span style="color: #424242; font-size: 18px; font-weight: bold;">${production.iron.toFixed(2)} <img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+    html += `<span style="color: #708090; font-size: 18px; font-weight: bold;">${production.iron.toFixed(2)} <img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
     hasProduction = true;
   }
   if (production.population > 0) {
@@ -1306,13 +1321,14 @@ function showBuildingTooltip(event, buildingType) {
   if (gameState.character) {
     const character = characterTypes[gameState.character];
     if (gameState.character === 'farmer' && building.category === 'farming') {
-      html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Farmer Bonus:</strong> +50% production, +30% population growth</p>`;
+      html += `<p style="margin: 3px 0; color: ${categoryColor};"><strong>Farmer Bonus:</strong> +50% production, +30% population growth</p>`;
     }
     if (gameState.character === 'miner' && building.category === 'stone') {
-      html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Miner Bonus:</strong> +50% production, 20% discount</p>`;
+      const bonusColor = buildingType === 'ironMine' ? '#708090' : categoryColor;
+      html += `<p style="margin: 3px 0; color: ${bonusColor};"><strong>Miner Bonus:</strong> +50% production, 20% discount</p>`;
     }
     if (gameState.character === 'farmer' && level === 1 && building.category === 'farming') {
-      html += `<p style="margin: 3px 0; color: #4CAF50;"><strong>Farmer Bonus:</strong> 20% discount on farm buildings</p>`;
+      html += `<p style="margin: 3px 0; color: ${categoryColor};"><strong>Farmer Bonus:</strong> 20% discount on farm buildings</p>`;
     }
   }
   

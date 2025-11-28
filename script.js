@@ -590,6 +590,7 @@ function placeBuilding(row, col, buildingType) {
   
   calculateProduction();
   checkUnlocks();
+  updateBuildMenu();
   renderGrid();
   updateUI();
   
@@ -1048,8 +1049,11 @@ function updateBuildMenu() {
     }
     
     const cost = getBuildingCost(key, 1);
-    const canAfford = gameState.resources.wood >= cost.wood && 
-                     gameState.resources.stone >= cost.stone;
+    const canAfford = gameState.resources.wood >= (cost.wood || 0) && 
+                     gameState.resources.stone >= (cost.stone || 0) &&
+                     gameState.resources.clay >= (cost.clay || 0) &&
+                     gameState.resources.iron >= (cost.iron || 0) &&
+                     gameState.resources.bricks >= (cost.bricks || 0);
     
     btn.disabled = !building.unlocked || !canAfford;
     
@@ -1177,8 +1181,11 @@ function showBuildingTooltip(event, buildingType) {
   
   const cost = getBuildingCost(buildingType, level);
   const production = getBuildingProduction(buildingType, level);
-  const canAfford = gameState.resources.wood >= cost.wood && 
-                   gameState.resources.stone >= cost.stone;
+  const canAfford = gameState.resources.wood >= (cost.wood || 0) && 
+                   gameState.resources.stone >= (cost.stone || 0) &&
+                   gameState.resources.clay >= (cost.clay || 0) &&
+                   gameState.resources.iron >= (cost.iron || 0) &&
+                   gameState.resources.bricks >= (cost.bricks || 0);
   
   let html = `<strong>${building.displayName}</strong><br>`;
   
@@ -1188,9 +1195,21 @@ function showBuildingTooltip(event, buildingType) {
   if (cost.wood > 0) {
     html += `<span style="font-size: 20px; font-weight: bold;">${cost.wood}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
   }
-  if (cost.stone > 0) {
+  if (cost.bricks > 0) {
     if (cost.wood > 0) html += ` `;
+    html += `<span style="font-size: 20px; font-weight: bold;">${cost.bricks}</span> <img src="images/claybricks.png" alt="Bricks" style="width: 50px; height: 50px; vertical-align: middle;">`;
+  }
+  if (cost.stone > 0) {
+    if (cost.wood > 0 || cost.bricks > 0) html += ` `;
     html += `<span style="font-size: 20px; font-weight: bold;">${cost.stone}</span> <img src="images/rock.png" alt="Stone" style="width: 50px; height: 50px; vertical-align: middle;">`;
+  }
+  if (cost.clay > 0) {
+    if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0) html += ` `;
+    html += `<span style="font-size: 20px; font-weight: bold;">${cost.clay}</span> <img src="images/clay.png" alt="Clay" style="width: 50px; height: 50px; vertical-align: middle;">`;
+  }
+  if (cost.iron > 0) {
+    if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0) html += ` `;
+    html += `<span style="font-size: 20px; font-weight: bold;">${cost.iron}</span> <img src="images/iron.png" alt="Iron" style="width: 50px; height: 50px; vertical-align: middle;">`;
   }
   html += `</span></p>`;
   
@@ -1324,6 +1343,7 @@ setInterval(() => {
   // Update population
   calculateProduction();
   checkUnlocks();
+  updateBuildMenu();
   
   // Auto-save every 20 seconds
   const now = Date.now();

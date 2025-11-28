@@ -848,6 +848,24 @@ function renderGrid() {
         cell.classList.add('cell-moving');
       }
       
+      // Make cells with buildings draggable
+      if (tile.type !== "empty") {
+        cell.draggable = true;
+        cell.setAttribute('data-row', row);
+        cell.setAttribute('data-col', col);
+      }
+      
+      // Add drag event handlers for all cells
+      cell.addEventListener('dragover', (e) => handleDragOver(e, row, col));
+      cell.addEventListener('drop', (e) => handleDrop(e, row, col));
+      cell.addEventListener('dragleave', (e) => handleDragLeave(e));
+      
+      // Only add dragstart and dragend for cells with buildings
+      if (tile.type !== "empty") {
+        cell.addEventListener('dragstart', (e) => handleDragStart(e, row, col));
+        cell.addEventListener('dragend', (e) => handleDragEnd(e));
+      }
+      
       // Add click handler
       cell.addEventListener('click', () => handleCellClick(row, col));
       
@@ -864,6 +882,90 @@ function renderGrid() {
       gridContainer.appendChild(cell);
     }
   }
+}
+
+// Drag and drop handlers
+let draggedCell = null;
+
+function handleDragStart(e, row, col) {
+  const tile = gameState.map[row][col];
+  if (tile.type === "empty") {
+    e.preventDefault();
+    return;
+  }
+  
+  draggedCell = { row, col };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+  
+  // Add visual feedback
+  e.target.classList.add('cell-dragging');
+}
+
+function handleDragOver(e, row, col) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  
+  // Add visual feedback for valid drop target
+  if (draggedCell) {
+    const tile = gameState.map[row][col];
+    if (tile.type === "empty") {
+      e.currentTarget.classList.add('cell-drag-over');
+    }
+  }
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('cell-drag-over');
+}
+
+function handleDrop(e, row, col) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  // Remove drag-over class
+  e.currentTarget.classList.remove('cell-drag-over');
+  
+  if (!draggedCell) return;
+  
+  const fromRow = draggedCell.row;
+  const fromCol = draggedCell.col;
+  const toRow = row;
+  const toCol = col;
+  
+  // Don't do anything if dropping on the same cell
+  if (fromRow === toRow && fromCol === toCol) {
+    draggedCell = null;
+    return;
+  }
+  
+  const toTile = gameState.map[toRow][toCol];
+  
+  // Only allow dropping on empty cells
+  if (toTile.type === "empty") {
+    if (moveBuilding(fromRow, fromCol, toRow, toCol)) {
+      showMessage("Building moved!");
+      renderGrid();
+      updateTileInfo();
+    } else {
+      showMessage("Cannot move building.");
+    }
+  } else {
+    showMessage("Cannot place here - cell is occupied.");
+  }
+  
+  draggedCell = null;
+}
+
+function handleDragEnd(e) {
+  // Remove visual feedback
+  e.target.classList.remove('cell-dragging');
+  
+  // Remove drag-over class from all cells
+  const cells = document.querySelectorAll('.grid-cell');
+  cells.forEach(cell => cell.classList.remove('cell-drag-over'));
+  
+  draggedCell = null;
 }
 
 // Handle cell click

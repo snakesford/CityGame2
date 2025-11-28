@@ -91,17 +91,29 @@ h4 {
   margin-bottom: 0;
 }
 
+.building-category {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.building-category h4 {
+  grid-column: 1 / -1;
+  margin-bottom: 10px;
+}
+
 .building-btn {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 15px;
-  margin: 5px 0;
-  font-size: 14px;
+  padding: 15px 10px;
+  margin: 0;
+  font-size: 12px;
   font-weight: bold;
-  line-height: 30px; /* Match icon height */
+  line-height: 1.2;
   border-radius: 6px;
   cursor: pointer;
   border: 2px solid rgba(255,255,255,0.2);
@@ -109,15 +121,16 @@ h4 {
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   color: white;
   text-align: center;
-  min-height: 50px;
+  min-height: 140px;
 }
 
 .building-btn .building-icon {
-  width: 80%;
+  width: 70%;
   flex-shrink: 0;
   object-fit: contain;
-  width: 150px;
-  height: 150px;
+  max-width: 120px;
+  max-height: 120px;
+  padding: 5px;
 }
 
 .building-btn:hover:not(:disabled) {

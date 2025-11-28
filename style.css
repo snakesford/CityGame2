@@ -143,6 +143,7 @@ h4 {
 
 .grid-container {
   display: grid;
+  width: 100%;
   gap: 2px;
   background: rgba(0,0,0,0.5);
   padding: 2px;
@@ -184,34 +185,64 @@ h4 {
 
 /* Housing - Orange */
 .cell-house {
-  background: linear-gradient(135deg, #EF6C00 0%, #FB8C00 100%);
+  background: 
+    url('images/house.png'),
+    linear-gradient(135deg, #EF6C00 0%, #FB8C00 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #FF9800;
 }
 
 .cell-cabin {
-  background: linear-gradient(135deg, #FF9800 0%, #FFB74D 100%);
+  background: 
+    url('images/house.png'),
+    linear-gradient(135deg, #FF9800 0%, #FFB74D 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #FFB74D;
 }
 
 /* Farming - Green */
 .cell-farm {
-  background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%);
+  background: 
+    url('images/population.png'),
+    linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #4a7c2a;
 }
 
 .cell-advancedFarm {
-  background: linear-gradient(135deg, #4a7c2a 0%, #6b9e3d 100%);
+  background: 
+    url('images/population.png'),
+    linear-gradient(135deg, #4a7c2a 0%, #6b9e3d 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #6b9e3d;
 }
 
 /* Wood Production - Brown */
 .cell-lumberMill {
-  background: linear-gradient(135deg, #5D4037 0%, #6D4C41 100%);
+  background: 
+    url('images/wood-log.png'),
+    linear-gradient(135deg, #5D4037 0%, #6D4C41 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #8D6E63;
 }
 
 .cell-advancedLumberMill {
-  background: linear-gradient(135deg, #6D4C41 0%, #8D6E63 100%);
+  background: 
+    url('images/wood-log.png'),
+    linear-gradient(135deg, #6D4C41 0%, #8D6E63 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #A1887F;
 }
 
@@ -227,28 +258,73 @@ h4 {
 }
 
 .cell-clayPool {
-  background: linear-gradient(135deg, #8D6E63 0%, #A1887F 100%);
+  background: 
+    url('images/clay.png'),
+    linear-gradient(135deg, #8D6E63 0%, #A1887F 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #BCAAA4;
 }
 
 .cell-ironMine {
-  background: linear-gradient(135deg, #424242 0%, #616161 100%);
+  background: 
+    url('images/iron.png'),
+    linear-gradient(135deg, #424242 0%, #616161 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #757575;
 }
 
 .cell-deepMine {
-  background: linear-gradient(135deg, #424242 0%, #616161 100%);
+  background: 
+    url('images/pickaxe.png'),
+    linear-gradient(135deg, #424242 0%, #616161 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #757575;
 }
 
 .cell-brickKiln {
-  background: linear-gradient(135deg, #8D6E63 0%, #A1887F 100%);
+  background: 
+    url('images/claybricks.png'),
+    linear-gradient(135deg, #8D6E63 0%, #A1887F 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #BCAAA4;
 }
 
 .cell-brickHouse {
-  background: linear-gradient(135deg, #D32F2F 0%, #F44336 100%);
+  background: 
+    url('images/claybricks.png'),
+    linear-gradient(135deg, #D32F2F 0%, #F44336 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   border-color: #E57373;
+}
+
+.cell-orchard {
+  background: 
+    url('images/population.png'),
+    linear-gradient(135deg, #6b9e3d 0%, #8BC34A 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #9CCC65;
+}
+
+.cell-oreRefinery {
+  background: 
+    url('images/gold.png'),
+    linear-gradient(135deg, #616161 0%, #757575 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #9E9E9E;
 }
 
 /* Tile Info Panel */

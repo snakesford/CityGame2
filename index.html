@@ -58,9 +58,12 @@
   <!-- Top HUD -->
   <div id="hud" class="hud">
     <div id="character-indicator" class="character-indicator" style="text-align: center; margin-bottom: 10px; font-size: 18px; color: #FFD700; display: none;"></div>
-    <div style="text-align: center; margin-bottom: 10px;">
+    <div style="text-align: center; margin-bottom: 10px; display: flex; gap: 10px; justify-content: center;">
       <button id="shop-btn" class="shop-btn" onclick="toggleShop()">
         <img src="images/store.png" alt="Shop" style="width: 40px; height: 40px;">
+      </button>
+      <button id="quests-btn" class="quests-btn" onclick="toggleQuests()">
+        <img src="images/quests.png" alt="Quests" style="width: 40px; height: 40px;">
       </button>
     </div>
     <div class="resource-display">
@@ -331,6 +334,19 @@
           </div>
           <button id="upgrade-smelting-btn" class="shop-buy-btn" onclick="purchaseUpgrade('smeltingSpeed', 100)">Purchase</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quests Modal -->
+  <div id="quests-modal" class="quests-modal" style="display: none;">
+    <div class="quests-content">
+      <div class="quests-header">
+        <h2>Quests</h2>
+        <button class="quests-close" onclick="toggleQuests()">&times;</button>
+      </div>
+      <div class="quests-body">
+        <!-- Quest content will go here -->
       </div>
     </div>
   </div>

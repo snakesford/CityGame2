@@ -2408,6 +2408,18 @@ function toggleShop() {
   }
 }
 
+// Toggle quests window
+function toggleQuests() {
+  const questsModal = document.getElementById('quests-modal');
+  if (questsModal) {
+    if (questsModal.style.display === 'none' || questsModal.style.display === '') {
+      questsModal.style.display = 'flex';
+    } else {
+      questsModal.style.display = 'none';
+    }
+  }
+}
+
 // Update brick trade display
 function updateBrickTrade(amount) {
   const slider = document.getElementById('brick-slider');
@@ -2542,6 +2554,13 @@ window.addEventListener('click', (event) => {
   const shopContent = document.querySelector('.shop-content');
   if (shopModal && event.target === shopModal) {
     shopModal.style.display = 'none';
+  }
+  
+  // Close quests modal when clicking outside
+  const questsModal = document.getElementById('quests-modal');
+  const questsContent = document.querySelector('.quests-content');
+  if (questsModal && event.target === questsModal) {
+    questsModal.style.display = 'none';
   }
   
   // Close load menu when clicking outside

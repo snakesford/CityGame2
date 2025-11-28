@@ -971,8 +971,15 @@ function updateTileInfo() {
   const infoPanel = document.getElementById('tile-info');
   if (!infoPanel) return;
   
+  // Preserve the control buttons section
+  const controlsSection = infoPanel.querySelector('.tile-info-controls');
+  
   if (!selectedTile) {
     infoPanel.innerHTML = '<p>Select a building to place or click on a placed building to view details.</p>';
+    // Restore control buttons
+    if (controlsSection) {
+      infoPanel.appendChild(controlsSection);
+    }
     return;
   }
   
@@ -980,6 +987,10 @@ function updateTileInfo() {
   
   if (tile.type === "empty") {
     infoPanel.innerHTML = '<p>Empty tile. Select a building type to place here.</p>';
+    // Restore control buttons
+    if (controlsSection) {
+      infoPanel.appendChild(controlsSection);
+    }
     return;
   }
   
@@ -1074,6 +1085,11 @@ function updateTileInfo() {
   html += `<button id="remove-btn"><img src="images/sell.png" alt="Sell" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;">50% refund</button>`;
   
   infoPanel.innerHTML = html;
+  
+  // Restore control buttons if they exist
+  if (controlsSection) {
+    infoPanel.appendChild(controlsSection);
+  }
   
   // Add event listeners
   const upgradeBtn = document.getElementById('upgrade-btn');

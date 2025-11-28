@@ -440,6 +440,7 @@ h4 {
   justify-content: center;
   gap: 5px;
   min-width: 100px;
+  border-radius: 8px;
 }
 
 .edit-mode-btn .edit-icon,

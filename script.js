@@ -197,6 +197,7 @@ const buildingTypes = {
     unlocked: true,
     smeltTime: 10000, // 10 seconds in milliseconds
     smeltClayAmount: 10, // Amount of clay per smelt batch
+    smeltWoodAmount: 10, // Amount of wood fuel per smelt batch
     smeltBrickOutput: 5, // Bricks produced per batch
     maxClayStorage: 100
   },
@@ -381,6 +382,16 @@ function calculateProduction() {
 
 // Process kiln conversion (clay -> bricks)
 function processKiln(row, col, level) {
+  // Safety check for map bounds and tile type
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+    return;
+  }
+  
+  const tile = gameState.map[row][col];
+  if (tile.type !== "brickKiln") {
+    return;
+  }
+  
   // Ensure kilns object exists
   if (!gameState.kilns) {
     gameState.kilns = {};
@@ -395,6 +406,7 @@ function processKiln(row, col, level) {
   const building = buildingTypes.brickKiln;
   const smeltTime = building.smeltTime;
   const smeltClayAmount = building.smeltClayAmount;
+  const smeltWoodAmount = building.smeltWoodAmount;
   const smeltBrickOutput = building.smeltBrickOutput;
   
   const now = Date.now();
@@ -410,9 +422,10 @@ function processKiln(row, col, level) {
     }
   }
   
-  // Start a new smelting batch if we have enough clay and aren't already smelting
-  if (kiln.smeltingStartTime === null && kiln.clay >= smeltClayAmount) {
+  // Start a new smelting batch if we have enough clay, wood fuel, and aren't already smelting
+  if (kiln.smeltingStartTime === null && kiln.clay >= smeltClayAmount && gameState.resources.wood >= smeltWoodAmount) {
     kiln.clay -= smeltClayAmount;
+    gameState.resources.wood -= smeltWoodAmount; // Consume wood as fuel
     kiln.smeltingStartTime = now;
     kiln.smeltingAmount = smeltClayAmount;
   }
@@ -420,6 +433,11 @@ function processKiln(row, col, level) {
 
 // Add clay to kiln
 function addClayToKiln(row, col, amount) {
+  // Safety check for map bounds
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+    return false;
+  }
+  
   // Ensure kilns object exists
   if (!gameState.kilns) {
     gameState.kilns = {};
@@ -453,6 +471,11 @@ function addClayToKiln(row, col, amount) {
 
 // Harvest bricks from kiln
 function harvestBricksFromKiln(row, col) {
+  // Safety check for map bounds
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+    return false;
+  }
+  
   // Ensure kilns object exists
   if (!gameState.kilns) {
     gameState.kilns = {};
@@ -697,6 +720,11 @@ function renderGrid() {
 
 // Handle cell click
 function handleCellClick(row, col) {
+  // Safety check for map bounds
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+    return;
+  }
+  
   const tile = gameState.map[row][col];
   
   if (selectedBuildingType && tile.type === "empty") {
@@ -835,6 +863,7 @@ function updateTileInfo() {
     }
     html += `</p>`;
     html += `<p>Ready Bricks: ${kiln.bricks.toFixed(1)}</p>`;
+    html += `<p style="color: #888; font-size: 12px;">Requires ${building.smeltWoodAmount} wood fuel per batch</p>`;
     
     // Show smelting progress
     if (kiln.smeltingStartTime !== null) {
@@ -842,6 +871,8 @@ function updateTileInfo() {
       html += `<div style="background: rgba(255,255,255,0.2); border-radius: 4px; height: 20px; margin: 5px 0;">`;
       html += `<div style="background: #FF9800; height: 100%; width: ${smeltingProgress}%; border-radius: 4px; transition: width 0.3s;"></div>`;
       html += `</div>`;
+    } else if (kiln.clay >= building.smeltClayAmount && gameState.resources.wood < building.smeltWoodAmount) {
+      html += `<p style="color: #FF6B6B;">Not enough wood fuel (need ${building.smeltWoodAmount}, have ${Math.floor(gameState.resources.wood)})</p>`;
     }
     
     html += `<button id="add-clay-btn" style="margin: 5px 0;" ${gameState.resources.clay <= 0 ? 'disabled' : ''}>Add 10 Clay</button>`;

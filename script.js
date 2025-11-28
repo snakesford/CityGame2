@@ -1489,6 +1489,14 @@ function setLastSaveSlot(slot) {
   localStorage.setItem('cityBuilderLastSlot', slot.toString());
 }
 
+// Cycle to next save slot (1->2, 2->3, 3->1)
+function cycleToNextSaveSlot() {
+  const currentSlot = getLastSaveSlot();
+  const nextSlot = currentSlot === 3 ? 1 : currentSlot + 1;
+  setLastSaveSlot(nextSlot);
+  return nextSlot;
+}
+
 // Save game (uses last saved slot)
 function saveGame() {
   const lastSlot = getLastSaveSlot();
@@ -1685,6 +1693,8 @@ function resetGame() {
   }
   if (confirm('Are you sure you want to reset your game? This cannot be undone.')) {
     localStorage.removeItem('cityBuilderSave');
+    // Cycle to next save slot for new game
+    cycleToNextSaveSlot();
     gameState = {
       resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0 },
       rates: { wps: 1, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0 }, // Base 1 wps
@@ -2238,8 +2248,11 @@ function selectCharacter(characterType) {
   hideCharacterSelection();
   
   // Initialize game if not already initialized
-  if (!gameState.map || gameState.map.length === 0) {
+  const isNewGame = !gameState.map || gameState.map.length === 0;
+  if (isNewGame) {
     initializeGrid();
+    // Cycle to next save slot for new game
+    cycleToNextSaveSlot();
   }
   
   // Update UI to reflect character bonuses

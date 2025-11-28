@@ -232,46 +232,114 @@ const buildingIcons = {
   brickKiln: 'images/claybricks.png'
 };
 
-// Building category colors
+// Building category colors - matches cell tile colors exactly
 function getCategoryColors(category, buildingType) {
-  switch (category) {
-    case 'housing':
+  // Match specific building types to their exact cell tile colors
+  switch (buildingType) {
+    case 'tepee':
       return {
         gradient: 'linear-gradient(135deg, #EF6C00 0%, #FB8C00 100%)',
         border: '#FF9800'
       };
-    case 'farming':
+    case 'cabin':
+      return {
+        gradient: 'linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)',
+        border: '#FFB74D'
+      };
+    case 'brickHouse':
+      return {
+        gradient: 'linear-gradient(135deg, #BF360C 0%, #8E2E00 100%)',
+        border: '#D84315'
+      };
+    case 'farm':
       return {
         gradient: 'linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%)',
         border: '#4a7c2a'
       };
-    case 'wood':
+    case 'advancedFarm':
+      return {
+        gradient: 'linear-gradient(135deg, #4a7c2a 0%, #6b9e3d 100%)',
+        border: '#6b9e3d'
+      };
+    case 'orchard':
+      return {
+        gradient: 'linear-gradient(135deg, #6b9e3d 0%, #8BC34A 100%)',
+        border: '#9CCC65'
+      };
+    case 'lumberMill':
       return {
         gradient: 'linear-gradient(135deg, #5D4037 0%, #6D4C41 100%)',
         border: '#8D6E63'
       };
-    case 'stone':
-      // Special case for iron mine
-      if (buildingType === 'ironMine') {
-        return {
-          gradient: 'linear-gradient(135deg, #708090 0%, #5a6a7a 100%)',
-          border: '#708090'
-        };
-      }
+    case 'advancedLumberMill':
+      return {
+        gradient: 'linear-gradient(135deg, #6D4C41 0%, #8D6E63 100%)',
+        border: '#A1887F'
+      };
+    case 'quarry':
       return {
         gradient: 'linear-gradient(135deg, #616161 0%, #757575 100%)',
         border: '#9E9E9E'
       };
-    case 'production':
+    case 'clayPool':
+      return {
+        gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
+        border: '#BCAAA4'
+      };
+    case 'ironMine':
+      return {
+        gradient: 'linear-gradient(135deg, #424242 0%, #616161 100%)',
+        border: '#757575'
+      };
+    case 'deepMine':
+      return {
+        gradient: 'linear-gradient(135deg, #424242 0%, #616161 100%)',
+        border: '#757575'
+      };
+    case 'oreRefinery':
+      return {
+        gradient: 'linear-gradient(135deg, #616161 0%, #757575 100%)',
+        border: '#9E9E9E'
+      };
+    case 'brickKiln':
       return {
         gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
         border: '#BCAAA4'
       };
     default:
-      return {
-        gradient: 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)',
-        border: 'rgba(255,255,255,0.2)'
-      };
+      // Fallback to category-based colors for any new buildings
+      switch (category) {
+        case 'housing':
+          return {
+            gradient: 'linear-gradient(135deg, #EF6C00 0%, #FB8C00 100%)',
+            border: '#FF9800'
+          };
+        case 'farming':
+          return {
+            gradient: 'linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%)',
+            border: '#4a7c2a'
+          };
+        case 'wood':
+          return {
+            gradient: 'linear-gradient(135deg, #5D4037 0%, #6D4C41 100%)',
+            border: '#8D6E63'
+          };
+        case 'stone':
+          return {
+            gradient: 'linear-gradient(135deg, #616161 0%, #757575 100%)',
+            border: '#9E9E9E'
+          };
+        case 'production':
+          return {
+            gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
+            border: '#BCAAA4'
+          };
+        default:
+          return {
+            gradient: 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)',
+            border: 'rgba(255,255,255,0.2)'
+          };
+      }
   }
 }
 

@@ -2691,6 +2691,8 @@ function checkQuests() {
           if (questDef.checkCondition && questDef.checkCondition()) {
             quest.completed = true;
             updateQuestIndicator();
+            // Show completion popup
+            showQuestCompletionPopup(questDef);
             // Update UI if quests modal is open
             const questsModal = document.getElementById('quests-modal');
             if (questsModal && questsModal.style.display === 'flex') {
@@ -2846,6 +2848,56 @@ function toggleQuests() {
     } else {
       questsModal.style.display = 'none';
     }
+  }
+}
+
+// Show quest completion popup
+function showQuestCompletionPopup(questDef) {
+  const popup = document.getElementById('quest-completion-popup');
+  const titleEl = document.getElementById('quest-completion-title');
+  const descEl = document.getElementById('quest-completion-description');
+  const rewardEl = document.getElementById('quest-completion-reward-text');
+  
+  if (!popup || !titleEl || !descEl || !rewardEl) return;
+  
+  // Set quest information
+  titleEl.textContent = questDef.title;
+  descEl.textContent = questDef.description;
+  
+  // Format rewards
+  const rewardParts = [];
+  Object.keys(questDef.reward).forEach(resource => {
+    const amount = questDef.reward[resource];
+    const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+    rewardParts.push(`${amount} ${resourceName}`);
+  });
+  rewardEl.textContent = rewardParts.join(', ');
+  
+  // Show popup
+  popup.style.display = 'flex';
+  
+  // Auto-close after 5 seconds if not manually closed
+  setTimeout(() => {
+    if (popup.style.display === 'flex') {
+      closeQuestCompletionPopup();
+    }
+  }, 5000);
+}
+
+// Close quest completion popup and claim reward
+function closeQuestCompletionPopup() {
+  const popup = document.getElementById('quest-completion-popup');
+  if (popup) {
+    const titleEl = document.getElementById('quest-completion-title');
+    if (titleEl) {
+      const questTitle = titleEl.textContent;
+      // Find the quest by title and claim its reward
+      const questDef = questDefinitions.find(q => q.title === questTitle);
+      if (questDef) {
+        claimQuestReward(questDef.id);
+      }
+    }
+    popup.style.display = 'none';
   }
 }
 

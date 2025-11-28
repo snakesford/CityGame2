@@ -299,12 +299,12 @@ h4 {
 
 .cell-brickHouse {
   background: 
-    url('images/claybricks.png'),
-    linear-gradient(135deg, #D32F2F 0%, #F44336 100%);
+    url('images/brickhouse.png'),
+    linear-gradient(135deg, #C62828 0%, #B71C1C 100%);
   background-size: 95% 95%, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
-  border-color: #E57373;
+  border-color: #D32F2F;
 }
 
 .cell-orchard {

@@ -1050,8 +1050,11 @@ function updateTileInfo() {
       html += `<p style="color: #FF6B6B;">Not enough wood fuel (need ${building.smeltWoodAmount}, have ${Math.floor(gameState.resources.wood)})</p>`;
     }
     
-    html += `<button id="add-clay-btn" style="margin: 5px 0;" ${gameState.resources.clay <= 0 ? 'disabled' : ''}>Add 10 Clay</button>`;
-    html += `<button id="harvest-bricks-btn" style="margin: 5px 0;" ${kiln.bricks <= 0 ? 'disabled' : ''}>Harvest ${kiln.bricks > 0 ? Math.floor(kiln.bricks) : 0} Bricks</button>`;
+    html += `<div style="display: flex; gap: 5px; margin: 5px 0;">`;
+    html += `<button id="add-clay-btn" style="flex: 1;" ${gameState.resources.clay <= 0 ? 'disabled' : ''}>Add 10 Clay</button>`;
+    html += `<button id="add-clay-max-btn" style="flex: 1;" ${gameState.resources.clay <= 0 || totalClayUsed >= maxStorage ? 'disabled' : ''}>Max</button>`;
+    html += `</div>`;
+    html += `<button id="harvest-bricks-btn" style="margin: 5px 0; width: 100%;" ${kiln.bricks <= 0 ? 'disabled' : ''}>Harvest ${kiln.bricks > 0 ? Math.floor(kiln.bricks) : 0} Bricks</button>`;
   }
   
   if (canUpgrade) {
@@ -1108,6 +1111,28 @@ function updateTileInfo() {
         showMessage("Added clay to kiln.");
       } else {
         showMessage("Cannot add clay: insufficient clay or kiln is full.");
+      }
+    });
+  }
+  
+  const addClayMaxBtn = document.getElementById('add-clay-max-btn');
+  if (addClayMaxBtn) {
+    addClayMaxBtn.addEventListener('click', () => {
+      const kilnKey = `${selectedTile.row}_${selectedTile.col}`;
+      const kiln = gameState.kilns[kilnKey] || { clay: 0, bricks: 0, smeltingStartTime: null, smeltingAmount: 0 };
+      const building = buildingTypes.brickKiln;
+      const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
+      const maxStorage = building.maxClayStorage * factor;
+      const totalClayUsed = kiln.clay + (kiln.smeltingAmount || 0);
+      const availableSpace = maxStorage - totalClayUsed;
+      const maxAmount = Math.min(availableSpace, gameState.resources.clay);
+      
+      if (maxAmount > 0 && addClayToKiln(selectedTile.row, selectedTile.col, maxAmount)) {
+        updateTileInfo();
+        updateUI();
+        showMessage(`Added ${Math.floor(maxAmount)} clay to kiln (max).`);
+      } else {
+        showMessage("Cannot add clay: kiln is full or no clay available.");
       }
     });
   }

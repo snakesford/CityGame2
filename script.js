@@ -728,8 +728,8 @@ function processSmelter(row, col, level) {
   const smeltClayAmount = building.smeltClayAmount;
   const smeltIronAmount = building.smeltIronAmount;
   const smeltWoodAmount = building.smeltWoodAmount;
-  const smeltBrickOutput = building.smeltBrickOutput * Math.pow(building.productionGrowthFactor, level - 1);
-  const smeltIronBarOutput = building.smeltIronBarOutput * Math.pow(building.productionGrowthFactor, level - 1);
+  const smeltBrickOutput = building.smeltBrickOutput; // Always 5 bricks, no level scaling
+  const smeltIronBarOutput = building.smeltIronBarOutput; // Always 1 iron bar, no level scaling
   
   const now = Date.now();
   

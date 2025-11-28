@@ -9,7 +9,8 @@ let gameState = {
     clay: 0,
     iron: 0,
     gold: 0,
-    bricks: 0
+    bricks: 0,
+    ironBars: 0
   },
   rates: {
     wps: 1, // Base 1 wps
@@ -19,7 +20,7 @@ let gameState = {
     gps: 0, // Gold per second
     bps: 0 // Bricks per second
   },
-  kilns: {}, // Store kiln data: {row_col: {clay: amount, bricks: amount, smeltingStartTime: timestamp, smeltingAmount: amount}}
+  smelters: {}, // Store smelter data: {row_col: {clay: amount, bricks: amount, iron: amount, ironBars: amount, smeltingStartTime: timestamp, smeltingAmount: amount, smeltingType: 'clay'|'iron'}}
   population: {
     current: 0,
     capacity: 0
@@ -33,7 +34,8 @@ let gameState = {
     clayProduction: false, // +20% clay production
     housingCapacity: false, // +20% housing capacity
     smeltingSpeed: false // +20% smelting speed
-  }
+  },
+  quests: [] // Array of quest progress: [{id, completed, claimed}]
 };
 
 // Character types with bonuses
@@ -67,6 +69,146 @@ let tileBeingMoved = null; // {row, col, type, level}
 
 // Shift key state for multiple building placement
 let shiftHeld = false;
+
+// Quest definitions
+const questDefinitions = [
+  {
+    id: 'first_shelter',
+    title: 'A Place to Sleep',
+    description: 'Build 1 Tepee to start housing your population.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'tepee') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { wood: 20 }
+  },
+  {
+    id: 'basic_sustenance',
+    title: 'Feeding the Tribe',
+    description: 'Build 1 Farm.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'farm') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { stone: 20 }
+  },
+  {
+    id: 'timber',
+    title: 'Timber Production',
+    description: 'Reach a wood production rate of 5 per second.',
+    checkCondition: () => gameState.rates.wps >= 5,
+    reward: { wood: 50 }
+  },
+  {
+    id: 'growing_community',
+    title: 'Growing Community',
+    description: 'Reach a total population of 10.',
+    checkCondition: () => gameState.population.current >= 10,
+    reward: { stone: 50 }
+  },
+  {
+    id: 'stone_age',
+    title: 'The Stone Age',
+    description: 'Build a Quarry to start gathering stone.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'quarry') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { clay: 30 }
+  },
+  {
+    id: 'expansion',
+    title: 'Better Buildings',
+    description: 'Upgrade any building to Level 2.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].level >= 2) {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { wood: 50, stone: 50 }
+  },
+  {
+    id: 'clay_industry',
+    title: 'Mud to Materials',
+    description: 'Build a Clay Pool and reach 100 stored Clay.',
+    checkCondition: () => {
+      let hasClayPool = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'clayPool') {
+            hasClayPool = true;
+            break;
+          }
+        }
+        if (hasClayPool) break;
+      }
+      return hasClayPool && gameState.resources.clay >= 100;
+    },
+    reward: { iron: 20 }
+  },
+  {
+    id: 'firing_up',
+    title: 'Industrialization',
+    description: 'Build a Smelter.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'smelter') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { wood: 20 }
+  },
+  {
+    id: 'master_smelter',
+    title: 'Heavy Industry',
+    description: 'Produce a total of 20 Clay Bricks.',
+    checkCondition: () => gameState.resources.bricks >= 20,
+    reward: { gold: 5 }
+  },
+  {
+    id: 'urban_living',
+    title: 'Modern Living',
+    description: 'Build a Brick House.',
+    checkCondition: () => {
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'brickHouse') {
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+    reward: { gold: 100 }
+  }
+];
 
 // Building type definitions
 const buildingTypes = {
@@ -200,8 +342,8 @@ const buildingTypes = {
     unlockCondition: { type: "buildingCount", buildingType: "advancedFarm", threshold: 1 },
     requiredCharacter: "farmer" // Farmer-only building
   },
-  brickKiln: {
-    displayName: "Brick Kiln",
+  smelter: {
+    displayName: "Smelter",
     category: "production",
     baseCost: { wood: 60, stone: 20 },
     costGrowthFactor: 1.5,
@@ -211,9 +353,12 @@ const buildingTypes = {
     unlocked: true,
     smeltTime: 10000, // 10 seconds in milliseconds
     smeltClayAmount: 10, // Amount of clay per smelt batch
+    smeltIronAmount: 10, // Amount of iron per smelt batch
     smeltWoodAmount: 10, // Amount of wood fuel per smelt batch
     smeltBrickOutput: 5, // Bricks produced per batch
-    maxClayStorage: 100
+    smeltIronBarOutput: 1, // Iron bars produced per batch (10:1 ratio)
+    maxClayStorage: 100,
+    maxIronStorage: 100
   },
   brickHouse: {
     displayName: "Brick House",
@@ -224,7 +369,7 @@ const buildingTypes = {
     productionGrowthFactor: 1.4,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "buildingCount", buildingType: "brickKiln", threshold: 1 }
+    unlockCondition: { type: "buildingCount", buildingType: "smelter", threshold: 1 }
   }
 };
 
@@ -243,7 +388,7 @@ const buildingIcons = {
   ironMine: 'images/iron.png',
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
-  brickKiln: 'images/kiln.png'
+  smelter: 'images/kiln.png'
 };
 
 // Building category colors - matches cell tile colors exactly
@@ -315,7 +460,7 @@ function getCategoryColors(category, buildingType) {
         gradient: 'linear-gradient(135deg, #616161 0%, #757575 100%)',
         border: '#9E9E9E'
       };
-    case 'brickKiln':
+        case 'smelter':
       return {
         gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
         border: '#BCAAA4'
@@ -501,9 +646,9 @@ function calculateProduction() {
     for (let col = 0; col < GRID_SIZE; col++) {
       const tile = gameState.map[row][col];
       if (tile.type !== "empty") {
-        // Handle kiln processing
-        if (tile.type === "brickKiln") {
-          processKiln(row, col, tile.level);
+        // Handle smelter processing
+        if (tile.type === "smelter") {
+          processSmelter(row, col, tile.level);
         }
         
         const production = getBuildingProduction(tile.type, tile.level);
@@ -539,120 +684,232 @@ function calculateProduction() {
   );
 }
 
-// Process kiln conversion (clay -> bricks)
-function processKiln(row, col, level) {
+// Process smelter conversion (clay -> bricks or iron -> iron bars)
+function processSmelter(row, col, level) {
   // Safety check for map bounds and tile type
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
     return;
   }
   
   const tile = gameState.map[row][col];
-  if (tile.type !== "brickKiln") {
+  if (tile.type !== "smelter") {
     return;
   }
   
-  // Ensure kilns object exists
-  if (!gameState.kilns) {
-    gameState.kilns = {};
+  // Ensure smelters object exists
+  if (!gameState.smelters) {
+    gameState.smelters = {};
   }
   
-  const kilnKey = `${row}_${col}`;
-  if (!gameState.kilns[kilnKey]) {
-    gameState.kilns[kilnKey] = { clay: 0, bricks: 0, smeltingStartTime: null, smeltingAmount: 0 };
+  const smelterKey = `${row}_${col}`;
+  if (!gameState.smelters[smelterKey]) {
+    gameState.smelters[smelterKey] = { 
+      clay: 0, 
+      bricks: 0, 
+      iron: 0, 
+      ironBars: 0, 
+      smeltingStartTime: null, 
+      smeltingAmount: 0,
+      smeltingType: null // 'clay' or 'iron'
+    };
   }
   
-  const kiln = gameState.kilns[kilnKey];
-  const building = buildingTypes.brickKiln;
+  const smelter = gameState.smelters[smelterKey];
+  // Ensure all fields exist (for old saves that might be missing iron/ironBars)
+  if (smelter.iron === undefined) smelter.iron = 0;
+  if (smelter.ironBars === undefined) smelter.ironBars = 0;
+  if (smelter.smeltingType === undefined) smelter.smeltingType = null;
+  const building = buildingTypes.smelter;
   let smeltTime = building.smeltTime;
   // Apply smelting speed upgrade (20% faster = 80% of original time)
   if (gameState.upgrades.smeltingSpeed) {
     smeltTime = smeltTime * 0.8;
   }
   const smeltClayAmount = building.smeltClayAmount;
+  const smeltIronAmount = building.smeltIronAmount;
   const smeltWoodAmount = building.smeltWoodAmount;
-  const smeltBrickOutput = building.smeltBrickOutput;
+  const smeltBrickOutput = building.smeltBrickOutput; // Always 5 bricks, no level scaling
+  const smeltIronBarOutput = building.smeltIronBarOutput; // Always 1 iron bar, no level scaling
   
   const now = Date.now();
   
   // Check if a smelting batch is complete
-  if (kiln.smeltingStartTime !== null) {
-    const elapsedTime = now - kiln.smeltingStartTime;
+  if (smelter.smeltingStartTime !== null) {
+    const elapsedTime = now - smelter.smeltingStartTime;
     if (elapsedTime >= smeltTime) {
-      // Smelting complete! Add bricks and reset smelting state
-      kiln.bricks += smeltBrickOutput;
-      kiln.smeltingStartTime = null;
-      kiln.smeltingAmount = 0;
+      // Smelting complete! Add output and reset smelting state
+      if (smelter.smeltingType === 'clay') {
+        if (!smelter.bricks) smelter.bricks = 0;
+        smelter.bricks += smeltBrickOutput;
+      } else if (smelter.smeltingType === 'iron') {
+        if (!smelter.ironBars) smelter.ironBars = 0;
+        smelter.ironBars += smeltIronBarOutput;
+      }
+      smelter.smeltingStartTime = null;
+      smelter.smeltingAmount = 0;
+      smelter.smeltingType = null;
     }
   }
   
-  // Start a new smelting batch if we have enough clay, wood fuel, and aren't already smelting
-  if (kiln.smeltingStartTime === null && kiln.clay >= smeltClayAmount && gameState.resources.wood >= smeltWoodAmount) {
-    kiln.clay -= smeltClayAmount;
-    gameState.resources.wood -= smeltWoodAmount; // Consume wood as fuel
-    kiln.smeltingStartTime = now;
-    kiln.smeltingAmount = smeltClayAmount;
+  // Start a new smelting batch if we have enough materials, wood fuel, and aren't already smelting
+  if (smelter.smeltingStartTime === null && gameState.resources.wood >= smeltWoodAmount) {
+    // Prioritize clay if available, otherwise try iron
+    const clayAmount = smelter.clay || 0;
+    const ironAmount = smelter.iron || 0;
+    if (clayAmount >= smeltClayAmount) {
+      smelter.clay -= smeltClayAmount;
+      gameState.resources.wood -= smeltWoodAmount;
+      smelter.smeltingStartTime = now;
+      smelter.smeltingAmount = smeltClayAmount;
+      smelter.smeltingType = 'clay';
+    } else if (ironAmount >= smeltIronAmount) {
+      smelter.iron -= smeltIronAmount;
+      gameState.resources.wood -= smeltWoodAmount;
+      smelter.smeltingStartTime = now;
+      smelter.smeltingAmount = smeltIronAmount;
+      smelter.smeltingType = 'iron';
+    }
   }
 }
 
-// Add clay to kiln
-function addClayToKiln(row, col, amount) {
+// Add clay to smelter
+function addClayToSmelter(row, col, amount) {
   // Safety check for map bounds
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
     return false;
   }
   
-  // Ensure kilns object exists
-  if (!gameState.kilns) {
-    gameState.kilns = {};
+  // Ensure smelters object exists
+  if (!gameState.smelters) {
+    gameState.smelters = {};
   }
   
-  const kilnKey = `${row}_${col}`;
-  if (!gameState.kilns[kilnKey]) {
-    gameState.kilns[kilnKey] = { clay: 0, bricks: 0, smeltingStartTime: null, smeltingAmount: 0 };
+  const smelterKey = `${row}_${col}`;
+  if (!gameState.smelters[smelterKey]) {
+    gameState.smelters[smelterKey] = { 
+      clay: 0, 
+      bricks: 0, 
+      iron: 0, 
+      ironBars: 0, 
+      smeltingStartTime: null, 
+      smeltingAmount: 0,
+      smeltingType: null
+    };
   }
   
-  const kiln = gameState.kilns[kilnKey];
+  const smelter = gameState.smelters[smelterKey];
   const tile = gameState.map[row][col];
-  if (tile.type !== "brickKiln") return false;
+  if (tile.type !== "smelter") return false;
   
-  const building = buildingTypes.brickKiln;
+  const building = buildingTypes.smelter;
   const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
   const maxStorage = building.maxClayStorage * factor;
   
   // Calculate available space (current clay + clay being smelted)
-  const totalClayUsed = kiln.clay + (kiln.smeltingAmount || 0);
+  const totalClayUsed = smelter.clay + (smelter.smeltingType === 'clay' ? smelter.smeltingAmount : 0);
   const availableSpace = maxStorage - totalClayUsed;
   const amountToAdd = Math.min(amount, availableSpace, gameState.resources.clay);
   
   if (amountToAdd > 0) {
-    kiln.clay += amountToAdd;
+    smelter.clay += amountToAdd;
     gameState.resources.clay -= amountToAdd;
     return true;
   }
   return false;
 }
 
-// Harvest bricks from kiln
-function harvestBricksFromKiln(row, col) {
+// Add iron to smelter
+function addIronToSmelter(row, col, amount) {
   // Safety check for map bounds
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
     return false;
   }
   
-  // Ensure kilns object exists
-  if (!gameState.kilns) {
-    gameState.kilns = {};
+  // Ensure smelters object exists
+  if (!gameState.smelters) {
+    gameState.smelters = {};
   }
   
-  const kilnKey = `${row}_${col}`;
-  if (!gameState.kilns || !gameState.kilns[kilnKey]) return false;
+  const smelterKey = `${row}_${col}`;
+  if (!gameState.smelters[smelterKey]) {
+    gameState.smelters[smelterKey] = { 
+      clay: 0, 
+      bricks: 0, 
+      iron: 0, 
+      ironBars: 0, 
+      smeltingStartTime: null, 
+      smeltingAmount: 0,
+      smeltingType: null
+    };
+  }
   
-  const kiln = gameState.kilns[kilnKey];
-  if (kiln.bricks > 0) {
-    const bricksToHarvest = kiln.bricks;
+  const smelter = gameState.smelters[smelterKey];
+  const tile = gameState.map[row][col];
+  if (tile.type !== "smelter") return false;
+  
+  const building = buildingTypes.smelter;
+  const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
+  const maxStorage = building.maxIronStorage * factor;
+  
+  // Calculate available space (current iron + iron being smelted)
+  const totalIronUsed = smelter.iron + (smelter.smeltingType === 'iron' ? smelter.smeltingAmount : 0);
+  const availableSpace = maxStorage - totalIronUsed;
+  const amountToAdd = Math.min(amount, availableSpace, gameState.resources.iron);
+  
+  if (amountToAdd > 0) {
+    smelter.iron += amountToAdd;
+    gameState.resources.iron -= amountToAdd;
+    return true;
+  }
+  return false;
+}
+
+// Harvest bricks from smelter
+function harvestBricksFromSmelter(row, col) {
+  // Safety check for map bounds
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+    return false;
+  }
+  
+  // Ensure smelters object exists
+  if (!gameState.smelters) {
+    gameState.smelters = {};
+  }
+
+  const smelterKey = `${row}_${col}`;
+  if (!gameState.smelters || !gameState.smelters[smelterKey]) return false;
+
+  const smelter = gameState.smelters[smelterKey];
+  if (smelter.bricks > 0) {
+    const bricksToHarvest = smelter.bricks;
     gameState.resources.bricks += bricksToHarvest;
-    kiln.bricks = 0;
+    smelter.bricks = 0;
     return bricksToHarvest;
+  }
+  return false;
+}
+
+// Harvest iron bars from smelter
+function harvestIronBarsFromSmelter(row, col) {
+  // Safety check for map bounds
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+    return false;
+  }
+  
+  // Ensure smelters object exists
+  if (!gameState.smelters) {
+    gameState.smelters = {};
+  }
+
+  const smelterKey = `${row}_${col}`;
+  if (!gameState.smelters || !gameState.smelters[smelterKey]) return false;
+
+  const smelter = gameState.smelters[smelterKey];
+  if (smelter.ironBars > 0) {
+    const ironBarsToHarvest = smelter.ironBars;
+    gameState.resources.ironBars += ironBarsToHarvest;
+    smelter.ironBars = 0;
+    return ironBarsToHarvest;
   }
   return false;
 }
@@ -741,18 +998,27 @@ function placeBuilding(row, col, buildingType) {
   tile.type = buildingType;
   tile.level = 1;
   
-  // Initialize kiln storage if it's a brick kiln
-  if (buildingType === "brickKiln") {
-    // Ensure kilns object exists
-    if (!gameState.kilns) {
-      gameState.kilns = {};
+  // Initialize smelter storage if it's a smelter
+  if (buildingType === "smelter") {
+    // Ensure smelters object exists
+    if (!gameState.smelters) {
+      gameState.smelters = {};
     }
-    const kilnKey = `${row}_${col}`;
-    gameState.kilns[kilnKey] = { clay: 0, bricks: 0, smeltingStartTime: null, smeltingAmount: 0 };
+    const smelterKey = `${row}_${col}`;
+    gameState.smelters[smelterKey] = { 
+      clay: 0, 
+      bricks: 0, 
+      iron: 0, 
+      ironBars: 0, 
+      smeltingStartTime: null, 
+      smeltingAmount: 0,
+      smeltingType: null
+    };
   }
   
   calculateProduction();
   checkUnlocks();
+  checkQuests();
   updateBuildMenu();
   renderGrid();
   updateUI();
@@ -796,6 +1062,8 @@ function upgradeBuilding(row, col) {
   tile.level = nextLevel;
   
   calculateProduction();
+  checkUnlocks();
+  checkQuests();
   renderGrid();
   updateUI();
   updateTileInfo();
@@ -826,10 +1094,10 @@ function removeBuilding(row, col) {
   gameState.resources.iron += refund.iron;
   gameState.resources.bricks += refund.bricks;
   
-  // Remove kiln storage if it's a brick kiln
-  if (tile.type === "brickKiln" && gameState.kilns) {
-    const kilnKey = `${row}_${col}`;
-    delete gameState.kilns[kilnKey];
+  // Remove smelter storage if it's a smelter
+  if (tile.type === "smelter" && gameState.smelters) {
+    const smelterKey = `${row}_${col}`;
+    delete gameState.smelters[smelterKey];
   }
   
   // Remove building
@@ -1153,24 +1421,36 @@ function updateTileInfo() {
   if (production.population > 0) html += `<p>Population: ${production.population.toFixed(2)}</p>`;
   if (production.capacity > 0) html += `<p>Capacity: ${production.capacity}</p>`;
   
-  // Special handling for brick kiln
-  if (tile.type === "brickKiln") {
-    // Ensure kilns object exists
-    if (!gameState.kilns) {
-      gameState.kilns = {};
+  // Special handling for smelter
+  if (tile.type === "smelter") {
+    // Ensure smelters object exists
+    if (!gameState.smelters) {
+      gameState.smelters = {};
     }
-    const kilnKey = `${selectedTile.row}_${selectedTile.col}`;
-    const kiln = gameState.kilns[kilnKey] || { clay: 0, bricks: 0, smeltingStartTime: null, smeltingAmount: 0 };
-    const building = buildingTypes.brickKiln;
+    const smelterKey = `${selectedTile.row}_${selectedTile.col}`;
+    const smelterData = gameState.smelters[smelterKey] || {};
+    // Ensure all fields exist with defaults (for old saves that might be missing iron/ironBars)
+    const smelter = {
+      clay: smelterData.clay || 0,
+      bricks: smelterData.bricks || 0,
+      iron: smelterData.iron || 0,
+      ironBars: smelterData.ironBars || 0,
+      smeltingStartTime: smelterData.smeltingStartTime || null,
+      smeltingAmount: smelterData.smeltingAmount || 0,
+      smeltingType: smelterData.smeltingType || null
+    };
+    const building = buildingTypes.smelter;
     const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
-    const maxStorage = building.maxClayStorage * factor;
+    const maxClayStorage = building.maxClayStorage * factor;
+    const maxIronStorage = building.maxIronStorage * factor;
     
     // Calculate smelting progress
     let smeltingProgress = 0;
     let smeltingTimeLeft = 0;
-    if (kiln.smeltingStartTime !== null) {
+    let smeltingType = null;
+    if (smelter.smeltingStartTime !== null) {
       const now = Date.now();
-      const elapsed = now - kiln.smeltingStartTime;
+      const elapsed = now - smelter.smeltingStartTime;
       let smeltTime = building.smeltTime;
       // Apply smelting speed upgrade (20% faster = 80% of original time)
       if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
@@ -1178,6 +1458,7 @@ function updateTileInfo() {
       }
       smeltingProgress = Math.min(100, (elapsed / smeltTime) * 100);
       smeltingTimeLeft = Math.max(0, Math.ceil((smeltTime - elapsed) / 1000));
+      smeltingType = smelter.smeltingType;
     }
     
     html += `<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.2);">`;
@@ -1185,30 +1466,64 @@ function updateTileInfo() {
     html += `<strong style="color: #8B4513;">🔥 Fuel:</strong> `;
     html += `<span style="color: #8B4513; font-weight: bold;">${building.smeltWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 25px; height: 25px; vertical-align: middle;"> wood per batch</span>`;
     html += `</p>`;
-    html += `<p><strong>Kiln Storage:</strong></p>`;
-    const totalClayUsed = kiln.clay + (kiln.smeltingAmount || 0);
-    html += `<p>Clay: ${kiln.clay.toFixed(1)} / ${maxStorage.toFixed(0)}`;
-    if (kiln.smeltingAmount > 0) {
-      html += ` (${kiln.smeltingAmount} smelting)`;
+    html += `<p><strong>Smelter Storage:</strong></p>`;
+    
+    // Clay section
+    const clayAmount = smelter.clay || 0;
+    const bricksAmount = smelter.bricks || 0;
+    const totalClayUsed = clayAmount + (smelter.smeltingType === 'clay' ? (smelter.smeltingAmount || 0) : 0);
+    html += `<p><strong>Clay:</strong> ${clayAmount.toFixed(1)} / ${maxClayStorage.toFixed(0)}`;
+    if (smelter.smeltingType === 'clay' && smelter.smeltingAmount > 0) {
+      html += ` (${smelter.smeltingAmount} smelting)`;
     }
     html += `</p>`;
-    html += `<p>Ready Bricks: ${kiln.bricks.toFixed(1)}</p>`;
+    html += `<p>Ready Bricks: ${bricksAmount.toFixed(1)}</p>`;
+    
+    // Iron section
+    const ironAmount = smelter.iron || 0;
+    const ironBarsAmount = smelter.ironBars || 0;
+    const totalIronUsed = ironAmount + (smelter.smeltingType === 'iron' ? (smelter.smeltingAmount || 0) : 0);
+    html += `<p><strong>Iron:</strong> ${ironAmount.toFixed(1)} / ${maxIronStorage.toFixed(0)}`;
+    if (smelter.smeltingType === 'iron' && smelter.smeltingAmount > 0) {
+      html += ` (${smelter.smeltingAmount} smelting)`;
+    }
+    html += `</p>`;
+    html += `<p>Ready Iron Bars: ${ironBarsAmount.toFixed(1)}</p>`;
     
     // Show smelting progress
-    if (kiln.smeltingStartTime !== null) {
-      html += `<p><strong>Smelting:</strong> ${smeltingProgress.toFixed(0)}% (${smeltingTimeLeft}s remaining)</p>`;
+    if (smelter.smeltingStartTime !== null) {
+      const typeLabel = smeltingType === 'clay' ? 'Clay → Bricks' : 'Iron → Iron Bars';
+      html += `<p><strong>Smelting ${typeLabel}:</strong> ${smeltingProgress.toFixed(0)}% (${smeltingTimeLeft}s remaining)</p>`;
       html += `<div style="background: rgba(255,255,255,0.2); border-radius: 4px; height: 20px; margin: 5px 0;">`;
       html += `<div style="background: #FF9800; height: 100%; width: ${smeltingProgress}%; border-radius: 4px; transition: width 0.3s;"></div>`;
       html += `</div>`;
-    } else if (kiln.clay >= building.smeltClayAmount && gameState.resources.wood < building.smeltWoodAmount) {
-      html += `<p style="color: #FF6B6B;">Not enough wood fuel (need ${building.smeltWoodAmount}, have ${Math.floor(gameState.resources.wood)})</p>`;
+    } else {
+      const needsClay = clayAmount >= building.smeltClayAmount && gameState.resources.wood < building.smeltWoodAmount;
+      const needsIron = ironAmount >= building.smeltIronAmount && gameState.resources.wood < building.smeltWoodAmount;
+      if (needsClay || needsIron) {
+        html += `<p style="color: #FF6B6B;">Not enough wood fuel (need ${building.smeltWoodAmount}, have ${Math.floor(gameState.resources.wood)})</p>`;
+      }
     }
     
+    // Clay controls
+    html += `<div style="margin: 10px 0; padding: 10px; background: rgba(139, 69, 19, 0.1); border-radius: 5px;">`;
+    html += `<p style="margin: 5px 0; font-weight: bold;">Clay → Bricks (${building.smeltClayAmount} clay → ${building.smeltBrickOutput} bricks)</p>`;
     html += `<div style="display: flex; gap: 5px; margin: 5px 0;">`;
     html += `<button id="add-clay-btn" style="flex: 1;" ${gameState.resources.clay <= 0 ? 'disabled' : ''}>Add 10 Clay</button>`;
-    html += `<button id="add-clay-max-btn" style="flex: 1;" ${gameState.resources.clay <= 0 || totalClayUsed >= maxStorage ? 'disabled' : ''}>Max</button>`;
+    html += `<button id="add-clay-max-btn" style="flex: 1;" ${gameState.resources.clay <= 0 || totalClayUsed >= maxClayStorage ? 'disabled' : ''}>Max</button>`;
     html += `</div>`;
-    html += `<button id="harvest-bricks-btn" style="margin: 5px 0; width: 100%;" ${kiln.bricks <= 0 ? 'disabled' : ''}>Harvest ${kiln.bricks > 0 ? Math.floor(kiln.bricks) : 0} Bricks</button>`;
+    html += `<button id="harvest-bricks-btn" style="margin: 5px 0; width: 100%;" ${bricksAmount <= 0 ? 'disabled' : ''}>Harvest ${bricksAmount > 0 ? Math.floor(bricksAmount) : 0} Bricks</button>`;
+    html += `</div>`;
+    
+    // Iron controls
+    html += `<div style="margin: 10px 0; padding: 10px; background: rgba(66, 66, 66, 0.1); border-radius: 5px;">`;
+    html += `<p style="margin: 5px 0; font-weight: bold;">Iron → Iron Bars (${building.smeltIronAmount} iron → ${building.smeltIronBarOutput} iron bar)</p>`;
+    html += `<div style="display: flex; gap: 5px; margin: 5px 0;">`;
+    html += `<button id="add-iron-btn" style="flex: 1;" ${gameState.resources.iron <= 0 ? 'disabled' : ''}>Add 10 Iron</button>`;
+    html += `<button id="add-iron-max-btn" style="flex: 1;" ${gameState.resources.iron <= 0 || totalIronUsed >= maxIronStorage ? 'disabled' : ''}>Max</button>`;
+    html += `</div>`;
+    html += `<button id="harvest-iron-bars-btn" style="margin: 5px 0; width: 100%;" ${ironBarsAmount <= 0 ? 'disabled' : ''}>Harvest ${ironBarsAmount > 0 ? Math.floor(ironBarsAmount) : 0} Iron Bars</button>`;
+    html += `</div>`;
   }
   
   if (canUpgrade) {
@@ -1260,16 +1575,16 @@ function updateTileInfo() {
     });
   }
   
-  // Add kiln management event listeners
+  // Add smelter management event listeners
   const addClayBtn = document.getElementById('add-clay-btn');
   if (addClayBtn) {
     addClayBtn.addEventListener('click', () => {
-      if (addClayToKiln(selectedTile.row, selectedTile.col, 10)) {
+      if (addClayToSmelter(selectedTile.row, selectedTile.col, 10)) {
         updateTileInfo();
         updateUI();
-        showMessage("Added clay to kiln.");
+        showMessage("Added clay to smelter.");
       } else {
-        showMessage("Cannot add clay: insufficient clay or kiln is full.");
+        showMessage("Cannot add clay: insufficient clay or smelter is full.");
       }
     });
   }
@@ -1277,21 +1592,29 @@ function updateTileInfo() {
   const addClayMaxBtn = document.getElementById('add-clay-max-btn');
   if (addClayMaxBtn) {
     addClayMaxBtn.addEventListener('click', () => {
-      const kilnKey = `${selectedTile.row}_${selectedTile.col}`;
-      const kiln = gameState.kilns[kilnKey] || { clay: 0, bricks: 0, smeltingStartTime: null, smeltingAmount: 0 };
-      const building = buildingTypes.brickKiln;
+      const smelterKey = `${selectedTile.row}_${selectedTile.col}`;
+      const smelter = gameState.smelters[smelterKey] || { 
+        clay: 0, 
+        bricks: 0, 
+        iron: 0, 
+        ironBars: 0, 
+        smeltingStartTime: null, 
+        smeltingAmount: 0,
+        smeltingType: null
+      };
+      const building = buildingTypes.smelter;
       const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
       const maxStorage = building.maxClayStorage * factor;
-      const totalClayUsed = kiln.clay + (kiln.smeltingAmount || 0);
+      const totalClayUsed = smelter.clay + (smelter.smeltingType === 'clay' ? smelter.smeltingAmount : 0);
       const availableSpace = maxStorage - totalClayUsed;
       const maxAmount = Math.min(availableSpace, gameState.resources.clay);
       
-      if (maxAmount > 0 && addClayToKiln(selectedTile.row, selectedTile.col, maxAmount)) {
+      if (maxAmount > 0 && addClayToSmelter(selectedTile.row, selectedTile.col, maxAmount)) {
         updateTileInfo();
         updateUI();
-        showMessage(`Added ${Math.floor(maxAmount)} clay to kiln (max).`);
+        showMessage(`Added ${Math.floor(maxAmount)} clay to smelter (max).`);
       } else {
-        showMessage("Cannot add clay: kiln is full or no clay available.");
+        showMessage("Cannot add clay: smelter is full or no clay available.");
       }
     });
   }
@@ -1299,20 +1622,85 @@ function updateTileInfo() {
   const harvestBricksBtn = document.getElementById('harvest-bricks-btn');
   if (harvestBricksBtn) {
     harvestBricksBtn.addEventListener('click', () => {
-      // Ensure kilns object exists
-      if (!gameState.kilns) {
-        gameState.kilns = {};
+      // Ensure smelters object exists
+      if (!gameState.smelters) {
+        gameState.smelters = {};
       }
-      const kilnKey = `${selectedTile.row}_${selectedTile.col}`;
-      const kiln = gameState.kilns[kilnKey] || { bricks: 0 };
-      const bricksToHarvest = kiln.bricks;
-      const harvested = harvestBricksFromKiln(selectedTile.row, selectedTile.col);
+      const smelterKey = `${selectedTile.row}_${selectedTile.col}`;
+      const smelter = gameState.smelters[smelterKey] || { bricks: 0 };
+      const bricksToHarvest = smelter.bricks;
+      const harvested = harvestBricksFromSmelter(selectedTile.row, selectedTile.col);
       if (harvested) {
         updateTileInfo();
         updateUI();
         showMessage(`Harvested ${bricksToHarvest.toFixed(1)} bricks!`);
       } else {
         showMessage("No bricks to harvest.");
+      }
+    });
+  }
+  
+  // Iron smelting event listeners
+  const addIronBtn = document.getElementById('add-iron-btn');
+  if (addIronBtn) {
+    addIronBtn.addEventListener('click', () => {
+      if (addIronToSmelter(selectedTile.row, selectedTile.col, 10)) {
+        updateTileInfo();
+        updateUI();
+        showMessage("Added iron to smelter.");
+      } else {
+        showMessage("Cannot add iron: insufficient iron or smelter is full.");
+      }
+    });
+  }
+  
+  const addIronMaxBtn = document.getElementById('add-iron-max-btn');
+  if (addIronMaxBtn) {
+    addIronMaxBtn.addEventListener('click', () => {
+      const smelterKey = `${selectedTile.row}_${selectedTile.col}`;
+      const smelter = gameState.smelters[smelterKey] || { 
+        clay: 0, 
+        bricks: 0, 
+        iron: 0, 
+        ironBars: 0, 
+        smeltingStartTime: null, 
+        smeltingAmount: 0,
+        smeltingType: null
+      };
+      const building = buildingTypes.smelter;
+      const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
+      const maxStorage = building.maxIronStorage * factor;
+      const totalIronUsed = smelter.iron + (smelter.smeltingType === 'iron' ? smelter.smeltingAmount : 0);
+      const availableSpace = maxStorage - totalIronUsed;
+      const maxAmount = Math.min(availableSpace, gameState.resources.iron);
+      
+      if (maxAmount > 0 && addIronToSmelter(selectedTile.row, selectedTile.col, maxAmount)) {
+        updateTileInfo();
+        updateUI();
+        showMessage(`Added ${Math.floor(maxAmount)} iron to smelter (max).`);
+      } else {
+        showMessage("Cannot add iron: smelter is full or no iron available.");
+      }
+    });
+  }
+  
+  const harvestIronBarsBtn = document.getElementById('harvest-iron-bars-btn');
+  if (harvestIronBarsBtn) {
+    harvestIronBarsBtn.addEventListener('click', () => {
+      // Ensure smelters object exists
+      if (!gameState.smelters) {
+        gameState.smelters = {};
+      }
+      const smelterKey = `${selectedTile.row}_${selectedTile.col}`;
+      const smelter = gameState.smelters[smelterKey] || { ironBars: 0 };
+      const ironBarsToHarvest = smelter.ironBars;
+      const harvested = harvestIronBarsFromSmelter(selectedTile.row, selectedTile.col);
+      if (harvested) {
+        updateTileInfo();
+        updateUI();
+        showMessage(`Harvested ${ironBarsToHarvest.toFixed(1)} iron bars!`);
+      } else {
+        showMessage("No iron bars to harvest.");
       }
     });
   }
@@ -1372,8 +1760,8 @@ function showCellTooltip(event, row, col) {
   if (production.population > 0) html += `Population/sec: ${production.population.toFixed(2)}<br>`;
   if (production.capacity > 0) html += `Capacity: ${production.capacity}<br>`;
   
-  // Special indicator for brick kiln - wood fuel requirement
-  if (tile.type === "brickKiln" && building.smeltWoodAmount) {
+  // Special indicator for smelter - wood fuel requirement
+  if (tile.type === "smelter" && building.smeltWoodAmount) {
     html += `<br><span style="color: #8B4513; font-weight: bold;">🔥 ${building.smeltWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 20px; height: 20px; vertical-align: middle;"> wood per batch</span><br>`;
   }
   
@@ -1410,6 +1798,7 @@ function updateUI() {
   const ironEl = document.getElementById('iron');
   const goldEl = document.getElementById('gold');
   const bricksEl = document.getElementById('bricks');
+  const ironBarsEl = document.getElementById('ironBars');
   const populationEl = document.getElementById('population');
   const capacityEl = document.getElementById('housingCapacity');
   
@@ -1419,6 +1808,7 @@ function updateUI() {
   if (ironEl) ironEl.textContent = Math.floor(gameState.resources.iron);
   if (goldEl) goldEl.textContent = Math.floor(gameState.resources.gold);
   if (bricksEl) bricksEl.textContent = Math.floor(gameState.resources.bricks);
+  if (ironBarsEl) ironBarsEl.textContent = Math.floor(gameState.resources.ironBars);
   if (populationEl) populationEl.textContent = Math.floor(gameState.population.current);
   if (capacityEl) capacityEl.textContent = Math.floor(gameState.population.capacity);
   
@@ -1478,11 +1868,34 @@ function updateBuildMenu() {
   }
 }
 
-// Save game (default slot)
+// Get last used save slot (defaults to 1)
+function getLastSaveSlot() {
+  const lastSlot = localStorage.getItem('cityBuilderLastSlot');
+  return lastSlot ? parseInt(lastSlot) : 1;
+}
+
+// Set last used save slot
+function setLastSaveSlot(slot) {
+  localStorage.setItem('cityBuilderLastSlot', slot.toString());
+}
+
+// Cycle to next save slot (1->2, 2->3, 3->1)
+function cycleToNextSaveSlot() {
+  const currentSlot = getLastSaveSlot();
+  const nextSlot = currentSlot === 3 ? 1 : currentSlot + 1;
+  setLastSaveSlot(nextSlot);
+  return nextSlot;
+}
+
+// Save game (uses last saved slot)
 function saveGame() {
+  const lastSlot = getLastSaveSlot();
   gameState.timestamp = Date.now();
-  localStorage.setItem('cityBuilderSave', JSON.stringify(gameState));
+  const slotKey = `cityBuilderSave_slot${lastSlot}`;
+  localStorage.setItem(slotKey, JSON.stringify(gameState));
+  setLastSaveSlot(lastSlot);
   updateSaveStatus();
+  updateSaveSlots();
   // showMessage("Game saved!");
 }
 
@@ -1491,90 +1904,160 @@ function saveGameSlot(slot) {
   gameState.timestamp = Date.now();
   const slotKey = `cityBuilderSave_slot${slot}`;
   localStorage.setItem(slotKey, JSON.stringify(gameState));
+  setLastSaveSlot(slot);
   updateSaveSlots();
   showMessage(`Game saved to slot ${slot}!`);
   hideLoadMenu();
+}
+
+// Delete game from specific slot
+function deleteGameSlot(slot) {
+  const slotKey = `cityBuilderSave_slot${slot}`;
+  const saved = localStorage.getItem(slotKey);
+  
+  if (!saved) {
+    showMessage("No save found in this slot.");
+    return;
+  }
+  
+  if (confirm(`Are you sure you want to delete the save in slot ${slot}? This cannot be undone.`)) {
+    localStorage.removeItem(slotKey);
+    updateSaveSlots();
+    showMessage(`Save slot ${slot} deleted.`);
+  }
 }
 
 // Load game from specific slot
 function loadGameSlot(slot) {
   const slotKey = `cityBuilderSave_slot${slot}`;
   const saved = localStorage.getItem(slotKey);
-  if (saved) {
-    if (confirm('Load this save? Current progress will be lost.')) {
-      try {
-        const loaded = JSON.parse(saved);
-        gameState = loaded;
-        
-        // Ensure all required fields exist
-        if (!gameState.character) gameState.character = null;
-        if (!gameState.kilns) gameState.kilns = {};
-        
-        // Migrate old data
-        for (const key in gameState.kilns) {
-          const kiln = gameState.kilns[key];
-          if (kiln && !kiln.hasOwnProperty('smeltingStartTime')) {
-            kiln.smeltingStartTime = null;
-            kiln.smeltingAmount = 0;
-          }
+  if (!saved) {
+    showMessage("No save found in this slot.");
+    return;
+  }
+  
+  if (confirm('Load this save? Current progress will be lost.')) {
+    try {
+      const loaded = JSON.parse(saved);
+      gameState = loaded;
+      
+      // Ensure all required fields exist
+      if (!gameState.character) gameState.character = null;
+      if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
+      
+      // Migrate old "kilns" to "smelters"
+      if (gameState.kilns && !gameState.smelters) {
+        gameState.smelters = gameState.kilns;
+        delete gameState.kilns;
+      }
+      if (!gameState.smelters) gameState.smelters = {};
+      
+      // Migrate old data
+      for (const key in gameState.smelters) {
+        const smelter = gameState.smelters[key];
+        if (smelter && !smelter.hasOwnProperty('smeltingStartTime')) {
+          smelter.smeltingStartTime = null;
+          smelter.smeltingAmount = 0;
         }
-        
-        if (!gameState.map || gameState.map.length === 0) {
-          initializeGrid();
-        }
-        
-        // Migrate old "house" to "tepee"
-        if (gameState.map && gameState.map.length > 0) {
-          for (let row = 0; row < gameState.map.length; row++) {
-            for (let col = 0; col < gameState.map[row].length; col++) {
-              if (gameState.map[row][col].type === "house") {
-                gameState.map[row][col].type = "tepee";
-              }
+      }
+      
+      if (!gameState.map || gameState.map.length === 0) {
+        initializeGrid();
+      }
+      
+      // Migrate old "house" to "tepee" and "brickKiln" to "smelter"
+      if (gameState.map && gameState.map.length > 0) {
+        for (let row = 0; row < gameState.map.length; row++) {
+          for (let col = 0; col < gameState.map[row].length; col++) {
+            if (gameState.map[row][col].type === "house") {
+              gameState.map[row][col].type = "tepee";
+            }
+            if (gameState.map[row][col].type === "brickKiln") {
+              gameState.map[row][col].type = "smelter";
             }
           }
         }
-        
+      }
+      
+      // Ensure quests field exists (for old saves)
+      if (!gameState.quests) {
+        gameState.quests = [];
+      }
+      initializeQuests();
+      
         calculateProduction();
         checkUnlocks();
+        checkQuests();
         renderGrid();
         updateUI();
         updateSaveStatus();
+        updateQuestIndicator();
+        initializeBuildMenu();
+        updateBuildMenu();
+        initializeResourceTooltips();
+        setLastSaveSlot(slot);
         updateSaveSlots();
+        startGameLoop();
         hideLoadMenu();
         showMessage(`Game loaded from slot ${slot}!`);
-      } catch (e) {
-        console.error('Error loading game:', e);
-        showMessage("Error loading save file.");
-      }
+    } catch (e) {
+      console.error('Error loading game:', e);
+      showMessage("Error loading save file.");
     }
-  } else {
-    showMessage("No save found in this slot.");
   }
 }
 
-// Load game
+// Load game (checks last used slot first, then old default save)
 function loadGame() {
-  const saved = localStorage.getItem('cityBuilderSave');
+  // First try to load from last used slot
+  const lastSlot = getLastSaveSlot();
+  const slotKey = `cityBuilderSave_slot${lastSlot}`;
+  let saved = localStorage.getItem(slotKey);
+  let loadedFromOldSave = false;
+  
+  // If no save in last slot, try old default save for backward compatibility
+  if (!saved) {
+    saved = localStorage.getItem('cityBuilderSave');
+    loadedFromOldSave = !!saved;
+  }
+  
   if (saved) {
     try {
       const loaded = JSON.parse(saved);
       gameState = loaded;
       
+      // If loaded from old default save, migrate to slot 1 and set as last slot
+      if (loadedFromOldSave) {
+        setLastSaveSlot(1);
+        const slot1Key = `cityBuilderSave_slot1`;
+        localStorage.setItem(slot1Key, saved);
+        localStorage.removeItem('cityBuilderSave');
+      }
+      
       // Ensure character field exists (for old saves)
       if (!gameState.character) {
         gameState.character = null;
       }
-      
-      // Ensure kilns field exists (for old saves) and migrate old kiln data
-      if (!gameState.kilns) {
-        gameState.kilns = {};
+      // Ensure ironBars field exists (for old saves)
+      if (!gameState.resources.ironBars) {
+        gameState.resources.ironBars = 0;
       }
-      // Migrate old kiln data to new format
-      for (const key in gameState.kilns) {
-        const kiln = gameState.kilns[key];
-        if (kiln && !kiln.hasOwnProperty('smeltingStartTime')) {
-          kiln.smeltingStartTime = null;
-          kiln.smeltingAmount = 0;
+      
+      // Migrate old "kilns" to "smelters"
+      if (gameState.kilns && !gameState.smelters) {
+        gameState.smelters = gameState.kilns;
+        delete gameState.kilns;
+      }
+      // Ensure smelters field exists (for old saves) and migrate old smelter data
+      if (!gameState.smelters) {
+        gameState.smelters = {};
+      }
+      // Migrate old smelter data to new format
+      for (const key in gameState.smelters) {
+        const smelter = gameState.smelters[key];
+        if (smelter && !smelter.hasOwnProperty('smeltingStartTime')) {
+          smelter.smeltingStartTime = null;
+          smelter.smeltingAmount = 0;
         }
       }
       
@@ -1583,12 +2066,15 @@ function loadGame() {
         initializeGrid();
       }
       
-      // Migrate old "house" buildings to "tepee"
+      // Migrate old "house" buildings to "tepee" and "brickKiln" to "smelter"
       if (gameState.map && gameState.map.length > 0) {
         for (let row = 0; row < gameState.map.length; row++) {
           for (let col = 0; col < gameState.map[row].length; col++) {
             if (gameState.map[row][col].type === "house") {
               gameState.map[row][col].type = "tepee";
+            }
+            if (gameState.map[row][col].type === "brickKiln") {
+              gameState.map[row][col].type = "smelter";
             }
           }
         }
@@ -1605,9 +2091,16 @@ function loadGame() {
         };
       }
       
+      // Ensure quests field exists (for old saves)
+      if (!gameState.quests) {
+        gameState.quests = [];
+      }
+      initializeQuests();
+      
       // Recompute derived values
       calculateProduction();
       checkUnlocks();
+      checkQuests();
       
       return true;
     } catch (e) {
@@ -1631,10 +2124,12 @@ function resetGame() {
   }
   if (confirm('Are you sure you want to reset your game? This cannot be undone.')) {
     localStorage.removeItem('cityBuilderSave');
+    // Cycle to next save slot for new game
+    cycleToNextSaveSlot();
     gameState = {
-      resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0 },
+      resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0, ironBars: 0 },
       rates: { wps: 1, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0 }, // Base 1 wps
-      kilns: {},
+      smelters: {},
       population: { current: 0, capacity: 0 },
       map: [],
       character: null, // Reset character selection
@@ -1645,14 +2140,18 @@ function resetGame() {
         clayProduction: false,
         housingCapacity: false,
         smeltingSpeed: false
-      }
+      },
+      quests: []
     };
+    initializeQuests();
     initializeGrid();
     calculateProduction();
     checkUnlocks();
+    checkQuests();
     renderGrid();
     updateUI();
     updateSaveStatus();
+    updateQuestIndicator();
     selectedBuildingType = null;
     selectedTile = null;
     updateBuildingSelection();
@@ -1690,11 +2189,23 @@ function hideLoadMenu() {
 
 // Update save slots display
 function updateSaveSlots() {
+  const currentActiveSlot = getLastSaveSlot();
+  
   for (let slot = 1; slot <= 3; slot++) {
     const slotKey = `cityBuilderSave_slot${slot}`;
     const saved = localStorage.getItem(slotKey);
     const slotInfo = document.getElementById(`slot-${slot}-info`);
-    const slotElement = document.querySelector(`[data-slot="${slot}"]`);
+    const slotElement = document.querySelector(`.save-slot[data-slot="${slot}"]`);
+    const deleteBtn = document.querySelector(`.slot-delete-btn[data-slot="${slot}"]`);
+    
+    // Update active state
+    if (slotElement) {
+      if (slot === currentActiveSlot) {
+        slotElement.classList.add('active-slot');
+      } else {
+        slotElement.classList.remove('active-slot');
+      }
+    }
     
     if (slotInfo) {
       if (saved) {
@@ -1704,17 +2215,21 @@ function updateSaveSlots() {
             const saveDate = new Date(data.timestamp);
             slotInfo.textContent = `Saved: ${saveDate.toLocaleString()}`;
             if (slotElement) slotElement.classList.add('has-save');
+            if (deleteBtn) deleteBtn.disabled = false;
           } else {
             slotInfo.textContent = 'Empty';
             if (slotElement) slotElement.classList.remove('has-save');
+            if (deleteBtn) deleteBtn.disabled = true;
           }
         } catch (e) {
           slotInfo.textContent = 'Empty';
           if (slotElement) slotElement.classList.remove('has-save');
+          if (deleteBtn) deleteBtn.disabled = true;
         }
       } else {
         slotInfo.textContent = 'Empty';
         if (slotElement) slotElement.classList.remove('has-save');
+        if (deleteBtn) deleteBtn.disabled = true;
       }
     }
   }
@@ -1751,14 +2266,21 @@ function importSave(event) {
         
         // Ensure all required fields exist
         if (!gameState.character) gameState.character = null;
-        if (!gameState.kilns) gameState.kilns = {};
+        if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
+        
+        // Migrate old "kilns" to "smelters"
+        if (gameState.kilns && !gameState.smelters) {
+          gameState.smelters = gameState.kilns;
+          delete gameState.kilns;
+        }
+        if (!gameState.smelters) gameState.smelters = {};
         
         // Migrate old data
-        for (const key in gameState.kilns) {
-          const kiln = gameState.kilns[key];
-          if (kiln && !kiln.hasOwnProperty('smeltingStartTime')) {
-            kiln.smeltingStartTime = null;
-            kiln.smeltingAmount = 0;
+        for (const key in gameState.smelters) {
+          const smelter = gameState.smelters[key];
+          if (smelter && !smelter.hasOwnProperty('smeltingStartTime')) {
+            smelter.smeltingStartTime = null;
+            smelter.smeltingAmount = 0;
           }
         }
         
@@ -1766,23 +2288,38 @@ function importSave(event) {
           initializeGrid();
         }
         
-        // Migrate old "house" to "tepee"
+        // Migrate old "house" to "tepee" and "brickKiln" to "smelter"
         if (gameState.map && gameState.map.length > 0) {
           for (let row = 0; row < gameState.map.length; row++) {
             for (let col = 0; col < gameState.map[row].length; col++) {
               if (gameState.map[row][col].type === "house") {
                 gameState.map[row][col].type = "tepee";
               }
+              if (gameState.map[row][col].type === "brickKiln") {
+                gameState.map[row][col].type = "smelter";
+              }
             }
           }
         }
         
+        // Ensure quests field exists and is an array
+        if (!gameState.quests || !Array.isArray(gameState.quests)) {
+          gameState.quests = [];
+        }
+        initializeQuests();
+        
         calculateProduction();
         checkUnlocks();
+        checkQuests();
         renderGrid();
         updateUI();
         updateSaveStatus();
+        updateQuestIndicator();
+        initializeBuildMenu();
+        updateBuildMenu();
+        initializeResourceTooltips();
         updateSaveSlots();
+        startGameLoop();
         showMessage("Save file imported!");
       }
     } catch (e) {
@@ -1891,8 +2428,8 @@ function showBuildingTooltip(event, buildingType) {
   }
   html += `</p>`;
   
-  // Special info for brick kiln - wood fuel requirement
-  if (buildingType === "brickKiln" && building.smeltWoodAmount) {
+  // Special info for smelter - wood fuel requirement
+  if (buildingType === "smelter" && building.smeltWoodAmount) {
     html += `<p style="margin: 3px 0; padding: 5px; background: rgba(139, 69, 19, 0.2); border-left: 3px solid #8B4513; border-radius: 3px;">`;
     html += `<strong style="color: #8B4513;">🔥 Fuel Required:</strong> `;
     html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${building.smeltWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> per batch</span>`;
@@ -1991,40 +2528,56 @@ function initializeBuildMenu() {
 
 // Main game loop
 let lastAutoSave = Date.now();
-setInterval(() => {
-  // Update resources based on production
-  gameState.resources.wood += gameState.rates.wps;
-  gameState.resources.stone += gameState.rates.sps;
-  gameState.resources.clay += gameState.rates.cps;
-  gameState.resources.iron += gameState.rates.ips;
-  gameState.resources.gold += gameState.rates.gps;
-  gameState.resources.bricks += gameState.rates.bps;
-  
-  // Update population
-  calculateProduction();
-  checkUnlocks();
-  updateBuildMenu();
-  
-  // Auto-save every 20 seconds
-  const now = Date.now();
-  if (now - lastAutoSave >= 20000) {
-    saveGame();
-    lastAutoSave = now;
-  }
+let gameLoopInterval = null;
 
-  updateUI();
-  
-  // Update tile info panel if a kiln is selected (to show smelting progress)
-  if (selectedTile) {
-    const tile = gameState.map[selectedTile.row] && gameState.map[selectedTile.row][selectedTile.col];
-    if (tile && tile.type === "brickKiln") {
-      updateTileInfo();
-    }
+function startGameLoop() {
+  if (gameLoopInterval) {
+    clearInterval(gameLoopInterval);
   }
   
-  // Only re-render grid if needed (unlocks might have changed button states)
-  // Grid visual updates happen on user interaction
-}, 1000);
+  gameLoopInterval = setInterval(() => {
+    try {
+      // Only run if game is initialized
+      if (!gameState || !gameState.map || gameState.map.length === 0) {
+        return;
+      }
+      
+      // Update resources based on production
+      if (gameState.rates) {
+        gameState.resources.wood += gameState.rates.wps || 0;
+        gameState.resources.stone += gameState.rates.sps || 0;
+        gameState.resources.clay += gameState.rates.cps || 0;
+        gameState.resources.iron += gameState.rates.ips || 0;
+        gameState.resources.gold += gameState.rates.gps || 0;
+        gameState.resources.bricks += gameState.rates.bps || 0;
+      }
+      
+      // Update population
+      calculateProduction();
+      checkUnlocks();
+      checkQuests();
+      updateBuildMenu();
+      updateUI();
+      
+      // Auto-save every 20 seconds
+      const now = Date.now();
+      if (now - lastAutoSave >= 20000) {
+        saveGame();
+        lastAutoSave = now;
+      }
+      
+      // Update tile info panel if a smelter is selected (to show smelting progress)
+      if (selectedTile) {
+        const tile = gameState.map[selectedTile.row] && gameState.map[selectedTile.row][selectedTile.col];
+        if (tile && tile.type === "smelter") {
+          updateTileInfo();
+        }
+      }
+    } catch (e) {
+      console.error('Error in game loop:', e);
+    }
+  }, 1000);
+}
 
 // Show resource icon tooltip
 function showResourceTooltip(event, resourceType) {
@@ -2179,19 +2732,28 @@ function selectCharacter(characterType) {
   hideCharacterSelection();
   
   // Initialize game if not already initialized
-  if (!gameState.map || gameState.map.length === 0) {
+  const isNewGame = !gameState.map || gameState.map.length === 0;
+  if (isNewGame) {
+    initializeQuests();
     initializeGrid();
+    // Cycle to next save slot for new game
+    cycleToNextSaveSlot();
   }
   
   // Update UI to reflect character bonuses
   calculateProduction();
   checkUnlocks();
+  checkQuests();
   renderGrid();
   updateUI();
   updateSaveStatus();
+  updateQuestIndicator();
   initializeBuildMenu();
   updateBuildMenu();
   initializeResourceTooltips();
+  
+  // Start the game loop
+  startGameLoop();
   
   // Save the character selection
   saveGame();
@@ -2238,13 +2800,13 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
   const buildingType = fromTile.type;
   const buildingLevel = fromTile.level;
   
-  // Handle special data (kiln data)
-  let kilnData = null;
-  if (buildingType === "brickKiln" && gameState.kilns) {
+  // Handle special data (smelter data)
+  let smelterData = null;
+  if (buildingType === "smelter" && gameState.smelters) {
     const oldKey = `${fromRow}_${fromCol}`;
-    kilnData = gameState.kilns[oldKey];
-    if (kilnData) {
-      delete gameState.kilns[oldKey];
+    smelterData = gameState.smelters[oldKey];
+    if (smelterData) {
+      delete gameState.smelters[oldKey];
     }
   }
   
@@ -2255,12 +2817,12 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
   fromTile.level = 0;
   
   // Restore special data at new location
-  if (kilnData && buildingType === "brickKiln") {
-    if (!gameState.kilns) {
-      gameState.kilns = {};
+  if (smelterData && buildingType === "smelter") {
+    if (!gameState.smelters) {
+      gameState.smelters = {};
     }
     const newKey = `${toRow}_${toCol}`;
-    gameState.kilns[newKey] = kilnData;
+    gameState.smelters[newKey] = smelterData;
   }
   
   calculateProduction();
@@ -2286,23 +2848,23 @@ function swapBuildings(row1, col1, row2, col2) {
   const buildingType2 = tile2.type;
   const buildingLevel2 = tile2.level;
   
-  // Handle special data (kiln data) for both buildings
-  let kilnData1 = null;
-  let kilnData2 = null;
+  // Handle special data (smelter data) for both buildings
+  let smelterData1 = null;
+  let smelterData2 = null;
   
-  if (buildingType1 === "brickKiln" && gameState.kilns) {
+  if (buildingType1 === "smelter" && gameState.smelters) {
     const key1 = `${row1}_${col1}`;
-    kilnData1 = gameState.kilns[key1];
-    if (kilnData1) {
-      delete gameState.kilns[key1];
+    smelterData1 = gameState.smelters[key1];
+    if (smelterData1) {
+      delete gameState.smelters[key1];
     }
   }
   
-  if (buildingType2 === "brickKiln" && gameState.kilns) {
+  if (buildingType2 === "smelter" && gameState.smelters) {
     const key2 = `${row2}_${col2}`;
-    kilnData2 = gameState.kilns[key2];
-    if (kilnData2) {
-      delete gameState.kilns[key2];
+    smelterData2 = gameState.smelters[key2];
+    if (smelterData2) {
+      delete gameState.smelters[key2];
     }
   }
   
@@ -2313,20 +2875,20 @@ function swapBuildings(row1, col1, row2, col2) {
   tile2.level = buildingLevel1;
   
   // Restore special data at new locations
-  if (kilnData1 && buildingType1 === "brickKiln") {
-    if (!gameState.kilns) {
-      gameState.kilns = {};
+  if (smelterData1 && buildingType1 === "smelter") {
+    if (!gameState.smelters) {
+      gameState.smelters = {};
     }
     const newKey1 = `${row2}_${col2}`;
-    gameState.kilns[newKey1] = kilnData1;
+    gameState.smelters[newKey1] = smelterData1;
   }
   
-  if (kilnData2 && buildingType2 === "brickKiln") {
-    if (!gameState.kilns) {
-      gameState.kilns = {};
+  if (smelterData2 && buildingType2 === "smelter") {
+    if (!gameState.smelters) {
+      gameState.smelters = {};
     }
     const newKey2 = `${row1}_${col1}`;
-    gameState.kilns[newKey2] = kilnData2;
+    gameState.smelters[newKey2] = smelterData2;
   }
   
   calculateProduction();
@@ -2346,6 +2908,336 @@ function toggleShop() {
     } else {
       shopModal.style.display = 'none';
     }
+  }
+}
+
+// Initialize quests in gameState
+function initializeQuests() {
+  // Ensure quests is always an array
+  if (!gameState.quests || !Array.isArray(gameState.quests)) {
+    gameState.quests = [];
+  }
+  
+  if (gameState.quests.length === 0) {
+    // Initialize all quests
+    gameState.quests = questDefinitions.map(quest => ({
+      id: quest.id,
+      completed: false,
+      claimed: false
+    }));
+  } else {
+    // Ensure all quests are in the array (for new quests added later)
+    // Double-check it's still an array before using find
+    if (!Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+      gameState.quests = questDefinitions.map(quest => ({
+        id: quest.id,
+        completed: false,
+        claimed: false
+      }));
+      return;
+    }
+    
+    questDefinitions.forEach(questDef => {
+      const existingQuest = gameState.quests.find(q => q.id === questDef.id);
+      if (!existingQuest) {
+        gameState.quests.push({
+          id: questDef.id,
+          completed: false,
+          claimed: false
+        });
+      }
+    });
+  }
+}
+
+// Check quest progress
+function checkQuests() {
+  try {
+    // Ensure quests is an array
+    if (!gameState.quests || !Array.isArray(gameState.quests) || gameState.quests.length === 0) {
+      initializeQuests();
+    }
+    
+    if (!gameState.map || gameState.map.length === 0) {
+      return; // Can't check quests if map isn't initialized
+    }
+    
+    if (!questDefinitions || questDefinitions.length === 0) {
+      return; // Quest definitions not loaded
+    }
+    
+    // Double-check quests is an array before using find
+    if (!Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+      initializeQuests();
+    }
+    
+    questDefinitions.forEach(questDef => {
+      const quest = gameState.quests.find(q => q.id === questDef.id);
+      if (quest && !quest.completed) {
+        try {
+          if (questDef.checkCondition && questDef.checkCondition()) {
+            quest.completed = true;
+            updateQuestIndicator();
+            // Show completion popup
+            showQuestCompletionPopup(questDef);
+            // Update UI if quests modal is open
+            const questsModal = document.getElementById('quests-modal');
+            if (questsModal && questsModal.style.display === 'flex') {
+              renderQuests();
+            }
+          }
+        } catch (e) {
+          console.error(`Error checking quest ${questDef.id}:`, e);
+        }
+      }
+    });
+  } catch (e) {
+    console.error('Error in checkQuests:', e);
+  }
+}
+
+// Claim quest reward
+function claimQuestReward(questId) {
+  // Ensure quests is an array
+  if (!gameState.quests || !Array.isArray(gameState.quests)) {
+    initializeQuests();
+  }
+  
+  const quest = gameState.quests.find(q => q.id === questId);
+  const questDef = questDefinitions.find(q => q.id === questId);
+  
+  if (!quest || !questDef) return;
+  if (!quest.completed || quest.claimed) return;
+  
+  // Apply rewards
+  Object.keys(questDef.reward).forEach(resource => {
+    gameState.resources[resource] = (gameState.resources[resource] || 0) + questDef.reward[resource];
+  });
+  
+  quest.claimed = true;
+  updateUI();
+  updateQuestIndicator();
+  renderQuests();
+  showMessage(`Quest reward claimed!`);
+}
+
+// Update quest indicator on button
+function updateQuestIndicator() {
+  const questsBtn = document.getElementById('quests-btn');
+  if (!questsBtn) return;
+  
+  // Ensure quests is an array
+  if (!gameState.quests || !Array.isArray(gameState.quests) || gameState.quests.length === 0) {
+    const indicator = questsBtn.querySelector('.quest-indicator');
+    if (indicator) indicator.remove();
+    return;
+  }
+  
+  const hasUnclaimedQuests = gameState.quests.some(q => q.completed && !q.claimed);
+  
+  if (hasUnclaimedQuests) {
+    // Add red dot indicator
+    let indicator = questsBtn.querySelector('.quest-indicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'quest-indicator';
+      questsBtn.appendChild(indicator);
+    }
+  } else {
+    // Remove indicator
+    const indicator = questsBtn.querySelector('.quest-indicator');
+    if (indicator) {
+      indicator.remove();
+    }
+  }
+}
+
+// Current quest tab (incomplete or completed)
+let currentQuestTab = 'incomplete';
+
+// Switch quest tab
+function switchQuestTab(tab) {
+  currentQuestTab = tab;
+  
+  // Update tab buttons
+  const tabs = document.querySelectorAll('.quest-tab');
+  tabs.forEach(t => {
+    if (t.dataset.tab === tab) {
+      t.classList.add('active');
+    } else {
+      t.classList.remove('active');
+    }
+  });
+  
+  // Re-render quests with the new filter
+  renderQuests();
+}
+
+// Render quests in the modal
+function renderQuests() {
+  try {
+    const questsBody = document.querySelector('.quests-body');
+    if (!questsBody) {
+      console.error('Quest body not found');
+      return;
+    }
+    
+    // Ensure quests is an array
+    if (!gameState.quests || !Array.isArray(gameState.quests) || gameState.quests.length === 0) {
+      initializeQuests();
+    }
+    
+    if (!questDefinitions || questDefinitions.length === 0) {
+      questsBody.innerHTML = '<p>No quests available.</p>';
+      return;
+    }
+    
+    // Double-check quests is an array before using find
+    if (!Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+      initializeQuests();
+    }
+    
+    let html = '';
+    let hasQuests = false;
+    
+    questDefinitions.forEach(questDef => {
+      const quest = gameState.quests.find(q => q.id === questDef.id);
+      if (!quest) return;
+      
+      const isCompleted = quest.completed;
+      const isClaimed = quest.claimed;
+      
+      // Filter based on current tab
+      if (currentQuestTab === 'incomplete' && isCompleted) {
+        return; // Skip completed quests in incomplete tab
+      }
+      if (currentQuestTab === 'completed' && !isCompleted) {
+        return; // Skip incomplete quests in completed tab
+      }
+      
+      hasQuests = true;
+      
+      html += `<div class="quest-item ${isCompleted ? 'quest-completed' : ''} ${isClaimed ? 'quest-claimed' : ''}">`;
+      html += `<div class="quest-info">`;
+      html += `<h3>${questDef.title}</h3>`;
+      html += `<p>${questDef.description}</p>`;
+      
+      // Show rewards
+      html += `<div class="quest-reward">`;
+      html += `<strong>Reward: </strong>`;
+      const rewardParts = [];
+      Object.keys(questDef.reward).forEach(resource => {
+        const amount = questDef.reward[resource];
+        const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+        rewardParts.push(`${amount} ${resourceName}`);
+      });
+      html += rewardParts.join(', ');
+      html += `</div>`;
+      html += `</div>`;
+      
+      // Status and claim button
+      if (isClaimed) {
+        html += `<div class="quest-status">Claimed ✓</div>`;
+      } else if (isCompleted) {
+        html += `<button class="quest-claim-btn" onclick="claimQuestReward('${questDef.id}')">Claim Reward</button>`;
+      } else {
+        html += `<div class="quest-status">In Progress...</div>`;
+      }
+      
+      html += `</div>`;
+    });
+    
+    if (!hasQuests) {
+      if (currentQuestTab === 'incomplete') {
+        html = '<p style="text-align: center; color: #ccc; padding: 20px;">All quests completed! 🎉</p>';
+      } else {
+        html = '<p style="text-align: center; color: #ccc; padding: 20px;">No completed quests yet.</p>';
+      }
+    }
+    
+    questsBody.innerHTML = html;
+  } catch (e) {
+    console.error('Error rendering quests:', e);
+    const questsBody = document.querySelector('.quests-body');
+    if (questsBody) {
+      questsBody.innerHTML = '<p>Error loading quests.</p>';
+    }
+  }
+}
+
+// Toggle quests window
+function toggleQuests() {
+  const questsModal = document.getElementById('quests-modal');
+  if (questsModal) {
+    if (questsModal.style.display === 'none' || questsModal.style.display === '') {
+      questsModal.style.display = 'flex';
+      // Reset to incomplete tab when opening
+      currentQuestTab = 'incomplete';
+      const tabs = document.querySelectorAll('.quest-tab');
+      tabs.forEach(t => {
+        if (t.dataset.tab === 'incomplete') {
+          t.classList.add('active');
+        } else {
+          t.classList.remove('active');
+        }
+      });
+      renderQuests();
+    } else {
+      questsModal.style.display = 'none';
+    }
+  }
+}
+
+// Show quest completion popup
+function showQuestCompletionPopup(questDef) {
+  const popup = document.getElementById('quest-completion-popup');
+  const titleEl = document.getElementById('quest-completion-title');
+  const descEl = document.getElementById('quest-completion-description');
+  const rewardEl = document.getElementById('quest-completion-reward-text');
+  
+  if (!popup || !titleEl || !descEl || !rewardEl) return;
+  
+  // Set quest information
+  titleEl.textContent = questDef.title;
+  descEl.textContent = questDef.description;
+  
+  // Format rewards
+  const rewardParts = [];
+  Object.keys(questDef.reward).forEach(resource => {
+    const amount = questDef.reward[resource];
+    const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+    rewardParts.push(`${amount} ${resourceName}`);
+  });
+  rewardEl.textContent = rewardParts.join(', ');
+  
+  // Show popup
+  popup.style.display = 'flex';
+  
+  // Auto-close after 5 seconds if not manually closed
+  setTimeout(() => {
+    if (popup.style.display === 'flex') {
+      closeQuestCompletionPopup();
+    }
+  }, 5000);
+}
+
+// Close quest completion popup and claim reward
+function closeQuestCompletionPopup() {
+  const popup = document.getElementById('quest-completion-popup');
+  if (popup) {
+    const titleEl = document.getElementById('quest-completion-title');
+    if (titleEl) {
+      const questTitle = titleEl.textContent;
+      // Find the quest by title and claim its reward
+      const questDef = questDefinitions.find(q => q.title === questTitle);
+      if (questDef) {
+        claimQuestReward(questDef.id);
+      }
+    }
+    popup.style.display = 'none';
   }
 }
 
@@ -2485,6 +3377,13 @@ window.addEventListener('click', (event) => {
     shopModal.style.display = 'none';
   }
   
+  // Close quests modal when clicking outside
+  const questsModal = document.getElementById('quests-modal');
+  const questsContent = document.querySelector('.quests-content');
+  if (questsModal && event.target === questsModal) {
+    questsModal.style.display = 'none';
+  }
+  
   // Close load menu when clicking outside
   const loadModal = document.getElementById('load-modal');
   if (loadModal && event.target === loadModal) {
@@ -2513,26 +3412,40 @@ window.addEventListener('keyup', (e) => {
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
-  const loaded = loadGame();
-  
-  if (!loaded) {
-    initializeGrid();
-  }
-  
-  // Check if character is selected
-  if (!gameState.character) {
-    showCharacterSelection();
-  } else {
-    hideCharacterSelection();
-    // Calculate production and unlocks on initialization
-    calculateProduction();
-    checkUnlocks();
-    renderGrid();
-updateUI();
-updateSaveStatus();
-    initializeBuildMenu();
-    updateBuildMenu();
-    initializeResourceTooltips();
-    updateSaveSlots();
+  try {
+    const loaded = loadGame();
+    
+    if (!loaded) {
+      initializeGrid();
+    }
+    
+    // Ensure quests are initialized and is an array
+    if (!gameState.quests || !Array.isArray(gameState.quests)) {
+      gameState.quests = [];
+    }
+    initializeQuests();
+    
+    // Check if character is selected
+    if (!gameState.character) {
+      showCharacterSelection();
+    } else {
+      hideCharacterSelection();
+      // Calculate production and unlocks on initialization
+      calculateProduction();
+      checkUnlocks();
+      checkQuests();
+      renderGrid();
+      updateUI();
+      updateSaveStatus();
+      updateQuestIndicator();
+      initializeBuildMenu();
+      updateBuildMenu();
+      initializeResourceTooltips();
+      updateSaveSlots();
+      startGameLoop();
+    }
+  } catch (e) {
+    console.error('Error initializing game:', e);
+    alert('Error loading game. Please refresh the page.');
   }
 });

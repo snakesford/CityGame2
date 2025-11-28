@@ -58,6 +58,9 @@ let selectedTile = null;
 let editMode = false;
 let tileBeingMoved = null; // {row, col, type, level}
 
+// Shift key state for multiple building placement
+let shiftHeld = false;
+
 // Building type definitions
 const buildingTypes = {
   tepee: {
@@ -899,9 +902,11 @@ function handleCellClick(row, col) {
     if (!placeBuilding(row, col, selectedBuildingType)) {
       showMessage("Not enough resources.");
     } else {
-      // Clear building selection after placing
-      selectedBuildingType = null;
-      updateBuildingSelection();
+      // Only clear building selection if Shift is not held (allows multiple placements)
+      if (!shiftHeld) {
+        selectedBuildingType = null;
+        updateBuildingSelection();
+      }
     }
   } else if (!selectedBuildingType && tile.type !== "empty") {
     // Select tile for info panel
@@ -950,8 +955,8 @@ function updateBuildingSelection() {
 
 // Select building type
 function selectBuildingType(buildingType) {
-  if (selectedBuildingType === buildingType) {
-    // Deselect if clicking same building
+  if (selectedBuildingType === buildingType && !shiftHeld) {
+    // Deselect if clicking same building (unless Shift is held)
     selectedBuildingType = null;
     } else {
     selectedBuildingType = buildingType;
@@ -1909,6 +1914,25 @@ window.addEventListener('click', (event) => {
   const shopContent = document.querySelector('.shop-content');
   if (shopModal && event.target === shopModal) {
     shopModal.style.display = 'none';
+  }
+});
+
+// Track Shift key state for multiple building placement
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Shift' && !shiftHeld) {
+    shiftHeld = true;
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  if (e.key === 'Shift' && shiftHeld) {
+    shiftHeld = false;
+    // Clear building selection when Shift is released
+    if (selectedBuildingType) {
+      selectedBuildingType = null;
+      updateBuildingSelection();
+      showMessage("Multiple placement mode ended.");
+    }
   }
 });
 

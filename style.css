@@ -1010,7 +1010,8 @@ h4 {
 }
 
 .slot-save-btn,
-.slot-load-btn {
+.slot-load-btn,
+.slot-delete-btn {
   padding: 10px 20px;
   font-size: 14px;
   font-weight: bold;
@@ -1044,6 +1045,23 @@ h4 {
 }
 
 .slot-load-btn:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.slot-delete-btn {
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+}
+
+.slot-delete-btn:hover {
+  background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.slot-delete-btn:disabled {
   background: #555;
   cursor: not-allowed;
   opacity: 0.5;

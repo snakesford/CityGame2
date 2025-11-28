@@ -1512,6 +1512,23 @@ function saveGameSlot(slot) {
   hideLoadMenu();
 }
 
+// Delete game from specific slot
+function deleteGameSlot(slot) {
+  const slotKey = `cityBuilderSave_slot${slot}`;
+  const saved = localStorage.getItem(slotKey);
+  
+  if (!saved) {
+    showMessage("No save found in this slot.");
+    return;
+  }
+  
+  if (confirm(`Are you sure you want to delete the save in slot ${slot}? This cannot be undone.`)) {
+    localStorage.removeItem(slotKey);
+    updateSaveSlots();
+    showMessage(`Save slot ${slot} deleted.`);
+  }
+}
+
 // Load game from specific slot
 function loadGameSlot(slot) {
   const slotKey = `cityBuilderSave_slot${slot}`;
@@ -1731,7 +1748,8 @@ function updateSaveSlots() {
     const slotKey = `cityBuilderSave_slot${slot}`;
     const saved = localStorage.getItem(slotKey);
     const slotInfo = document.getElementById(`slot-${slot}-info`);
-    const slotElement = document.querySelector(`[data-slot="${slot}"]`);
+    const slotElement = document.querySelector(`.save-slot[data-slot="${slot}"]`);
+    const deleteBtn = document.querySelector(`.slot-delete-btn[data-slot="${slot}"]`);
     
     if (slotInfo) {
       if (saved) {
@@ -1741,17 +1759,21 @@ function updateSaveSlots() {
             const saveDate = new Date(data.timestamp);
             slotInfo.textContent = `Saved: ${saveDate.toLocaleString()}`;
             if (slotElement) slotElement.classList.add('has-save');
+            if (deleteBtn) deleteBtn.disabled = false;
           } else {
             slotInfo.textContent = 'Empty';
             if (slotElement) slotElement.classList.remove('has-save');
+            if (deleteBtn) deleteBtn.disabled = true;
           }
         } catch (e) {
           slotInfo.textContent = 'Empty';
           if (slotElement) slotElement.classList.remove('has-save');
+          if (deleteBtn) deleteBtn.disabled = true;
         }
       } else {
         slotInfo.textContent = 'Empty';
         if (slotElement) slotElement.classList.remove('has-save');
+        if (deleteBtn) deleteBtn.disabled = true;
       }
     }
   }

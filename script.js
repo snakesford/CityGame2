@@ -856,6 +856,10 @@ function updateTileInfo() {
     }
     
     html += `<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.2);">`;
+    html += `<p style="padding: 8px; background: rgba(139, 69, 19, 0.2); border-left: 3px solid #8B4513; border-radius: 3px; margin: 10px 0;">`;
+    html += `<strong style="color: #8B4513;">🔥 Fuel:</strong> `;
+    html += `<span style="color: #8B4513; font-weight: bold;">${building.smeltWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 25px; height: 25px; vertical-align: middle;"> wood per batch</span>`;
+    html += `</p>`;
     html += `<p><strong>Kiln Storage:</strong></p>`;
     const totalClayUsed = kiln.clay + (kiln.smeltingAmount || 0);
     html += `<p>Clay: ${kiln.clay.toFixed(1)} / ${maxStorage.toFixed(0)}`;
@@ -864,7 +868,6 @@ function updateTileInfo() {
     }
     html += `</p>`;
     html += `<p>Ready Bricks: ${kiln.bricks.toFixed(1)}</p>`;
-    html += `<p style="color: #888; font-size: 12px;">Requires ${building.smeltWoodAmount} wood fuel per batch</p>`;
     
     // Show smelting progress
     if (kiln.smeltingStartTime !== null) {
@@ -983,6 +986,11 @@ function showCellTooltip(event, row, col) {
   if (production.iron > 0) html += `Iron/sec: ${production.iron.toFixed(2)}<br>`;
   if (production.population > 0) html += `Population/sec: ${production.population.toFixed(2)}<br>`;
   if (production.capacity > 0) html += `Capacity: ${production.capacity}<br>`;
+  
+  // Special indicator for brick kiln - wood fuel requirement
+  if (tile.type === "brickKiln" && building.smeltWoodAmount) {
+    html += `<br><span style="color: #8B4513; font-weight: bold;">🔥 ${building.smeltWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 20px; height: 20px; vertical-align: middle;"> wood per batch</span><br>`;
+  }
   
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
@@ -1249,6 +1257,15 @@ function showBuildingTooltip(event, buildingType) {
     html += `<span style="color: #888;">None</span>`;
   }
   html += `</p>`;
+  
+  // Special info for brick kiln - wood fuel requirement
+  if (buildingType === "brickKiln" && building.smeltWoodAmount) {
+    html += `<p style="margin: 3px 0; padding: 5px; background: rgba(139, 69, 19, 0.2); border-left: 3px solid #8B4513; border-radius: 3px;">`;
+    html += `<strong style="color: #8B4513;">🔥 Fuel Required:</strong> `;
+    html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${building.smeltWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> per batch</span>`;
+    html += `<br><span style="font-size: 12px; color: #aaa;">Converts ${building.smeltClayAmount} clay + ${building.smeltWoodAmount} wood → ${building.smeltBrickOutput} bricks</span>`;
+    html += `</p>`;
+  }
   
   // Character requirement
   if (building.requiredCharacter) {

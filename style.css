@@ -92,20 +92,31 @@ h4 {
 }
 
 .building-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   width: 100%;
   padding: 10px 15px;
   margin: 5px 0;
   font-size: 14px;
   font-weight: bold;
+  line-height: 30px; /* Match icon height */
   border-radius: 6px;
   cursor: pointer;
   border: 2px solid rgba(255,255,255,0.2);
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
   color: white;
-  text-align: left;
+  text-align: center;
+  min-height: 50px;
+}
+
+.building-btn .building-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .building-btn:hover:not(:disabled) {
@@ -119,9 +130,9 @@ h4 {
 }
 
 .building-btn.selected {
-  border: 3px solid #FFD700;
+  border: 3px solid #FFD700 !important;
   box-shadow: 0 0 10px rgba(255,215,0,0.5);
-  background: linear-gradient(135deg, #5a6578 0%, #3d4758 100%);
+  filter: brightness(1.1);
 }
 
 .building-btn:disabled {
@@ -196,7 +207,7 @@ h4 {
 
 .cell-cabin {
   background: 
-    url('images/house.png'),
+    url('images/cabin.png'),
     linear-gradient(135deg, #FF9800 0%, #FFB74D 100%);
   background-size: 95% 95%, cover;
   background-position: center, center;

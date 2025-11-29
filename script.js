@@ -703,8 +703,7 @@ function processSmelter(row, col, level) {
   const smelterKey = `${row}_${col}`;
   if (!gameState.smelters[smelterKey]) {
     gameState.smelters[smelterKey] = { 
-      mineralType: null, // 'clay' or 'iron' or null
-      amount: 0, // Amount of current mineral type stored (max 10)
+      queue: [], // Array of {type: 'clay'|'iron'} objects (max 10)
       smeltingStartTime: null,
       readyOutput: { bricks: 0, ironBars: 0 }
     };
@@ -712,8 +711,15 @@ function processSmelter(row, col, level) {
   
   const smelter = gameState.smelters[smelterKey];
   // Ensure all fields exist (for old saves)
-  if (smelter.mineralType === undefined) smelter.mineralType = null;
-  if (smelter.amount === undefined) smelter.amount = 0;
+  if (!smelter.queue) {
+    // Migrate old format to new queue format
+    smelter.queue = [];
+    if (smelter.mineralType && smelter.amount > 0) {
+      for (let i = 0; i < smelter.amount; i++) {
+        smelter.queue.push({ type: smelter.mineralType });
+      }
+    }
+  }
   if (smelter.smeltingStartTime === undefined) smelter.smeltingStartTime = null;
   if (!smelter.readyOutput) smelter.readyOutput = { bricks: 0, ironBars: 0 };
   if (smelter.readyOutput.bricks === undefined) smelter.readyOutput.bricks = 0;
@@ -723,9 +729,10 @@ function processSmelter(row, col, level) {
   const now = Date.now();
   
   // Check if a smelting batch is complete
-  if (smelter.smeltingStartTime !== null && smelter.mineralType !== null && smelter.amount > 0) {
+  if (smelter.smeltingStartTime !== null && smelter.queue.length > 0) {
+    const currentBatch = smelter.queue[0];
     const elapsedTime = now - smelter.smeltingStartTime;
-    let smeltTime = smelter.mineralType === 'clay' ? building.smeltClayTime : building.smeltIronTime;
+    let smeltTime = currentBatch.type === 'clay' ? building.smeltClayTime : building.smeltIronTime;
     
     // Apply smelting speed upgrade (20% faster = 80% of original time)
     if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
@@ -734,22 +741,21 @@ function processSmelter(row, col, level) {
     
     if (elapsedTime >= smeltTime) {
       // Smelting complete! Add output and process next batch
-      if (smelter.mineralType === 'clay') {
+      if (currentBatch.type === 'clay') {
         smelter.readyOutput.bricks += building.smeltBrickOutput;
-      } else if (smelter.mineralType === 'iron') {
+      } else if (currentBatch.type === 'iron') {
         smelter.readyOutput.ironBars += building.smeltIronBarOutput;
       }
       
-      // Remove one batch from storage
-      smelter.amount -= 1;
+      // Remove completed batch from queue
+      smelter.queue.shift();
       
       // If there's more to smelt, start next batch
-      if (smelter.amount > 0) {
+      if (smelter.queue.length > 0) {
         smelter.smeltingStartTime = now; // Start next batch immediately
       } else {
         // No more to smelt, reset
         smelter.smeltingStartTime = null;
-        smelter.mineralType = null;
       }
     }
   }
@@ -782,15 +788,20 @@ function loadMineralToSmelter(row, col, mineralType) {
   if (tile.type !== "smelter") return false;
   
   const building = buildingTypes.smelter;
-  const maxStorage = 10; // Can hold up to 10 resources
+  const maxStorage = 10; // Can hold up to 10 batches
   
-  // Check if smelter can accept this mineral type
-  if (smelter.mineralType !== null && smelter.mineralType !== mineralType) {
-    return false; // Can only hold one type at a time
+  // Migrate old format if needed
+  if (!smelter.queue) {
+    smelter.queue = [];
+    if (smelter.mineralType && smelter.amount > 0) {
+      for (let i = 0; i < smelter.amount; i++) {
+        smelter.queue.push({ type: smelter.mineralType });
+      }
+    }
   }
   
   // Check if storage is full
-  if (smelter.amount >= maxStorage) {
+  if (smelter.queue.length >= maxStorage) {
     return false; // Storage is full
   }
   
@@ -802,9 +813,8 @@ function loadMineralToSmelter(row, col, mineralType) {
     // Consume resources
     gameState.resources.clay -= building.smeltClayAmount;
     gameState.resources.wood -= building.smeltWoodAmount;
-    // Add to storage
-    smelter.mineralType = 'clay';
-    smelter.amount += 1; // One batch
+    // Add to queue
+    smelter.queue.push({ type: 'clay' });
     // Start smelting if not already smelting
     if (smelter.smeltingStartTime === null) {
       smelter.smeltingStartTime = Date.now();
@@ -817,9 +827,8 @@ function loadMineralToSmelter(row, col, mineralType) {
     // Consume resources
     gameState.resources.iron -= building.smeltIronAmount;
     gameState.resources.wood -= building.smeltWoodAmount;
-    // Add to storage
-    smelter.mineralType = 'iron';
-    smelter.amount += 1; // One batch
+    // Add to queue
+    smelter.queue.push({ type: 'iron' });
     // Start smelting if not already smelting
     if (smelter.smeltingStartTime === null) {
       smelter.smeltingStartTime = Date.now();
@@ -828,6 +837,70 @@ function loadMineralToSmelter(row, col, mineralType) {
   }
   
   return false;
+}
+
+// Remove a batch from smelter and refund resources
+function removeBatchFromSmelter(row, col) {
+  // Safety check for map bounds
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+    return false;
+  }
+  
+  // Ensure smelters object exists
+  if (!gameState.smelters) {
+    gameState.smelters = {};
+  }
+
+  const smelterKey = `${row}_${col}`;
+  if (!gameState.smelters || !gameState.smelters[smelterKey]) {
+    return false;
+  }
+
+  const smelter = gameState.smelters[smelterKey];
+  const tile = gameState.map[row][col];
+  if (tile.type !== "smelter") return false;
+  
+  // Migrate old format if needed
+  if (!smelter.queue) {
+    smelter.queue = [];
+    if (smelter.mineralType && smelter.amount > 0) {
+      for (let i = 0; i < smelter.amount; i++) {
+        smelter.queue.push({ type: smelter.mineralType });
+      }
+    }
+  }
+  
+  // Can't remove if nothing is stored
+  if (smelter.queue.length <= 0) {
+    return false;
+  }
+  
+  // Can't remove the batch currently being smelted (first in queue)
+  if (smelter.queue.length <= 1 && smelter.smeltingStartTime !== null) {
+    return false; // Only batch is being processed
+  }
+  
+  // Remove from the end of the queue (waiting batches), not the first one (currently smelting)
+  const batchToRemove = smelter.queue.pop(); // Remove last item
+  if (!batchToRemove) return false;
+  
+  const building = buildingTypes.smelter;
+  
+  // Refund resources based on mineral type
+  if (batchToRemove.type === 'clay') {
+    gameState.resources.clay += building.smeltClayAmount;
+    gameState.resources.wood += building.smeltWoodAmount;
+  } else if (batchToRemove.type === 'iron') {
+    gameState.resources.iron += building.smeltIronAmount;
+    gameState.resources.wood += building.smeltWoodAmount;
+  }
+  
+  // If no more batches, reset
+  if (smelter.queue.length === 0 && smelter.smeltingStartTime === null) {
+    // Already empty, nothing to reset
+  }
+  
+  return true;
 }
 
 // Harvest all ready output from smelter
@@ -1378,10 +1451,18 @@ function updateTileInfo() {
     }
     const smelterKey = `${selectedTile.row}_${selectedTile.col}`;
     const smelterData = gameState.smelters[smelterKey] || {};
+    // Migrate old format if needed
+    if (!smelterData.queue) {
+      smelterData.queue = [];
+      if (smelterData.mineralType && smelterData.amount > 0) {
+        for (let i = 0; i < smelterData.amount; i++) {
+          smelterData.queue.push({ type: smelterData.mineralType });
+        }
+      }
+    }
     // Ensure all fields exist with defaults (for old saves)
     const smelter = {
-      mineralType: smelterData.mineralType || null,
-      amount: smelterData.amount || 0,
+      queue: smelterData.queue || [],
       smeltingStartTime: smelterData.smeltingStartTime || null,
       readyOutput: smelterData.readyOutput || { bricks: 0, ironBars: 0 }
     };
@@ -1390,14 +1471,17 @@ function updateTileInfo() {
     const building = buildingTypes.smelter;
     const maxStorage = 10;
     
+    // Get currently smelting batch (first in queue)
+    const currentBatch = smelter.queue.length > 0 ? smelter.queue[0] : null;
+    
     // Calculate smelting progress
     let smeltingProgress = 0;
     let smeltingTimeLeft = 0;
     let smeltTime = 0;
-    if (smelter.smeltingStartTime !== null && smelter.mineralType !== null && smelter.amount > 0) {
+    if (smelter.smeltingStartTime !== null && currentBatch) {
       const now = Date.now();
       const elapsed = now - smelter.smeltingStartTime;
-      smeltTime = smelter.mineralType === 'clay' ? building.smeltClayTime : building.smeltIronTime;
+      smeltTime = currentBatch.type === 'clay' ? building.smeltClayTime : building.smeltIronTime;
       // Apply smelting speed upgrade (20% faster = 80% of original time)
       if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
         smeltTime = smeltTime * 0.8;
@@ -1407,8 +1491,8 @@ function updateTileInfo() {
     }
     
     const totalReady = (smelter.readyOutput.bricks || 0) + (smelter.readyOutput.ironBars || 0);
-    const canLoadClay = (smelter.mineralType === null || smelter.mineralType === 'clay') && smelter.amount < maxStorage && gameState.resources.clay >= building.smeltClayAmount && gameState.resources.wood >= building.smeltWoodAmount;
-    const canLoadIron = (smelter.mineralType === null || smelter.mineralType === 'iron') && smelter.amount < maxStorage && gameState.resources.iron >= building.smeltIronAmount && gameState.resources.wood >= building.smeltWoodAmount;
+    const canLoadClay = smelter.queue.length < maxStorage && gameState.resources.clay >= building.smeltClayAmount && gameState.resources.wood >= building.smeltWoodAmount;
+    const canLoadIron = smelter.queue.length < maxStorage && gameState.resources.iron >= building.smeltIronAmount && gameState.resources.wood >= building.smeltWoodAmount;
     
     html += `<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.2);">`;
     html += `<p style="padding: 8px; background: rgba(139, 69, 19, 0.2); border-left: 3px solid #8B4513; border-radius: 3px; margin: 10px 0;">`;
@@ -1429,23 +1513,40 @@ function updateTileInfo() {
     html += `</button>`;
     html += `</div>`;
     
-    // Current status
-    html += `<p><strong>Status:</strong> `;
-    if (smelter.mineralType === 'clay') {
-      html += `<span style="color: #8B4513;">${smelter.amount} / ${maxStorage} Clay batches stored</span>`;
-    } else if (smelter.mineralType === 'iron') {
-      html += `<span style="color: #708090;">${smelter.amount} / ${maxStorage} Iron batches stored</span>`;
+    // Current status - show icons for stored batches (queue)
+    html += `<p><strong>Queue (${smelter.queue.length} / ${maxStorage}):</strong></p>`;
+    if (smelter.queue.length > 0) {
+      // Show icons for all batches in queue (skip first if currently smelting)
+      const startIndex = (smelter.smeltingStartTime !== null) ? 1 : 0;
+      const iconsToShow = smelter.queue.slice(startIndex); // All batches except the one being smelted
+      
+      html += `<div id="stored-batches-container" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; min-height: 50px; align-items: center;">`;
+      if (iconsToShow.length > 0) {
+        iconsToShow.forEach((batch, displayIndex) => {
+          const mineralIcon = batch.type === 'clay' ? 'images/clay.png' : 'images/iron.png';
+          const mineralColor = batch.type === 'clay' ? '#8B4513' : '#708090';
+          const actualQueueIndex = startIndex + displayIndex; // Actual index in the queue array
+          html += `<img class="batch-icon" data-mineral-type="${batch.type}" data-queue-index="${actualQueueIndex}" src="${mineralIcon}" alt="${batch.type}" style="width: 35px; height: 35px; border: 2px solid ${mineralColor}; border-radius: 3px; background: ${mineralColor}; padding: 2px; cursor: pointer; transition: opacity 0.2s;" title="Click to remove this batch">`;
+        });
+      } else {
+        html += `<span style="color: #999; font-style: italic;">All batches are being processed</span>`;
+      }
+      html += `</div>`;
     } else {
-      html += `<span style="color: #999;">Empty (0 / ${maxStorage})</span>`;
+      html += `<div style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; min-height: 50px; align-items: center;">`;
+      html += `<span style="color: #999; font-style: italic;">Empty</span>`;
+      html += `</div>`;
     }
-    html += `</p>`;
     
     // Show smelting progress
-    if (smelter.smeltingStartTime !== null && smelter.mineralType !== null && smelter.amount > 0) {
-      const typeLabel = smelter.mineralType === 'clay' ? 'Clay → Bricks' : 'Iron → Iron Bars';
+    if (smelter.smeltingStartTime !== null && currentBatch) {
       const totalTimeSeconds = Math.ceil(smeltTime / 1000);
       const elapsedSeconds = Math.floor((Date.now() - smelter.smeltingStartTime) / 1000);
-      html += `<p><strong>Smelting ${typeLabel}:</strong> ${smeltingProgress.toFixed(0)}% (${smeltingTimeLeft}s remaining / ${totalTimeSeconds}s total)</p>`;
+      const inputIcon = currentBatch.type === 'clay' ? 'images/clay.png' : 'images/iron.png';
+      const outputIcon = currentBatch.type === 'clay' ? 'images/claybricks.png' : 'images/ironBar.webp';
+      const inputAlt = currentBatch.type === 'clay' ? 'Clay' : 'Iron';
+      const outputAlt = currentBatch.type === 'clay' ? 'Bricks' : 'Iron Bars';
+      html += `<p><strong>Smelting:</strong> <img src="${inputIcon}" alt="${inputAlt}" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px;"> → <img src="${outputIcon}" alt="${outputAlt}" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px;"> ${smeltingProgress.toFixed(0)}% (${smeltingTimeLeft}s remaining / ${totalTimeSeconds}s total)</p>`;
       html += `<div style="background: rgba(255,255,255,0.2); border-radius: 4px; height: 25px; margin: 5px 0; position: relative; overflow: hidden;">`;
       html += `<div style="background: ${smelter.mineralType === 'clay' ? '#8B4513' : '#708090'}; height: 100%; width: ${smeltingProgress}%; border-radius: 4px; transition: width 0.3s;"></div>`;
       html += `<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">${smeltingTimeLeft}s / ${totalTimeSeconds}s</div>`;
@@ -1470,7 +1571,7 @@ function updateTileInfo() {
     html += `<button id="harvest-smelter-btn" style="margin: 10px 0; width: 100%; padding: 10px;" ${totalReady <= 0 ? 'disabled' : ''}>`;
     html += `Harvest `;
     if (smelter.readyOutput.bricks > 0 && smelter.readyOutput.ironBars > 0) {
-      html += `${smelter.readyOutput.bricks} Bricks + ${smelter.readyOutput.ironBars} Iron Bars`;
+      html += `${smelter.readyOutput.bricks} clay bricks + ${smelter.readyOutput.ironBars} Iron Bars`;
     } else if (smelter.readyOutput.bricks > 0) {
       html += `${smelter.readyOutput.bricks} Bricks`;
     } else if (smelter.readyOutput.ironBars > 0) {
@@ -1503,6 +1604,65 @@ function updateTileInfo() {
   if (controlsSection) {
     infoPanel.appendChild(controlsSection);
   }
+  
+  // Add event listeners for batch icons (clickable to remove)
+  const batchIcons = document.querySelectorAll('.batch-icon');
+  batchIcons.forEach(icon => {
+    icon.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (selectedTile) {
+        const smelterKey = `${selectedTile.row}_${selectedTile.col}`;
+        const smelter = gameState.smelters[smelterKey];
+        if (smelter && smelter.queue) {
+          // Get the queue index directly from the data attribute
+          const queueIndex = parseInt(icon.getAttribute('data-queue-index'));
+          const currentlySmelting = (smelter.smeltingStartTime !== null) ? 1 : 0;
+          
+          // Can't remove the batch currently being smelted (index 0)
+          if (queueIndex === 0 && currentlySmelting > 0) {
+            showMessage("Cannot remove batch: batch is being processed.");
+            return;
+          }
+          
+          if (queueIndex >= 0 && queueIndex < smelter.queue.length) {
+            const batchToRemove = smelter.queue[queueIndex];
+            const building = buildingTypes.smelter;
+            
+            // Refund resources
+            if (batchToRemove.type === 'clay') {
+              gameState.resources.clay += building.smeltClayAmount;
+              gameState.resources.wood += building.smeltWoodAmount;
+            } else if (batchToRemove.type === 'iron') {
+              gameState.resources.iron += building.smeltIronAmount;
+              gameState.resources.wood += building.smeltWoodAmount;
+            }
+            
+            // Remove from queue at the correct index
+            smelter.queue.splice(queueIndex, 1);
+            
+            const mineralName = batchToRemove.type === 'clay' ? 'clay' : 'iron';
+            updateTileInfo();
+            updateUI();
+            showMessage(`Removed 1 batch of ${mineralName}. Resources refunded.`);
+          } else {
+            showMessage("Cannot remove batch: invalid index.");
+          }
+        } else {
+          showMessage("Cannot remove batch.");
+        }
+      }
+    });
+    // Add hover effect
+    icon.addEventListener('mouseenter', () => {
+      icon.style.opacity = '0.7';
+      icon.style.transform = 'scale(1.1)';
+    });
+    icon.addEventListener('mouseleave', () => {
+      icon.style.opacity = '1';
+      icon.style.transform = 'scale(1)';
+    });
+  });
   
   // Add event listeners
   const upgradeBtn = document.getElementById('upgrade-btn');
@@ -1834,30 +1994,32 @@ function loadGameSlot(slot) {
         
         // Check if this is old format (has clay/iron fields)
         if (smelter.hasOwnProperty('clay') || smelter.hasOwnProperty('iron')) {
-          // Convert old format to new format
+          // Convert old format to new queue format
           const newSmelter = {
-            mineralType: smelter.smeltingType || null,
-            amount: 0, // Old format didn't have batch storage, start fresh
+            queue: [], // Convert old storage to queue
             smeltingStartTime: smelter.smeltingStartTime || null,
             readyOutput: {
               bricks: smelter.bricks || 0,
               ironBars: smelter.ironBars || 0
             }
           };
-          // If smelting was in progress but mineralType is null, check if there was material
-          if (!newSmelter.mineralType && smelter.smeltingAmount > 0) {
-            // Try to infer from smeltingAmount (old logic)
-            if (smelter.clay > 0 || smelter.smeltingType === 'clay') {
-              newSmelter.mineralType = 'clay';
-            } else if (smelter.iron > 0 || smelter.smeltingType === 'iron') {
-              newSmelter.mineralType = 'iron';
+          // If there was stored material, add it to queue
+          if (smelter.smeltingType && smelter.amount > 0) {
+            for (let i = 0; i < smelter.amount; i++) {
+              newSmelter.queue.push({ type: smelter.smeltingType });
             }
           }
           gameState.smelters[key] = newSmelter;
         } else {
-          // Ensure new format fields exist
-          if (!smelter.hasOwnProperty('mineralType')) smelter.mineralType = null;
-          if (!smelter.hasOwnProperty('amount')) smelter.amount = 0;
+          // Ensure new format fields exist (migrate to queue if needed)
+          if (!smelter.hasOwnProperty('queue')) {
+            smelter.queue = [];
+            if (smelter.mineralType && smelter.amount > 0) {
+              for (let i = 0; i < smelter.amount; i++) {
+                smelter.queue.push({ type: smelter.mineralType });
+              }
+            }
+          }
           if (!smelter.hasOwnProperty('smeltingStartTime')) smelter.smeltingStartTime = null;
           if (!smelter.hasOwnProperty('readyOutput')) smelter.readyOutput = { bricks: 0, ironBars: 0 };
           if (!smelter.readyOutput.bricks) smelter.readyOutput.bricks = 0;
@@ -1963,30 +2125,32 @@ function loadGame() {
         
         // Check if this is old format (has clay/iron fields)
         if (smelter.hasOwnProperty('clay') || smelter.hasOwnProperty('iron')) {
-          // Convert old format to new format
+          // Convert old format to new queue format
           const newSmelter = {
-            mineralType: smelter.smeltingType || null,
-            amount: 0, // Old format didn't have batch storage, start fresh
+            queue: [], // Convert old storage to queue
             smeltingStartTime: smelter.smeltingStartTime || null,
             readyOutput: {
               bricks: smelter.bricks || 0,
               ironBars: smelter.ironBars || 0
             }
           };
-          // If smelting was in progress but mineralType is null, check if there was material
-          if (!newSmelter.mineralType && smelter.smeltingAmount > 0) {
-            // Try to infer from smeltingAmount (old logic)
-            if (smelter.clay > 0 || smelter.smeltingType === 'clay') {
-              newSmelter.mineralType = 'clay';
-            } else if (smelter.iron > 0 || smelter.smeltingType === 'iron') {
-              newSmelter.mineralType = 'iron';
+          // If there was stored material, add it to queue
+          if (smelter.smeltingType && smelter.amount > 0) {
+            for (let i = 0; i < smelter.amount; i++) {
+              newSmelter.queue.push({ type: smelter.smeltingType });
             }
           }
           gameState.smelters[key] = newSmelter;
         } else {
-          // Ensure new format fields exist
-          if (!smelter.hasOwnProperty('mineralType')) smelter.mineralType = null;
-          if (!smelter.hasOwnProperty('amount')) smelter.amount = 0;
+          // Ensure new format fields exist (migrate to queue if needed)
+          if (!smelter.hasOwnProperty('queue')) {
+            smelter.queue = [];
+            if (smelter.mineralType && smelter.amount > 0) {
+              for (let i = 0; i < smelter.amount; i++) {
+                smelter.queue.push({ type: smelter.mineralType });
+              }
+            }
+          }
           if (!smelter.hasOwnProperty('smeltingStartTime')) smelter.smeltingStartTime = null;
           if (!smelter.hasOwnProperty('readyOutput')) smelter.readyOutput = { bricks: 0, ironBars: 0 };
           if (!smelter.readyOutput.bricks) smelter.readyOutput.bricks = 0;
@@ -2215,28 +2379,32 @@ function importSave(event) {
           
           // Check if this is old format (has clay/iron fields)
           if (smelter.hasOwnProperty('clay') || smelter.hasOwnProperty('iron')) {
-            // Convert old format to new format
+            // Convert old format to new queue format
             const newSmelter = {
-              mineralType: smelter.smeltingType || null,
+              queue: [], // Convert old storage to queue
               smeltingStartTime: smelter.smeltingStartTime || null,
               readyOutput: {
                 bricks: smelter.bricks || 0,
                 ironBars: smelter.ironBars || 0
               }
             };
-            // If smelting was in progress but mineralType is null, check if there was material
-            if (!newSmelter.mineralType && smelter.smeltingAmount > 0) {
-              // Try to infer from smeltingAmount (old logic)
-              if (smelter.clay > 0 || smelter.smeltingType === 'clay') {
-                newSmelter.mineralType = 'clay';
-              } else if (smelter.iron > 0 || smelter.smeltingType === 'iron') {
-                newSmelter.mineralType = 'iron';
+            // If there was stored material, add it to queue
+            if (smelter.smeltingType && smelter.amount > 0) {
+              for (let i = 0; i < smelter.amount; i++) {
+                newSmelter.queue.push({ type: smelter.smeltingType });
               }
             }
             gameState.smelters[key] = newSmelter;
           } else {
-            // Ensure new format fields exist
-            if (!smelter.hasOwnProperty('mineralType')) smelter.mineralType = null;
+            // Ensure new format fields exist (migrate to queue if needed)
+            if (!smelter.hasOwnProperty('queue')) {
+              smelter.queue = [];
+              if (smelter.mineralType && smelter.amount > 0) {
+                for (let i = 0; i < smelter.amount; i++) {
+                  smelter.queue.push({ type: smelter.mineralType });
+                }
+              }
+            }
             if (!smelter.hasOwnProperty('smeltingStartTime')) smelter.smeltingStartTime = null;
             if (!smelter.hasOwnProperty('readyOutput')) smelter.readyOutput = { bricks: 0, ironBars: 0 };
             if (!smelter.readyOutput.bricks) smelter.readyOutput.bricks = 0;

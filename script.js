@@ -1593,19 +1593,37 @@ function updateTileInfo() {
     const canLoadIron = smelter.queue.length < maxStorage && gameState.resources.iron >= building.smeltIronAmount && hasEnoughFuelForIron;
     
     html += `<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.2);">`;
-    html += `<p style="padding: 8px; background: rgba(139, 69, 19, 0.2); border-left: 3px solid #8B4513; border-radius: 3px; margin: 10px 0;">`;
-    html += `<strong style="color: #8B4513;">🔥 Fuel Storage:</strong> `;
-    html += `<span style="color: #8B4513; font-weight: bold;">${Math.floor(smelter.fuel)} / ${Math.floor(fuelCapacity)} <img src="images/wood-log.png" alt="Wood" style="width: 25px; height: 25px; vertical-align: middle;"></span>`;
-    html += `<br><span style="font-size: 12px; color: #aaa;">Clay: ${building.smeltClayWoodAmount} wood | Iron: ${building.smeltIronWoodAmount} wood per batch</span>`;
-    html += `</p>`;
     
-    // Add fuel button
+    // Fuel Storage Section
+    const fuelPercentage = (smelter.fuel / fuelCapacity) * 100;
     const fuelSpace = fuelCapacity - smelter.fuel;
     const canAddFuel = fuelSpace > 0 && gameState.resources.wood > 0;
     const fuelToAdd = Math.min(10, fuelSpace, gameState.resources.wood);
-    html += `<button id="add-fuel-btn" style="margin: 5px 0; width: 100%; padding: 8px; background: ${canAddFuel ? '#6D4C41' : 'rgba(100, 100, 100, 0.2)'}; border: 2px solid ${canAddFuel ? '#8D6E63' : '#666'}; border-radius: 5px; cursor: ${canAddFuel ? 'pointer' : 'not-allowed'}; opacity: ${canAddFuel ? '1' : '0.5'};" ${!canAddFuel ? 'disabled' : ''}>`;
-    html += `<img src="images/wood-log.png" alt="Wood" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 5px;"> Add ${fuelToAdd} Wood to Storage`;
+    
+    html += `<div style="padding: 12px; background: linear-gradient(135deg, rgba(109, 76, 65, 0.3) 0%, rgba(141, 110, 99, 0.3) 100%); border: 2px solid #8D6E63; border-radius: 8px; margin: 10px 0;">`;
+    html += `<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">`;
+    html += `<strong style="color: #8D6E63; font-size: 16px;">🔥 Fuel Storage</strong>`;
+    html += `<span style="color: #8D6E63; font-weight: bold; font-size: 14px;">${Math.floor(smelter.fuel)} / ${Math.floor(fuelCapacity)}</span>`;
+    html += `</div>`;
+    
+    // Fuel progress bar
+    html += `<div style="background: rgba(0,0,0,0.3); border-radius: 6px; height: 20px; margin: 8px 0; position: relative; overflow: hidden; border: 1px solid rgba(141, 110, 99, 0.5);">`;
+    html += `<div style="background: linear-gradient(90deg, #6D4C41 0%, #8D6E63 100%); height: 100%; width: ${fuelPercentage}%; border-radius: 6px; transition: width 0.3s;"></div>`;
+    html += `<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 11px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">${fuelPercentage.toFixed(0)}%</div>`;
+    html += `</div>`;
+    
+    // Fuel consumption info
+    html += `<div style="display: flex; gap: 10px; margin: 8px 0; font-size: 12px;">`;
+    html += `<span style="color: #aaa; flex: 1; text-align: center; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">Clay: <strong style="color: #8B4513;">${building.smeltClayWoodAmount}</strong> <img src="images/wood-log.png" alt="Wood" style="width: 16px; height: 16px; vertical-align: middle;"></span>`;
+    html += `<span style="color: #aaa; flex: 1; text-align: center; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px;">Iron: <strong style="color: #708090;">${building.smeltIronWoodAmount}</strong> <img src="images/wood-log.png" alt="Wood" style="width: 16px; height: 16px; vertical-align: middle;"></span>`;
+    html += `</div>`;
+    
+    // Add fuel button
+    html += `<button id="add-fuel-btn" style="margin-top: 8px; width: 100%; padding: 10px; background: ${canAddFuel ? '#6D4C41' : 'rgba(100, 100, 100, 0.2)'}; border: 2px solid ${canAddFuel ? '#8D6E63' : '#666'}; border-radius: 6px; cursor: ${canAddFuel ? 'pointer' : 'not-allowed'}; opacity: ${canAddFuel ? '1' : '0.5'}; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;" ${!canAddFuel ? 'disabled' : ''}>`;
+    html += `<img src="images/wood-log.png" alt="Wood" style="width: 24px; height: 24px; vertical-align: middle;">`;
+    html += `<span>Add ${fuelToAdd} Wood</span>`;
     html += `</button>`;
+    html += `</div>`;
     
     // Mineral selection buttons
     html += `<p><strong>Load Mineral:</strong></p>`;
@@ -1653,7 +1671,6 @@ function updateTileInfo() {
       const outputIcon = currentBatch.type === 'clay' ? 'images/claybricks.png' : 'images/ironBar.webp';
       const inputAlt = currentBatch.type === 'clay' ? 'Clay' : 'Iron';
       const outputAlt = currentBatch.type === 'clay' ? 'Bricks' : 'Iron Bars';
-      html += `<p><strong>Smelting:</strong> <img src="${inputIcon}" alt="${inputAlt}" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px;"> → <img src="${outputIcon}" alt="${outputAlt}" style="width: 40px; height: 40px; vertical-align: middle; margin: 0 5px;"> ${smeltingProgress.toFixed(0)}% (${smeltingTimeLeft}s remaining / ${totalTimeSeconds}s total)</p>`;
       html += `<div style="background: rgba(255,255,255,0.2); border-radius: 4px; height: 25px; margin: 5px 0; position: relative; overflow: hidden;">`;
       html += `<div style="background: ${smelter.mineralType === 'clay' ? '#8B4513' : '#708090'}; height: 100%; width: ${smeltingProgress}%; border-radius: 4px; transition: width 0.3s;"></div>`;
       html += `<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">${smeltingTimeLeft}s / ${totalTimeSeconds}s</div>`;

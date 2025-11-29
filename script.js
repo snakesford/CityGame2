@@ -65,6 +65,31 @@ let selectedTile = null;
 
 // Edit mode state
 let editMode = false;
+
+// Format number with shorthand (k/M/B)
+function formatNumber(num) {
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(2).replace(/\.?0+$/, '') + 'B';
+  } else if (num >= 1000000) {
+    return (num / 1000000).toFixed(2).replace(/\.?0+$/, '') + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(2).replace(/\.?0+$/, '') + 'k';
+  }
+  return Math.floor(num).toString();
+}
+
+// Format number with decimals and shorthand
+function formatNumberWithDecimals(num, decimals = 2) {
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(decimals).replace(/\.?0+$/, '') + 'B';
+  } else if (num >= 1000000) {
+    return (num / 1000000).toFixed(decimals).replace(/\.?0+$/, '') + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(decimals).replace(/\.?0+$/, '') + 'k';
+  }
+  return num.toFixed(decimals);
+}
+
 let tileBeingMoved = null; // {row, col, type, level}
 
 // Shift key state for multiple building placement
@@ -1529,13 +1554,13 @@ function updateTileInfo() {
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
   html += `<p><strong>Production per second:</strong></p>`;
-  if (production.wood > 0) html += `<p>Wood: ${production.wood.toFixed(2)}</p>`;
-  if (production.stone > 0) html += `<p>Stone: ${production.stone.toFixed(2)}</p>`;
-  if (production.clay > 0) html += `<p>Clay: ${production.clay.toFixed(2)}</p>`;
-  if (production.iron > 0) html += `<p>Iron: ${production.iron.toFixed(2)}</p>`;
-  if (production.bricks > 0) html += `<p>Clay Bricks: ${production.bricks.toFixed(2)}</p>`;
-  if (production.population > 0) html += `<p>Population: ${production.population.toFixed(2)}</p>`;
-  if (production.capacity > 0) html += `<p>Capacity: ${production.capacity}</p>`;
+  if (production.wood > 0) html += `<p>Wood: ${formatNumberWithDecimals(production.wood)}</p>`;
+  if (production.stone > 0) html += `<p>Stone: ${formatNumberWithDecimals(production.stone)}</p>`;
+  if (production.clay > 0) html += `<p>Clay: ${formatNumberWithDecimals(production.clay)}</p>`;
+  if (production.iron > 0) html += `<p>Iron: ${formatNumberWithDecimals(production.iron)}</p>`;
+  if (production.bricks > 0) html += `<p>Clay Bricks: ${formatNumberWithDecimals(production.bricks)}</p>`;
+  if (production.population > 0) html += `<p>Population: ${formatNumberWithDecimals(production.population)}</p>`;
+  if (production.capacity > 0) html += `<p>Capacity: ${formatNumber(production.capacity)}</p>`;
   
   // Special handling for smelter
   if (tile.type === "smelter") {
@@ -1605,7 +1630,7 @@ function updateTileInfo() {
     html += `<div style="padding: 12px; background: linear-gradient(135deg, rgba(109, 76, 65, 0.3) 0%, rgba(141, 110, 99, 0.3) 100%); border: 2px solid #8D6E63; border-radius: 8px; margin: 10px 0;">`;
     html += `<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">`;
     html += `<strong style="color: #8D6E63; font-size: 16px;">🔥 Fuel Storage</strong>`;
-    html += `<span style="color: #8D6E63; font-weight: bold; font-size: 14px;">${Math.floor(smelter.fuel)} / ${Math.floor(fuelCapacity)}</span>`;
+     html += `<span style="color: #8D6E63; font-weight: bold; font-size: 14px;">${formatNumber(smelter.fuel)} / ${formatNumber(fuelCapacity)}</span>`;
     html += `</div>`;
     
     // Fuel progress bar
@@ -1623,7 +1648,7 @@ function updateTileInfo() {
     // Add fuel button
     html += `<button id="add-fuel-btn" style="margin-top: 8px; width: 100%; padding: 10px; background: ${canAddFuel ? '#6D4C41' : 'rgba(100, 100, 100, 0.2)'}; border: 2px solid ${canAddFuel ? '#8D6E63' : '#666'}; border-radius: 6px; cursor: ${canAddFuel ? 'pointer' : 'not-allowed'}; opacity: ${canAddFuel ? '1' : '0.5'}; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;" ${!canAddFuel ? 'disabled' : ''}>`;
     html += `<img src="images/wood-log.png" alt="Wood" style="width: 24px; height: 24px; vertical-align: middle;">`;
-    html += `<span>Add ${fuelToAdd} Wood</span>`;
+     html += `<span>Add ${formatNumber(fuelToAdd)} Wood</span>`;
     html += `</button>`;
     html += `</div>`;
     
@@ -1686,23 +1711,23 @@ function updateTileInfo() {
     if (totalReady > 0) {
       html += `<p><strong>Ready to Harvest:</strong></p>`;
       if (smelter.readyOutput.bricks > 0) {
-        html += `<p>Bricks: ${smelter.readyOutput.bricks.toFixed(0)}</p>`;
-      }
-      if (smelter.readyOutput.ironBars > 0) {
-        html += `<p>Iron Bars: ${smelter.readyOutput.ironBars.toFixed(0)}</p>`;
+         html += `<p>Bricks: ${formatNumber(smelter.readyOutput.bricks)}</p>`;
+       }
+       if (smelter.readyOutput.ironBars > 0) {
+         html += `<p>Iron Bars: ${formatNumber(smelter.readyOutput.ironBars)}</p>`;
       }
     }
     
     // Harvest button
     html += `<button id="harvest-smelter-btn" style="margin: 10px 0; width: 100%; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 5px;" ${totalReady <= 0 ? 'disabled' : ''}>`;
-    html += `Harvest `;
-    if (smelter.readyOutput.bricks > 0 && smelter.readyOutput.ironBars > 0) {
-      html += `${smelter.readyOutput.bricks} <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">`;
-      html += `${smelter.readyOutput.ironBars} <img src="images/ironBar.webp" alt="Iron Bars" style="width: 30px; height: 30px; vertical-align: middle;">`;
-    } else if (smelter.readyOutput.bricks > 0) {
-      html += `${smelter.readyOutput.bricks} <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">`;
-    } else if (smelter.readyOutput.ironBars > 0) {
-      html += `${smelter.readyOutput.ironBars} <img src="images/ironBar.webp" alt="Iron Bars" style="width: 30px; height: 30px; vertical-align: middle;">`;
+     html += `Harvest `;
+     if (smelter.readyOutput.bricks > 0 && smelter.readyOutput.ironBars > 0) {
+       html += `${formatNumber(smelter.readyOutput.bricks)} <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">`;
+       html += `${formatNumber(smelter.readyOutput.ironBars)} <img src="images/ironBar.webp" alt="Iron Bars" style="width: 30px; height: 30px; vertical-align: middle;">`;
+     } else if (smelter.readyOutput.bricks > 0) {
+       html += `${formatNumber(smelter.readyOutput.bricks)} <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">`;
+     } else if (smelter.readyOutput.ironBars > 0) {
+       html += `${formatNumber(smelter.readyOutput.ironBars)} <img src="images/ironBar.webp" alt="Iron Bars" style="width: 30px; height: 30px; vertical-align: middle;">`;
     } else {
       html += `(Nothing Ready)`;
     }
@@ -1718,7 +1743,7 @@ function updateTileInfo() {
       const textColor = '#FFFFFF';
       html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.wood}; border-radius: 5px; border: 3px solid ${borderColor};">`;
       html += `<img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.wood}</span>`;
+       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.wood)}</span>`;
       html += `</span>`;
     }
     if (upgradeCost.stone > 0) {
@@ -1727,7 +1752,7 @@ function updateTileInfo() {
       const textColor = '#FFFFFF';
       html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.stone}; border-radius: 5px; border: 3px solid ${borderColor};">`;
       html += `<img src="images/rock.png" alt="Stone" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.stone}</span>`;
+       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.stone)}</span>`;
       html += `</span>`;
     }
     if (upgradeCost.clay > 0) {
@@ -1736,7 +1761,7 @@ function updateTileInfo() {
       const textColor = '#FFFFFF';
       html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.clay}; border-radius: 5px; border: 3px solid ${borderColor};">`;
       html += `<img src="images/clay.png" alt="Clay" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.clay}</span>`;
+       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.clay)}</span>`;
       html += `</span>`;
     }
     if (upgradeCost.iron > 0) {
@@ -1745,7 +1770,7 @@ function updateTileInfo() {
       const textColor = '#FFFFFF';
       html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.iron}; border-radius: 5px; border: 3px solid ${borderColor};">`;
       html += `<img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.iron}</span>`;
+       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.iron)}</span>`;
       html += `</span>`;
     }
     if (upgradeCost.bricks > 0) {
@@ -1754,7 +1779,7 @@ function updateTileInfo() {
       const textColor = '#FFFFFF';
       html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.bricks}; border-radius: 5px; border: 3px solid ${borderColor};">`;
       html += `<img src="images/claybricks.png" alt="Bricks" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.bricks}</span>`;
+       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.bricks)}</span>`;
       html += `</span>`;
     }
     if (upgradeCost.gold > 0) {
@@ -1763,7 +1788,7 @@ function updateTileInfo() {
       const textColor = '#000000';
       html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.gold}; border-radius: 5px; border: 3px solid ${borderColor};">`;
       html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.gold}</span>`;
+       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.gold)}</span>`;
       html += `</span>`;
     }
     if (upgradeCost.ironBars > 0) {
@@ -1772,7 +1797,7 @@ function updateTileInfo() {
       const textColor = '#FFFFFF';
       html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.ironBars}; border-radius: 5px; border: 3px solid ${borderColor};">`;
       html += `<img src="images/ironBar.webp" alt="Iron Bars" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.ironBars}</span>`;
+       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.ironBars)}</span>`;
       html += `</span>`;
     }
     html += `</div>`;
@@ -1986,12 +2011,12 @@ function showCellTooltip(event, row, col) {
   
   let html = `<strong>${building.displayName}</strong><br>`;
   html += `Level: ${tile.level}<br>`;
-  if (production.wood > 0) html += `Wood/sec: ${production.wood.toFixed(2)}<br>`;
-  if (production.stone > 0) html += `Stone/sec: ${production.stone.toFixed(2)}<br>`;
-  if (production.clay > 0) html += `Clay/sec: ${production.clay.toFixed(2)}<br>`;
-  if (production.iron > 0) html += `Iron/sec: ${production.iron.toFixed(2)}<br>`;
-  if (production.population > 0) html += `Population/sec: ${production.population.toFixed(2)}<br>`;
-  if (production.capacity > 0) html += `Capacity: ${production.capacity}<br>`;
+  if (production.wood > 0) html += `Wood/sec: ${formatNumberWithDecimals(production.wood)}<br>`;
+  if (production.stone > 0) html += `Stone/sec: ${formatNumberWithDecimals(production.stone)}<br>`;
+  if (production.clay > 0) html += `Clay/sec: ${formatNumberWithDecimals(production.clay)}<br>`;
+  if (production.iron > 0) html += `Iron/sec: ${formatNumberWithDecimals(production.iron)}<br>`;
+  if (production.population > 0) html += `Population/sec: ${formatNumberWithDecimals(production.population)}<br>`;
+  if (production.capacity > 0) html += `Capacity: ${formatNumber(production.capacity)}<br>`;
   
   // Special indicator for smelter - wood fuel requirement
   if (tile.type === "smelter" && building.smeltClayWoodAmount) {
@@ -2035,15 +2060,15 @@ function updateUI() {
   const populationEl = document.getElementById('population');
   const capacityEl = document.getElementById('housingCapacity');
   
-  if (woodEl) woodEl.textContent = Math.floor(gameState.resources.wood);
-  if (stoneEl) stoneEl.textContent = Math.floor(gameState.resources.stone);
-  if (clayEl) clayEl.textContent = Math.floor(gameState.resources.clay);
-  if (ironEl) ironEl.textContent = Math.floor(gameState.resources.iron);
-  if (goldEl) goldEl.textContent = Math.floor(gameState.resources.gold);
-  if (bricksEl) bricksEl.textContent = Math.floor(gameState.resources.bricks);
-  if (ironBarsEl) ironBarsEl.textContent = Math.floor(gameState.resources.ironBars);
-  if (populationEl) populationEl.textContent = Math.floor(gameState.population.current);
-  if (capacityEl) capacityEl.textContent = Math.floor(gameState.population.capacity);
+  if (woodEl) woodEl.textContent = formatNumber(gameState.resources.wood);
+  if (stoneEl) stoneEl.textContent = formatNumber(gameState.resources.stone);
+  if (clayEl) clayEl.textContent = formatNumber(gameState.resources.clay);
+  if (ironEl) ironEl.textContent = formatNumber(gameState.resources.iron);
+  if (goldEl) goldEl.textContent = formatNumber(gameState.resources.gold);
+  if (bricksEl) bricksEl.textContent = formatNumber(gameState.resources.bricks);
+  if (ironBarsEl) ironBarsEl.textContent = formatNumber(gameState.resources.ironBars);
+  if (populationEl) populationEl.textContent = formatNumber(gameState.population.current);
+  if (capacityEl) capacityEl.textContent = formatNumber(gameState.population.capacity);
   
   // Update build menu buttons
   updateBuildMenu();
@@ -2700,54 +2725,54 @@ function showBuildingTooltip(event, buildingType) {
   // Cost
   html += `<p style="margin: 3px 0;"><strong style="color: ${categoryColor};">Cost:</strong> `;
   html += `<span style="color: ${canAfford ? '#4CAF50' : '#f44336'}">`;
-  if (cost.wood > 0) {
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.wood}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
-  }
-  if (cost.bricks > 0) {
-    if (cost.wood > 0) html += ` `;
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.bricks}</span> <img src="images/claybricks.png" alt="Bricks" style="width: 50px; height: 50px; vertical-align: middle;">`;
-  }
-  if (cost.stone > 0) {
-    if (cost.wood > 0 || cost.bricks > 0) html += ` `;
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.stone}</span> <img src="images/rock.png" alt="Stone" style="width: 50px; height: 50px; vertical-align: middle;">`;
-  }
-  if (cost.clay > 0) {
-    if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0) html += ` `;
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.clay}</span> <img src="images/clay.png" alt="Clay" style="width: 50px; height: 50px; vertical-align: middle;">`;
-  }
-  if (cost.iron > 0) {
-    if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0) html += ` `;
-    html += `<span style="font-size: 20px; font-weight: bold;">${cost.iron}</span> <img src="images/iron.png" alt="Iron" style="width: 50px; height: 50px; vertical-align: middle;">`;
-  }
+    if (cost.wood > 0) {
+      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.wood)}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    }
+    if (cost.bricks > 0) {
+      if (cost.wood > 0) html += ` `;
+      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.bricks)}</span> <img src="images/claybricks.png" alt="Bricks" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    }
+    if (cost.stone > 0) {
+      if (cost.wood > 0 || cost.bricks > 0) html += ` `;
+      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.stone)}</span> <img src="images/rock.png" alt="Stone" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    }
+    if (cost.clay > 0) {
+      if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0) html += ` `;
+      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.clay)}</span> <img src="images/clay.png" alt="Clay" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    }
+    if (cost.iron > 0) {
+      if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0) html += ` `;
+      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.iron)}</span> <img src="images/iron.png" alt="Iron" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    }
   html += `</span></p>`;
   
   // Production/Benefits
   html += `<p style="margin: 3px 0;"><strong style="color: ${categoryColor};">Produces:</strong> `;
   let hasProduction = false;
-  if (production.wood > 0) {
-    html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${production.wood.toFixed(2)} <img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
-    hasProduction = true;
-  }
-  if (production.stone > 0) {
-    if (hasProduction) html += `, `;
-    html += `<span style="color: #9E9E9E; font-size: 18px; font-weight: bold;">${production.stone.toFixed(2)} <img src="images/rock.png" alt="Stone" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
-    hasProduction = true;
-  }
-  if (production.clay > 0) {
-    if (hasProduction) html += `, `;
-    html += `<span style="color: #8D6E63; font-size: 18px; font-weight: bold;">${production.clay.toFixed(2)} <img src="images/clay.png" alt="Clay" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
-    hasProduction = true;
-  }
-  if (production.iron > 0) {
-    if (hasProduction) html += `, `;
-    html += `<span style="color: #708090; font-size: 18px; font-weight: bold;">${production.iron.toFixed(2)} <img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
-    hasProduction = true;
-  }
-  if (production.population > 0) {
-    if (hasProduction) html += `, `;
-    html += `<span style="color: #4CAF50; font-size: 18px; font-weight: bold;">${production.population.toFixed(2)} <img src="images/population.png" alt="Population" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
-    hasProduction = true;
-  }
+    if (production.wood > 0) {
+      html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.wood)} <img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+      hasProduction = true;
+    }
+    if (production.stone > 0) {
+      if (hasProduction) html += `, `;
+      html += `<span style="color: #9E9E9E; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.stone)} <img src="images/rock.png" alt="Stone" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+      hasProduction = true;
+    }
+    if (production.clay > 0) {
+      if (hasProduction) html += `, `;
+      html += `<span style="color: #8D6E63; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.clay)} <img src="images/clay.png" alt="Clay" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+      hasProduction = true;
+    }
+    if (production.iron > 0) {
+      if (hasProduction) html += `, `;
+      html += `<span style="color: #708090; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.iron)} <img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+      hasProduction = true;
+    }
+    if (production.population > 0) {
+      if (hasProduction) html += `, `;
+      html += `<span style="color: #4CAF50; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.population)} <img src="images/population.png" alt="Population" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+      hasProduction = true;
+    }
   if (production.capacity > 0) {
     if (hasProduction) html += `, `;
     html += `<span style="color: #FF9800; font-size: 18px; font-weight: bold;">+${production.capacity} <img src="images/cabin.png" alt="Capacity" style="width: 35px; height:35px; vertical-align: middle;"></span>`;
@@ -2962,7 +2987,7 @@ function showResourceTooltip(event, resourceType) {
   
   let html = `<strong>${resourceName}</strong><br>`;
   if (rateKey && rate > 0) {
-    html += `<span style="font-size: 18px; color: ${resourceColor};">${rate.toFixed(2)}</span> <img src="${resourceIcon}" alt="${resourceName}" style="width: 35px; height: 35px; vertical-align: middle;">/sec`;
+     html += `<span style="font-size: 18px; color: ${resourceColor};">${formatNumberWithDecimals(rate)}</span> <img src="${resourceIcon}" alt="${resourceName}" style="width: 35px; height: 35px; vertical-align: middle;">/sec`;
   } else {
     // For resources without production rate (like iron bars), just show the icon
     html += `<img src="${resourceIcon}" alt="${resourceName}" style="width: 50px; height: 50px; vertical-align: middle;">`;

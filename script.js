@@ -1378,15 +1378,8 @@ function updateTileInfo() {
   const infoPanel = document.getElementById('tile-info');
   if (!infoPanel) return;
   
-  // Preserve the control buttons section
-  const controlsSection = infoPanel.querySelector('.tile-info-controls');
-  
   if (!selectedTile) {
     infoPanel.innerHTML = '<p>Select a building to place or click on a placed building to view details.</p>';
-    // Restore control buttons
-    if (controlsSection) {
-      infoPanel.appendChild(controlsSection);
-    }
     return;
   }
   
@@ -1394,10 +1387,6 @@ function updateTileInfo() {
   
   if (tile.type === "empty") {
     infoPanel.innerHTML = '<p>Empty tile. Select a building type to place here.</p>';
-    // Restore control buttons
-    if (controlsSection) {
-      infoPanel.appendChild(controlsSection);
-    }
     return;
   }
   
@@ -1614,11 +1603,6 @@ function updateTileInfo() {
   html += `<button id="remove-btn"><img src="images/sell.png" alt="Sell" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;">50% refund</button>`;
   
   infoPanel.innerHTML = html;
-  
-  // Restore control buttons if they exist
-  if (controlsSection) {
-    infoPanel.appendChild(controlsSection);
-  }
   
   // Add event listeners
   const upgradeBtn = document.getElementById('upgrade-btn');
@@ -3262,6 +3246,18 @@ function renderQuests() {
   }
 }
 
+// Toggle settings modal
+function toggleSettings() {
+  const settingsModal = document.getElementById('settings-modal');
+  if (settingsModal) {
+    if (settingsModal.style.display === 'none' || settingsModal.style.display === '') {
+      settingsModal.style.display = 'flex';
+    } else {
+      settingsModal.style.display = 'none';
+    }
+  }
+}
+
 // Toggle quests window
 function toggleQuests() {
   const questsModal = document.getElementById('quests-modal');
@@ -3496,20 +3492,34 @@ window.addEventListener('keydown', (e) => {
     const shopModal = document.getElementById('shop-modal');
     const questsModal = document.getElementById('quests-modal');
     const loadModal = document.getElementById('load-modal');
+    const settingsModal = document.getElementById('settings-modal');
     
     // Close shop if it's open
     if (shopModal && shopModal.style.display === 'flex') {
       shopModal.style.display = 'none';
+      return;
     }
     
     // Close quests if it's open
     if (questsModal && questsModal.style.display === 'flex') {
       questsModal.style.display = 'none';
+      return;
     }
     
     // Close load menu if it's open
     if (loadModal && loadModal.style.display === 'flex') {
       loadModal.style.display = 'none';
+      return;
+    }
+    
+    // Toggle settings modal
+    if (settingsModal) {
+      if (settingsModal.style.display === 'none' || settingsModal.style.display === '') {
+        settingsModal.style.display = 'flex';
+      } else {
+        settingsModal.style.display = 'none';
+      }
+      return;
     }
     
     // Exit edit mode if active

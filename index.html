@@ -55,6 +55,51 @@
   <div id="main-game" style="display: none;">
   <h1>Build a City</h1>
 
+  <!-- Settings Button (Upper Left) -->
+  <button id="settings-btn" class="settings-btn" onclick="toggleSettings()" style="position: fixed; top: 10px; left: 10px; z-index: 1000; padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+    ⚙️ Settings
+  </button>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="shop-modal" style="display: none;">
+    <div class="shop-content" style="max-width: 500px;">
+      <div class="shop-header">
+        <h2>Settings</h2>
+        <button class="shop-close" onclick="toggleSettings()">&times;</button>
+      </div>
+      <div class="shop-body">
+        <div class="tile-info-controls" style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="edit-mode-btn" class="edit-mode-btn" onclick="toggleEditMode()">
+            <img src="images/edit.png" alt="Edit" class="edit-icon">
+            <span class="edit-text">Edit Mode</span>
+          </button>
+          <button class="icon-btn" onclick="saveGame()">
+            <img src="images/save.png" alt="Save" class="btn-icon">
+            <span class="btn-text">Save Game</span>
+          </button>
+          <button class="icon-btn" onclick="showLoadMenu()">
+            <img src="images/load.png" alt="Load" class="btn-icon">
+            <span class="btn-text">Load Game</span>
+          </button>
+          <button class="icon-btn" onclick="exportSave()">
+            <img src="images/export.png" alt="Export" class="btn-icon">
+            <span class="btn-text">Export Save</span>
+          </button>
+          <button class="icon-btn" onclick="document.getElementById('import-file').click()">
+            <img src="images/import.png" alt="Import" class="btn-icon">
+            <span class="btn-text">Import Save</span>
+          </button>
+          <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importSave(event)">
+          <button class="icon-btn" onclick="resetGame()">
+            <img src="images/reset.png" alt="Reset" class="btn-icon">
+            <span class="btn-text">Reset Game</span>
+          </button>
+          <p id="saveStatus" class="save-status"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Top HUD -->
   <div id="hud" class="hud">
     <div id="character-indicator" class="character-indicator" style="text-align: center; margin-bottom: 10px; font-size: 18px; color: #FFD700; display: none;"></div>
@@ -149,35 +194,6 @@
       <h3>Building Info</h3>
       <p>Select a building to place or click on a placed building to view details.</p>
       
-      <!-- Control Buttons -->
-      <div class="tile-info-controls">
-        <button id="edit-mode-btn" class="edit-mode-btn" onclick="toggleEditMode()">
-          <img src="images/edit.png" alt="Edit" class="edit-icon">
-          <span class="edit-text">Edit Mode</span>
-        </button>
-        <button class="icon-btn" onclick="saveGame()">
-          <img src="images/save.png" alt="Save" class="btn-icon">
-          <span class="btn-text">Save Game</span>
-        </button>
-        <button class="icon-btn" onclick="showLoadMenu()">
-          <img src="images/load.png" alt="Load" class="btn-icon">
-          <span class="btn-text">Load Game</span>
-        </button>
-        <button class="icon-btn" onclick="exportSave()">
-          <img src="images/export.png" alt="Export" class="btn-icon">
-          <span class="btn-text">Export Save</span>
-        </button>
-        <button class="icon-btn" onclick="document.getElementById('import-file').click()">
-          <img src="images/import.png" alt="Import" class="btn-icon">
-          <span class="btn-text">Import Save</span>
-        </button>
-        <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importSave(event)">
-        <button class="icon-btn" onclick="resetGame()">
-          <img src="images/reset.png" alt="Reset" class="btn-icon">
-          <span class="btn-text">Reset Game</span>
-        </button>
-        <p id="saveStatus" class="save-status"></p>
-      </div>
     </div>
   </div>
     

@@ -3830,11 +3830,13 @@ function checkQuests() {
             if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
               buildingTypes[questDef.unlocksBuilding].unlocked = true;
               updateBuildMenu();
+              // Don't show popup for building unlock quests - just unlock silently
+            } else {
+              // Show completion popup only for quests that don't unlock buildings
+              showQuestCompletionPopup(questDef);
             }
             
             updateQuestIndicator();
-            // Show completion popup
-            showQuestCompletionPopup(questDef);
             // Update UI if quests modal is open
             const questsModal = document.getElementById('quests-modal');
             if (questsModal && questsModal.style.display === 'flex') {

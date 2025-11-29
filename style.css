@@ -843,7 +843,7 @@ h4 {
 /* Brick slider wrapper for green trail */
 .brick-slider-wrapper {
   position: relative;
-  width: 100%;
+  width: 70%;
   margin: 10px 0;
   height: 20px;
   display: flex;

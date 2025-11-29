@@ -2590,7 +2590,8 @@ function showResourceTooltip(event, resourceType) {
     clay: 'Clay',
     iron: 'Iron',
     gold: 'Gold',
-    bricks: 'Clay Bricks'
+    bricks: 'Clay Bricks',
+    ironBars: 'Iron Bars'
   };
   
   const resourceIcons = {
@@ -2599,7 +2600,8 @@ function showResourceTooltip(event, resourceType) {
     clay: 'images/clay.png',
     iron: 'images/iron.png',
     gold: 'images/gold.png',
-    bricks: 'images/claybricks.png'
+    bricks: 'images/claybricks.png',
+    ironBars: 'images/ironBar.webp'
   };
   
   const resourceColors = {
@@ -2608,7 +2610,8 @@ function showResourceTooltip(event, resourceType) {
     clay: '#8D6E63',
     iron: '#708090',
     gold: '#FFD700',
-    bricks: '#D32F2F'
+    bricks: '#D32F2F',
+    ironBars: '#708090'
   };
   
   const rateKeys = {
@@ -2617,17 +2620,23 @@ function showResourceTooltip(event, resourceType) {
     clay: 'cps',
     iron: 'ips',
     gold: 'gps',
-    bricks: 'bps'
+    bricks: 'bps',
+    ironBars: null // Iron bars don't have a production rate
   };
   
   const resourceName = resourceNames[resourceType] || resourceType;
   const resourceIcon = resourceIcons[resourceType] || '';
   const resourceColor = resourceColors[resourceType] || '#ffffff';
   const rateKey = rateKeys[resourceType];
-  const rate = gameState.rates[rateKey] || 0;
+  const rate = rateKey ? (gameState.rates[rateKey] || 0) : 0;
   
   let html = `<strong>${resourceName}</strong><br>`;
-  html += `<span style="font-size: 18px; color: ${resourceColor};">${rate.toFixed(2)}</span> <img src="${resourceIcon}" alt="${resourceName}" style="width: 35px; height: 35px; vertical-align: middle;">/sec`;
+  if (rateKey && rate > 0) {
+    html += `<span style="font-size: 18px; color: ${resourceColor};">${rate.toFixed(2)}</span> <img src="${resourceIcon}" alt="${resourceName}" style="width: 35px; height: 35px; vertical-align: middle;">/sec`;
+  } else {
+    // For resources without production rate (like iron bars), just show the icon
+    html += `<img src="${resourceIcon}" alt="${resourceName}" style="width: 50px; height: 50px; vertical-align: middle;">`;
+  }
   
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
@@ -2658,6 +2667,20 @@ function initializeResourceTooltips() {
     });
     icon.addEventListener('mouseleave', hideResourceTooltip);
   });
+  
+  // Handle resource number spans - show tooltip when hovering over the number
+  const ironBarsSpan = document.getElementById('ironBars');
+  if (ironBarsSpan) {
+    ironBarsSpan.style.cursor = 'help';
+    ironBarsSpan.addEventListener('mouseenter', (e) => showResourceTooltip(e, 'ironBars'));
+    ironBarsSpan.addEventListener('mousemove', (e) => {
+      const tooltip = document.getElementById('tooltip');
+      if (tooltip && tooltip.style.display === 'block') {
+        positionTooltip(e, tooltip);
+      }
+    });
+    ironBarsSpan.addEventListener('mouseleave', hideResourceTooltip);
+  }
   
   // Handle other icons with data-tooltip attribute (like population, capacity)
   const otherIcons = document.querySelectorAll('[data-tooltip]');

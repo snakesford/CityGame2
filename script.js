@@ -3849,15 +3849,69 @@ function updateBrickTrade(amount) {
   
   // Always update slider max based on available bricks (rounded down to nearest 5)
   const maxBricks = Math.floor(gameState.resources.bricks);
-  const maxSliderValue = Math.max(5, Math.floor(maxBricks / 5) * 5); // Round down to nearest 5
+  
+  // If player has less than 5 bricks, set everything to 0 and disable slider
+  if (maxBricks < 5) {
+    slider.disabled = true;
+    slider.min = 0; // Allow 0 value
+    slider.max = 5; // Keep max at minimum valid range
+    slider.value = 0;
+    
+    // Update slider filled portion (green trail) to 0%
+    const fillBar = document.getElementById('brick-slider-fill');
+    if (fillBar) {
+      fillBar.style.width = '0%';
+    }
+    
+    // Set all displays to 0
+    document.getElementById('brick-amount').textContent = '0';
+    document.getElementById('brick-cost-display').textContent = '0';
+    document.getElementById('gold-reward-display').textContent = '0';
+    
+    // Disable sell button
+    const sellBricksBtn = document.getElementById('sell-bricks-btn');
+    if (sellBricksBtn) {
+      sellBricksBtn.disabled = true;
+      sellBricksBtn.title = `Not enough bricks (need 5, have ${maxBricks})`;
+    }
+    return;
+  }
+  
+  // Player has at least 5 bricks, enable slider
+  const maxSliderValue = Math.floor(maxBricks / 5) * 5; // Round down to nearest 5
+  
+  // Get the current or provided amount and ensure it's within valid range and a multiple of 5
+  // Allow 0 as a valid value
+  const currentValue = parseInt(amount || slider.value || 0);
+  // Round to nearest multiple of 5 to match step (0 is valid)
+  const roundedValue = Math.round(currentValue / 5) * 5;
+  const brickAmount = Math.max(0, Math.min(roundedValue, maxSliderValue));
+  
+  // Update max first, then value (order matters for browser compatibility)
+  // Set min to 0 to allow user to choose 0 bricks
+  slider.disabled = false;
+  slider.min = 0;
   slider.max = maxSliderValue;
   
-  // Ensure current value doesn't exceed max
-  const brickAmount = Math.min(parseInt(amount || slider.value), maxSliderValue);
+  // Calculate progress percentage (this determines both green fill and thumb position)
+  // When maxSliderValue is 0 (shouldn't happen here, but handle it), progress is 0
+  const progress = maxSliderValue > 0 ? (brickAmount / maxSliderValue) * 100 : 0;
+  
+  // Set the slider value immediately
   slider.value = brickAmount;
   
-  // Update slider filled portion (green trail)
-  const progress = maxSliderValue > 0 ? (brickAmount / maxSliderValue) * 100 : 0;
+  // Use requestAnimationFrame to ensure browser updates thumb position after max change
+  // This ensures the thumb follows the green fill correctly
+  requestAnimationFrame(() => {
+    slider.value = brickAmount;
+    // Update slider filled portion (green trail) - matches thumb position
+    const fillBar = document.getElementById('brick-slider-fill');
+    if (fillBar) {
+      fillBar.style.width = `${progress}%`;
+    }
+  });
+  
+  // Update slider filled portion (green trail) immediately for visual feedback
   const fillBar = document.getElementById('brick-slider-fill');
   if (fillBar) {
     fillBar.style.width = `${progress}%`;
@@ -3869,12 +3923,14 @@ function updateBrickTrade(amount) {
   document.getElementById('brick-cost-display').textContent = brickAmount;
   document.getElementById('gold-reward-display').textContent = goldReward;
   
-  // Update button state
+  // Update button state - disable if 0 bricks or not enough bricks
   const sellBricksBtn = document.getElementById('sell-bricks-btn');
   if (sellBricksBtn) {
-    const canAfford = gameState.resources.bricks >= brickAmount;
+    const canAfford = brickAmount > 0 && gameState.resources.bricks >= brickAmount;
     sellBricksBtn.disabled = !canAfford;
-    if (!canAfford) {
+    if (brickAmount === 0) {
+      sellBricksBtn.title = 'Select an amount of bricks to sell';
+    } else if (!canAfford) {
       sellBricksBtn.title = `Not enough bricks (need ${brickAmount}, have ${Math.floor(gameState.resources.bricks)})`;
     } else {
       sellBricksBtn.title = `Sell ${brickAmount} Clay Bricks for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}`;
@@ -3925,7 +3981,14 @@ function updateShopUI() {
 // Sell bricks for gold
 function sellBricksForGold() {
   const slider = document.getElementById('brick-slider');
-  const brickAmount = slider ? parseInt(slider.value) : 5;
+  const brickAmount = slider ? parseInt(slider.value) : 0;
+  
+  // Don't allow selling 0 bricks
+  if (brickAmount <= 0) {
+    showMessage(`Please select an amount of bricks to sell.`);
+    return;
+  }
+  
   const goldReward = Math.floor(brickAmount / 5);
   
   if (gameState.resources.bricks >= brickAmount) {

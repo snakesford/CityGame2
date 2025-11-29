@@ -1568,14 +1568,15 @@ function updateTileInfo() {
     }
     
     // Harvest button
-    html += `<button id="harvest-smelter-btn" style="margin: 10px 0; width: 100%; padding: 10px;" ${totalReady <= 0 ? 'disabled' : ''}>`;
+    html += `<button id="harvest-smelter-btn" style="margin: 10px 0; width: 100%; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 5px;" ${totalReady <= 0 ? 'disabled' : ''}>`;
     html += `Harvest `;
     if (smelter.readyOutput.bricks > 0 && smelter.readyOutput.ironBars > 0) {
-      html += `${smelter.readyOutput.bricks} clay bricks + ${smelter.readyOutput.ironBars} Iron Bars`;
+      html += `${smelter.readyOutput.bricks} <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">`;
+      html += `${smelter.readyOutput.ironBars} <img src="images/ironBar.webp" alt="Iron Bars" style="width: 30px; height: 30px; vertical-align: middle;">`;
     } else if (smelter.readyOutput.bricks > 0) {
-      html += `${smelter.readyOutput.bricks} Bricks`;
+      html += `${smelter.readyOutput.bricks} <img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;">`;
     } else if (smelter.readyOutput.ironBars > 0) {
-      html += `${smelter.readyOutput.ironBars} Iron Bars`;
+      html += `${smelter.readyOutput.ironBars} <img src="images/ironBar.webp" alt="Iron Bars" style="width: 30px; height: 30px; vertical-align: middle;">`;
     } else {
       html += `(Nothing Ready)`;
     }

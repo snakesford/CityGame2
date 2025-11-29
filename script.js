@@ -2560,7 +2560,10 @@ function updateBuildMenu() {
           reqContainer.className = 'building-requirements';
           reqContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding: 4px; width: 100%;';
           
-          // Calculate overall progress
+          // Filter out completed requirements
+          const incompleteRequirements = unlockQuest.requirements.filter(req => !checkRequirement(req));
+          
+          // Calculate overall progress (only count incomplete requirements for display)
           let totalProgress = 0;
           unlockQuest.requirements.forEach(req => {
             totalProgress += getRequirementProgress(req);
@@ -2582,49 +2585,42 @@ function updateBuildMenu() {
           progressBarContainer.appendChild(progressBarText);
           reqContainer.appendChild(progressBarContainer);
           
-          // Add individual requirement items
-          const reqItemsContainer = document.createElement('div');
-          reqItemsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center;';
-          
-          unlockQuest.requirements.forEach(req => {
-            const reqItem = document.createElement('div');
-            reqItem.style.cssText = 'display: flex; align-items: center; gap: 2px; position: relative; padding: 2px;';
+          // Add individual requirement items (only show incomplete requirements)
+          if (incompleteRequirements.length > 0) {
+            const reqItemsContainer = document.createElement('div');
+            reqItemsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center;';
             
-            // Create icon
-            const icon = document.createElement('img');
-            if (req.type === 'buildingCount') {
-              icon.src = buildingIcons[req.buildingType] || '';
-              icon.alt = buildingTypes[req.buildingType]?.displayName || '';
-            } else if (req.type === 'resource') {
-              icon.src = resourceIcons[req.resource] || '';
-              icon.alt = req.resource;
-            } else if (req.type === 'population') {
-              icon.src = resourceIcons.population || '';
-              icon.alt = 'Population';
-            }
-            icon.style.cssText = 'width: 20px; height: 20px; vertical-align: middle;';
+            incompleteRequirements.forEach(req => {
+              const reqItem = document.createElement('div');
+              reqItem.style.cssText = 'display: flex; align-items: center; gap: 2px; position: relative; padding: 2px;';
+              
+              // Create icon
+              const icon = document.createElement('img');
+              if (req.type === 'buildingCount') {
+                icon.src = buildingIcons[req.buildingType] || '';
+                icon.alt = buildingTypes[req.buildingType]?.displayName || '';
+              } else if (req.type === 'resource') {
+                icon.src = resourceIcons[req.resource] || '';
+                icon.alt = req.resource;
+              } else if (req.type === 'population') {
+                icon.src = resourceIcons.population || '';
+                icon.alt = 'Population';
+              }
+              icon.style.cssText = 'width: 20px; height: 20px; vertical-align: middle;';
+              
+              // Create amount text
+              const amountText = document.createElement('span');
+              amountText.textContent = req.amount;
+              amountText.style.cssText = 'font-size: 11px; color: white; font-weight: bold;';
+              
+              reqItem.appendChild(icon);
+              reqItem.appendChild(amountText);
+              
+              reqItemsContainer.appendChild(reqItem);
+            });
             
-            // Create amount text
-            const amountText = document.createElement('span');
-            amountText.textContent = req.amount;
-            amountText.style.cssText = 'font-size: 11px; color: white; font-weight: bold;';
-            
-            reqItem.appendChild(icon);
-            reqItem.appendChild(amountText);
-            
-            // Check if requirement is met and add save.png
-            if (checkRequirement(req)) {
-              const checkIcon = document.createElement('img');
-              checkIcon.src = 'images/save.png';
-              checkIcon.alt = 'Complete';
-              checkIcon.style.cssText = 'width: 14px; height: 14px; position: absolute; top: -4px; right: -4px; z-index: 5;';
-              reqItem.appendChild(checkIcon);
-            }
-            
-            reqItemsContainer.appendChild(reqItem);
-          });
-          
-          reqContainer.appendChild(reqItemsContainer);
+            reqContainer.appendChild(reqItemsContainer);
+          }
           
           // Append requirements at the end (after icon and name)
           btn.appendChild(reqContainer);

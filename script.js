@@ -1785,11 +1785,6 @@ function updateTileInfo() {
   
   infoPanel.innerHTML = html;
   
-  // Restore control buttons if they exist
-  if (controlsSection) {
-    infoPanel.appendChild(controlsSection);
-  }
-  
   // Add event listener for add fuel button
   const addFuelBtn = document.getElementById('add-fuel-btn');
   if (addFuelBtn) {

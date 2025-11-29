@@ -2612,6 +2612,15 @@ function cycleToNextSaveSlot() {
 function saveGame() {
   const lastSlot = getLastSaveSlot();
   gameState.timestamp = Date.now();
+  
+  // Save building unlock states
+  if (!gameState.buildingUnlocks) {
+    gameState.buildingUnlocks = {};
+  }
+  for (const [key, building] of Object.entries(buildingTypes)) {
+    gameState.buildingUnlocks[key] = building.unlocked;
+  }
+  
   const slotKey = `cityBuilderSave_slot${lastSlot}`;
   localStorage.setItem(slotKey, JSON.stringify(gameState));
   setLastSaveSlot(lastSlot);
@@ -2623,6 +2632,15 @@ function saveGame() {
 // Save game to specific slot
 function saveGameSlot(slot) {
   gameState.timestamp = Date.now();
+  
+  // Save building unlock states
+  if (!gameState.buildingUnlocks) {
+    gameState.buildingUnlocks = {};
+  }
+  for (const [key, building] of Object.entries(buildingTypes)) {
+    gameState.buildingUnlocks[key] = building.unlocked;
+  }
+  
   const slotKey = `cityBuilderSave_slot${slot}`;
   localStorage.setItem(slotKey, JSON.stringify(gameState));
   setLastSaveSlot(slot);
@@ -2739,6 +2757,15 @@ function loadGameSlot(slot) {
         gameState.quests = [];
       }
       initializeQuests();
+      
+      // Restore building unlock states
+      if (gameState.buildingUnlocks) {
+        for (const [key, unlocked] of Object.entries(gameState.buildingUnlocks)) {
+          if (buildingTypes[key]) {
+            buildingTypes[key].unlocked = unlocked;
+          }
+        }
+      }
       
         calculateProduction();
         checkUnlocks();
@@ -2888,6 +2915,15 @@ function loadGame() {
         gameState.quests = [];
       }
       initializeQuests();
+      
+      // Restore building unlock states
+      if (gameState.buildingUnlocks) {
+        for (const [key, unlocked] of Object.entries(gameState.buildingUnlocks)) {
+          if (buildingTypes[key]) {
+            buildingTypes[key].unlocked = unlocked;
+          }
+        }
+      }
       
       // Recompute derived values
       calculateProduction();

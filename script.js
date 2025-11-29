@@ -1714,7 +1714,7 @@ function updateTileInfo() {
   if (production.capacity > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: bold;">Capacity:</span> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumber(production.capacity)}</p>`;
   
   // Special handling for smelter
-  
+  //main commit
   if (tile.type === "smelter") {
     // Ensure smelters object exists
     if (!gameState.smelters) {

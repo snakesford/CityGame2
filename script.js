@@ -244,6 +244,9 @@ const questDefinitions = [
     id: 'milestone_cabin',
     title: '🏕️ Milestone: Establish Your First Settlement',
     description: 'Requirement: Build 3 Tepees\n\nReward: Unlocks Cabin (Housing upgrade)',
+    requirements: [
+      { type: 'buildingCount', buildingType: 'tepee', amount: 3 }
+    ],
     checkCondition: () => {
       let tepeeCount = 0;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -262,6 +265,10 @@ const questDefinitions = [
     id: 'milestone_advancedFarm',
     title: '🌾 Milestone: Sustainable Farming',
     description: 'Requirements:\n✔ Build 2 Farms\n✔ Reach 10 population\n\nReward: Unlocks Advanced Farm',
+    requirements: [
+      { type: 'buildingCount', buildingType: 'farm', amount: 2 },
+      { type: 'population', amount: 10 }
+    ],
     checkCondition: () => {
       let farmCount = 0;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -280,6 +287,10 @@ const questDefinitions = [
     id: 'milestone_advancedLumberMill',
     title: '🪓 Milestone: Woodcutting Operations',
     description: 'Requirements:\n✔ Build 1 Lumber Mill\n✔ Reach 50 Wood stored\n\nReward: Unlocks Advanced Lumber Mill',
+    requirements: [
+      { type: 'buildingCount', buildingType: 'lumberMill', amount: 1 },
+      { type: 'resource', resource: 'wood', amount: 50 }
+    ],
     checkCondition: () => {
       let hasLumberMill = false;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -300,6 +311,10 @@ const questDefinitions = [
     id: 'milestone_clayPool',
     title: '🪨 Milestone: First Stone Infrastructure',
     description: 'Requirements:\n✔ Build 1 Quarry\n✔ Store 30 Stone\n\nReward: Unlocks Clay Pool',
+    requirements: [
+      { type: 'buildingCount', buildingType: 'quarry', amount: 1 },
+      { type: 'resource', resource: 'stone', amount: 30 }
+    ],
     checkCondition: () => {
       let hasQuarry = false;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -320,6 +335,11 @@ const questDefinitions = [
     id: 'milestone_smelter',
     title: '🔧 Milestone: Toolmaking',
     description: 'Requirements:\n✔ Produce 10 Clay\n✔ Produce 40 Stone\n✔ Have 1 Lumber Mill\n\nReward: Unlocks Smelter',
+    requirements: [
+      { type: 'resource', resource: 'clay', amount: 10 },
+      { type: 'resource', resource: 'stone', amount: 40 },
+      { type: 'buildingCount', buildingType: 'lumberMill', amount: 1 }
+    ],
     checkCondition: () => {
       let hasLumberMill = false;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -340,6 +360,10 @@ const questDefinitions = [
     id: 'milestone_brickHouse',
     title: '🏠 Milestone: Brick Construction',
     description: 'Requirements:\n✔ Build 1 Smelter\n✔ Produce 20 Bricks\n\nReward: Unlocks Brick House',
+    requirements: [
+      { type: 'buildingCount', buildingType: 'smelter', amount: 1 },
+      { type: 'resource', resource: 'bricks', amount: 20 }
+    ],
     checkCondition: () => {
       let hasSmelter = false;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -360,6 +384,10 @@ const questDefinitions = [
     id: 'milestone_deepMine',
     title: '⛏️ Milestone: Deep Mining',
     description: 'Requirements:\n✔ Store 50 Stone\n✔ Build 1 Iron Mine\n\nReward: Unlocks Deep Mine',
+    requirements: [
+      { type: 'resource', resource: 'stone', amount: 50 },
+      { type: 'buildingCount', buildingType: 'ironMine', amount: 1 }
+    ],
     checkCondition: () => {
       let hasIronMine = false;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -380,6 +408,10 @@ const questDefinitions = [
     id: 'milestone_oreRefinery',
     title: '🏭 Milestone: Ore Processing',
     description: 'Requirements:\n✔ Build 1 Deep Mine\n✔ Store 100 Stone\n\nReward: Unlocks Ore Refinery',
+    requirements: [
+      { type: 'buildingCount', buildingType: 'deepMine', amount: 1 },
+      { type: 'resource', resource: 'stone', amount: 100 }
+    ],
     checkCondition: () => {
       let hasDeepMine = false;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -400,6 +432,10 @@ const questDefinitions = [
     id: 'milestone_orchard',
     title: '🌳 Milestone: Orchard Mastery',
     description: 'Requirements:\n✔ Build 1 Advanced Farm\n✔ Reach 20 population\n\nReward: Unlocks Orchard',
+    requirements: [
+      { type: 'buildingCount', buildingType: 'advancedFarm', amount: 1 },
+      { type: 'population', amount: 20 }
+    ],
     checkCondition: () => {
       let hasAdvancedFarm = false;
       for (let row = 0; row < GRID_SIZE; row++) {
@@ -603,6 +639,16 @@ const buildingIcons = {
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
   smelter: 'images/kiln.png'
+};
+
+// Resource icons for requirements
+const resourceIcons = {
+  wood: 'images/wood-log.png',
+  stone: 'images/rock.png',
+  clay: 'images/clay.png',
+  iron: 'images/iron.png',
+  bricks: 'images/claybricks.png',
+  population: 'images/population.png'
 };
 
 // Building category colors - matches cell tile colors exactly
@@ -1713,7 +1759,7 @@ function handleCellClick(row, col) {
   // Edit mode: move buildings
   if (editMode) {
     if (tileBeingMoved) {
-      // Placing the building at new location
+      // Placing the builcding at new location
       if (tile.type === "empty") {
         moveBuilding(tileBeingMoved.row, tileBeingMoved.col, row, col);
         tileBeingMoved = null;
@@ -2408,6 +2454,26 @@ function updateUI() {
 }
 
 // Update build menu
+// Check if a single requirement is met
+function checkRequirement(requirement) {
+  if (requirement.type === 'buildingCount') {
+    let count = 0;
+    for (let row = 0; row < GRID_SIZE; row++) {
+      for (let col = 0; col < GRID_SIZE; col++) {
+        if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === requirement.buildingType) {
+          count++;
+        }
+      }
+    }
+    return count >= requirement.amount;
+  } else if (requirement.type === 'resource') {
+    return (gameState.resources[requirement.resource] || 0) >= requirement.amount;
+  } else if (requirement.type === 'population') {
+    return gameState.population.current >= requirement.amount;
+  }
+  return false;
+}
+
 function updateBuildMenu() {
   for (const [key, building] of Object.entries(buildingTypes)) {
     const btn = document.querySelector(`[data-building-type="${key}"]`);
@@ -2419,6 +2485,25 @@ function updateBuildMenu() {
       continue;
     } else {
       btn.style.display = 'block';
+    }
+    
+    // Ensure building icon is present (front and center)
+    const iconPath = buildingIcons[key];
+    if (iconPath) {
+      let buildingIcon = btn.querySelector('img.building-icon');
+      if (!buildingIcon) {
+        buildingIcon = document.createElement('img');
+        buildingIcon.src = iconPath;
+        buildingIcon.alt = building.displayName;
+        buildingIcon.className = 'building-icon';
+        // Insert icon at the beginning
+        btn.insertBefore(buildingIcon, btn.firstChild);
+      } else {
+        // Ensure icon is at the beginning
+        if (buildingIcon !== btn.firstChild) {
+          btn.insertBefore(buildingIcon, btn.firstChild);
+        }
+      }
     }
     
     // Apply category-based colors
@@ -2435,11 +2520,66 @@ function updateBuildMenu() {
     
     btn.disabled = !building.unlocked || !canAfford;
     
+    // Remove existing requirement display
+    const existingReqs = btn.querySelector('.building-requirements');
+    if (existingReqs) {
+      existingReqs.remove();
+    }
+    
     if (!building.unlocked) {
       // Find the milestone quest that unlocks this building
       const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
       if (unlockQuest) {
         btn.title = `Complete milestone quest to unlock: ${unlockQuest.title}`;
+        
+        // Add requirement icons if quest has requirements
+        // Place requirements after the building name (which comes after the icon)
+        if (unlockQuest.requirements && unlockQuest.requirements.length > 0) {
+          const reqContainer = document.createElement('div');
+          reqContainer.className = 'building-requirements';
+          reqContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center; margin-top: 4px; padding: 4px;';
+          
+          unlockQuest.requirements.forEach(req => {
+            const reqItem = document.createElement('div');
+            reqItem.style.cssText = 'display: flex; align-items: center; gap: 2px; position: relative; padding: 2px;';
+            
+            // Create icon
+            const icon = document.createElement('img');
+            if (req.type === 'buildingCount') {
+              icon.src = buildingIcons[req.buildingType] || '';
+              icon.alt = buildingTypes[req.buildingType]?.displayName || '';
+            } else if (req.type === 'resource') {
+              icon.src = resourceIcons[req.resource] || '';
+              icon.alt = req.resource;
+            } else if (req.type === 'population') {
+              icon.src = resourceIcons.population || '';
+              icon.alt = 'Population';
+            }
+            icon.style.cssText = 'width: 20px; height: 20px; vertical-align: middle;';
+            
+            // Create amount text
+            const amountText = document.createElement('span');
+            amountText.textContent = req.amount;
+            amountText.style.cssText = 'font-size: 11px; color: white; font-weight: bold;';
+            
+            reqItem.appendChild(icon);
+            reqItem.appendChild(amountText);
+            
+            // Check if requirement is met and add save.png
+            if (checkRequirement(req)) {
+              const checkIcon = document.createElement('img');
+              checkIcon.src = 'images/save.png';
+              checkIcon.alt = 'Complete';
+              checkIcon.style.cssText = 'width: 14px; height: 14px; position: absolute; top: -4px; right: -4px; z-index: 5;';
+              reqItem.appendChild(checkIcon);
+            }
+            
+            reqContainer.appendChild(reqItem);
+          });
+          
+          // Append requirements at the end (after icon and name)
+          btn.appendChild(reqContainer);
+        }
       } else {
         btn.title = `Complete milestone quest to unlock ${building.displayName}`;
       }

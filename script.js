@@ -238,6 +238,183 @@ const questDefinitions = [
       return false;
     },
     reward: { gold: 100 }
+  },
+  // Milestone Quests - Building Unlocks
+  {
+    id: 'milestone_cabin',
+    title: '🏕️ Milestone: Establish Your First Settlement',
+    description: 'Requirement: Build 3 Tepees\n\nReward: Unlocks Cabin (Housing upgrade)',
+    checkCondition: () => {
+      let tepeeCount = 0;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'tepee') {
+            tepeeCount++;
+          }
+        }
+      }
+      return tepeeCount >= 3;
+    },
+    reward: {},
+    unlocksBuilding: 'cabin'
+  },
+  {
+    id: 'milestone_advancedFarm',
+    title: '🌾 Milestone: Sustainable Farming',
+    description: 'Requirements:\n✔ Build 2 Farms\n✔ Reach 10 population\n\nReward: Unlocks Advanced Farm',
+    checkCondition: () => {
+      let farmCount = 0;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'farm') {
+            farmCount++;
+          }
+        }
+      }
+      return farmCount >= 2 && gameState.population.current >= 10;
+    },
+    reward: {},
+    unlocksBuilding: 'advancedFarm'
+  },
+  {
+    id: 'milestone_advancedLumberMill',
+    title: '🪓 Milestone: Woodcutting Operations',
+    description: 'Requirements:\n✔ Build 1 Lumber Mill\n✔ Reach 50 Wood stored\n\nReward: Unlocks Advanced Lumber Mill',
+    checkCondition: () => {
+      let hasLumberMill = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'lumberMill') {
+            hasLumberMill = true;
+            break;
+          }
+        }
+        if (hasLumberMill) break;
+      }
+      return hasLumberMill && gameState.resources.wood >= 50;
+    },
+    reward: {},
+    unlocksBuilding: 'advancedLumberMill'
+  },
+  {
+    id: 'milestone_clayPool',
+    title: '🪨 Milestone: First Stone Infrastructure',
+    description: 'Requirements:\n✔ Build 1 Quarry\n✔ Store 30 Stone\n\nReward: Unlocks Clay Pool',
+    checkCondition: () => {
+      let hasQuarry = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'quarry') {
+            hasQuarry = true;
+            break;
+          }
+        }
+        if (hasQuarry) break;
+      }
+      return hasQuarry && gameState.resources.stone >= 30;
+    },
+    reward: {},
+    unlocksBuilding: 'clayPool'
+  },
+  {
+    id: 'milestone_smelter',
+    title: '🔧 Milestone: Toolmaking',
+    description: 'Requirements:\n✔ Produce 10 Clay\n✔ Produce 40 Stone\n✔ Have 1 Lumber Mill\n\nReward: Unlocks Smelter',
+    checkCondition: () => {
+      let hasLumberMill = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'lumberMill') {
+            hasLumberMill = true;
+            break;
+          }
+        }
+        if (hasLumberMill) break;
+      }
+      return gameState.resources.clay >= 10 && gameState.resources.stone >= 40 && hasLumberMill;
+    },
+    reward: {},
+    unlocksBuilding: 'smelter'
+  },
+  {
+    id: 'milestone_brickHouse',
+    title: '🏠 Milestone: Brick Construction',
+    description: 'Requirements:\n✔ Build 1 Smelter\n✔ Produce 20 Bricks\n\nReward: Unlocks Brick House',
+    checkCondition: () => {
+      let hasSmelter = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'smelter') {
+            hasSmelter = true;
+            break;
+          }
+        }
+        if (hasSmelter) break;
+      }
+      return hasSmelter && gameState.resources.bricks >= 20;
+    },
+    reward: {},
+    unlocksBuilding: 'brickHouse'
+  },
+  {
+    id: 'milestone_deepMine',
+    title: '⛏️ Milestone: Deep Mining',
+    description: 'Requirements:\n✔ Store 50 Stone\n✔ Build 1 Iron Mine\n\nReward: Unlocks Deep Mine',
+    checkCondition: () => {
+      let hasIronMine = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'ironMine') {
+            hasIronMine = true;
+            break;
+          }
+        }
+        if (hasIronMine) break;
+      }
+      return gameState.resources.stone >= 50 && hasIronMine;
+    },
+    reward: {},
+    unlocksBuilding: 'deepMine'
+  },
+  {
+    id: 'milestone_oreRefinery',
+    title: '🏭 Milestone: Ore Processing',
+    description: 'Requirements:\n✔ Build 1 Deep Mine\n✔ Store 100 Stone\n\nReward: Unlocks Ore Refinery',
+    checkCondition: () => {
+      let hasDeepMine = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'deepMine') {
+            hasDeepMine = true;
+            break;
+          }
+        }
+        if (hasDeepMine) break;
+      }
+      return hasDeepMine && gameState.resources.stone >= 100;
+    },
+    reward: {},
+    unlocksBuilding: 'oreRefinery'
+  },
+  {
+    id: 'milestone_orchard',
+    title: '🌳 Milestone: Orchard Mastery',
+    description: 'Requirements:\n✔ Build 1 Advanced Farm\n✔ Reach 20 population\n\nReward: Unlocks Orchard',
+    checkCondition: () => {
+      let hasAdvancedFarm = false;
+      for (let row = 0; row < GRID_SIZE; row++) {
+        for (let col = 0; col < GRID_SIZE; col++) {
+          if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === 'advancedFarm') {
+            hasAdvancedFarm = true;
+            break;
+          }
+        }
+        if (hasAdvancedFarm) break;
+      }
+      return hasAdvancedFarm && gameState.population.current >= 20;
+    },
+    reward: {},
+    unlocksBuilding: 'orchard'
   }
 ];
 
@@ -291,7 +468,7 @@ const buildingTypes = {
     baseProduction: { wood: 0, stone: 0, clay: 0.4, iron: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
-    unlocked: true
+    unlocked: false
   },
   ironMine: {
     displayName: "Iron Mine",
@@ -321,8 +498,7 @@ const buildingTypes = {
     baseProduction: { wood: 0, stone: 0, population: 0, capacity: 8 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
-    unlocked: false,
-    unlockCondition: { type: "population", threshold: 10 }
+    unlocked: false
   },
   advancedFarm: {
     displayName: "Advanced Farm",
@@ -333,7 +509,6 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "buildingCount", buildingType: "farm", threshold: 3 },
     requiredCharacter: "farmer" // Farmer-only building
   },
   advancedLumberMill: {
@@ -344,8 +519,7 @@ const buildingTypes = {
     baseProduction: { wood: 1.8, stone: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
-    unlocked: false,
-    unlockCondition: { type: "wps", threshold: 2 }
+    unlocked: false
   },
   deepMine: {
     displayName: "Deep Mine",
@@ -356,7 +530,6 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "stone", threshold: 50 },
     requiredCharacter: "miner" // Miner-only building
   },
   oreRefinery: {
@@ -368,7 +541,6 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "buildingCount", buildingType: "deepMine", threshold: 1 },
     requiredCharacter: "miner" // Miner-only building
   },
   orchard: {
@@ -380,7 +552,6 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false,
-    unlockCondition: { type: "buildingCount", buildingType: "advancedFarm", threshold: 1 },
     requiredCharacter: "farmer" // Farmer-only building
   },
   smelter: {
@@ -391,7 +562,7 @@ const buildingTypes = {
     baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
-    unlocked: true,
+    unlocked: false,
     smeltClayTime: 5000, // 5 seconds in milliseconds
     smeltIronTime: 10000, // 10 seconds in milliseconds
     smeltClayAmount: 2, // Amount of clay per smelt batch
@@ -412,8 +583,7 @@ const buildingTypes = {
     baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 12 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
-    unlocked: false,
-    unlockCondition: { type: "buildingCount", buildingType: "smelter", threshold: 1 }
+    unlocked: false
   }
 };
 
@@ -1207,43 +1377,11 @@ function harvestSmelter(row, col) {
 
 // Check unlock conditions
 function checkUnlocks() {
+  // Only check character requirements - building unlocks are now handled by quests
   for (const [key, building] of Object.entries(buildingTypes)) {
-    // Check character requirement first
+    // Check character requirement
     if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
       building.unlocked = false;
-      continue;
-    }
-    
-    if (building.unlocked || !building.unlockCondition) continue;
-    
-    const condition = building.unlockCondition;
-    let unlocked = false;
-    
-    switch (condition.type) {
-      case "population":
-        unlocked = gameState.population.current >= condition.threshold;
-        break;
-      case "wps":
-        unlocked = gameState.rates.wps >= condition.threshold;
-        break;
-      case "stone":
-        unlocked = gameState.resources.stone >= condition.threshold;
-        break;
-      case "buildingCount":
-        let count = 0;
-        for (let row = 0; row < GRID_SIZE; row++) {
-          for (let col = 0; col < GRID_SIZE; col++) {
-            if (gameState.map[row][col].type === condition.buildingType) {
-              count++;
-            }
-          }
-        }
-        unlocked = count >= condition.threshold;
-        break;
-    }
-    
-    if (unlocked) {
-      building.unlocked = true;
     }
   }
 }
@@ -2297,24 +2435,14 @@ function updateBuildMenu() {
     
     btn.disabled = !building.unlocked || !canAfford;
     
-    if (!building.unlocked && building.unlockCondition) {
-      const condition = building.unlockCondition;
-      let tooltipText = `Unlock: `;
-      switch (condition.type) {
-        case "population":
-          tooltipText += `${condition.threshold} population`;
-          break;
-        case "wps":
-          tooltipText += `${condition.threshold} wood/sec`;
-          break;
-        case "stone":
-          tooltipText += `${condition.threshold} stone`;
-          break;
-        case "buildingCount":
-          tooltipText += `${condition.threshold} ${condition.buildingType}s`;
-          break;
+    if (!building.unlocked) {
+      // Find the milestone quest that unlocks this building
+      const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
+      if (unlockQuest) {
+        btn.title = `Complete milestone quest to unlock: ${unlockQuest.title}`;
+      } else {
+        btn.title = `Complete milestone quest to unlock ${building.displayName}`;
       }
-      btn.title = tooltipText;
     } else {
       btn.title = `${building.displayName} - Cost: ${cost.wood} wood${cost.stone > 0 ? `, ${cost.stone} stone` : ''}`;
     }
@@ -3019,25 +3147,14 @@ function showBuildingTooltip(event, buildingType) {
     }
   }
   
-  // Unlock condition if locked
-  if (!building.unlocked && building.unlockCondition) {
-    const condition = building.unlockCondition;
-    html += `<p style="margin: 3px 0; color: #ff9800;"><strong>To Unlock:</strong> `;
-    switch (condition.type) {
-      case "population":
-        html += `${condition.threshold} pop`;
-        break;
-      case "wps":
-        html += `${condition.threshold} W/s`;
-        break;
-      case "stone":
-        html += `${condition.threshold} stone`;
-        break;
-      case "buildingCount":
-        html += `${condition.threshold} ${condition.buildingType}s`;
-        break;
+  // Show milestone quest info if locked
+  if (!building.unlocked) {
+    const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === buildingType);
+    if (unlockQuest) {
+      html += `<p style="margin: 3px 0; color: #ff9800;"><strong>To Unlock:</strong> Complete milestone quest "${unlockQuest.title}"</p>`;
+    } else {
+      html += `<p style="margin: 3px 0; color: #ff9800;"><strong>To Unlock:</strong> Complete milestone quest</p>`;
     }
-    html += `</p>`;
   }
   
   tooltip.innerHTML = html;
@@ -3568,6 +3685,13 @@ function checkQuests() {
         try {
           if (questDef.checkCondition && questDef.checkCondition()) {
             quest.completed = true;
+            
+            // Unlock building if this quest unlocks one
+            if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
+              buildingTypes[questDef.unlocksBuilding].unlocked = true;
+              updateBuildMenu();
+            }
+            
             updateQuestIndicator();
             // Show completion popup
             showQuestCompletionPopup(questDef);
@@ -3718,11 +3842,21 @@ function renderQuests() {
       html += `<div class="quest-reward">`;
       html += `<strong>Reward: </strong>`;
       const rewardParts = [];
+      
+      // Show building unlock if this quest unlocks a building
+      if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
+        const unlockedBuilding = buildingTypes[questDef.unlocksBuilding];
+        const buildingIcon = buildingIcons[questDef.unlocksBuilding] || '';
+        rewardParts.push(`Unlocks ${unlockedBuilding.displayName}${buildingIcon ? ` <img src="${buildingIcon}" alt="${unlockedBuilding.displayName}" style="width: 24px; height: 24px; vertical-align: middle;">` : ''}`);
+      }
+      
+      // Show resource rewards
       Object.keys(questDef.reward).forEach(resource => {
         const amount = questDef.reward[resource];
         const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
         rewardParts.push(`${amount} ${resourceName}`);
       });
+      
       html += rewardParts.join(', ');
       html += `</div>`;
       html += `</div>`;
@@ -3807,12 +3941,22 @@ function showQuestCompletionPopup(questDef) {
   
   // Format rewards
   const rewardParts = [];
+  
+  // Show building unlock if this quest unlocks a building
+  if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
+    const unlockedBuilding = buildingTypes[questDef.unlocksBuilding];
+    const buildingIcon = buildingIcons[questDef.unlocksBuilding] || '';
+    rewardParts.push(`Unlocks ${unlockedBuilding.displayName}${buildingIcon ? ` <img src="${buildingIcon}" alt="${unlockedBuilding.displayName}" style="width: 24px; height: 24px; vertical-align: middle;">` : ''}`);
+  }
+  
+  // Show resource rewards
   Object.keys(questDef.reward).forEach(resource => {
     const amount = questDef.reward[resource];
     const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
     rewardParts.push(`${amount} ${resourceName}`);
   });
-  rewardEl.textContent = rewardParts.join(', ');
+  
+  rewardEl.innerHTML = rewardParts.join(', ');
   
   // Show popup
   popup.style.display = 'flex';

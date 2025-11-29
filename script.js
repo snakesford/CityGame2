@@ -1901,65 +1901,72 @@ function updateTileInfo() {
     html += `<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0;">`;
     if (upgradeCost.wood > 0) {
       const hasEnough = gameState.resources.wood >= upgradeCost.wood;
-      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const borderColor = 'rgba(255,255,255,0.2)';
       const textColor = '#FFFFFF';
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.wood}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.wood}; border-radius: 5px; border: 3px solid ${borderColor}; position: relative;">`;
       html += `<img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">`;
-       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.wood)}</span>`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.wood)}</span>`;
+      html += `<img src="images/${hasEnough ? 'save' : 'no'}.png?v=${Date.now()}" alt="${hasEnough ? 'Available' : 'Not Available'}" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; transform: rotate(15deg); z-index: 5;">`;
       html += `</span>`;
     }
     if (upgradeCost.stone > 0) {
       const hasEnough = gameState.resources.stone >= upgradeCost.stone;
-      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const borderColor = 'rgba(255,255,255,0.2)';
       const textColor = '#FFFFFF';
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.stone}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.stone}; border-radius: 5px; border: 3px solid ${borderColor}; position: relative;">`;
       html += `<img src="images/rock.png" alt="Stone" style="width: 35px; height: 35px; vertical-align: middle;">`;
-       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.stone)}</span>`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.stone)}</span>`;
+      html += `<img src="images/${hasEnough ? 'save' : 'no'}.png?v=${Date.now()}" alt="${hasEnough ? 'Available' : 'Not Available'}" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; transform: rotate(15deg); z-index: 5;">`;
       html += `</span>`;
     }
     if (upgradeCost.clay > 0) {
       const hasEnough = gameState.resources.clay >= upgradeCost.clay;
-      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const borderColor = 'rgba(255,255,255,0.2)';
       const textColor = '#FFFFFF';
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.clay}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.clay}; border-radius: 5px; border: 3px solid ${borderColor}; position: relative;">`;
       html += `<img src="images/clay.png" alt="Clay" style="width: 35px; height: 35px; vertical-align: middle;">`;
-       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.clay)}</span>`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.clay)}</span>`;
+      html += `<img src="images/${hasEnough ? 'save' : 'no'}.png?v=${Date.now()}" alt="${hasEnough ? 'Available' : 'Not Available'}" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; transform: rotate(15deg); z-index: 5;">`;
       html += `</span>`;
     }
     if (upgradeCost.iron > 0) {
       const hasEnough = gameState.resources.iron >= upgradeCost.iron;
-      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const borderColor = 'rgba(255,255,255,0.2)';
       const textColor = '#FFFFFF';
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.iron}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.iron}; border-radius: 5px; border: 3px solid ${borderColor}; position: relative;">`;
       html += `<img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">`;
-       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.iron)}</span>`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.iron)}</span>`;
+      html += `<img src="images/${hasEnough ? 'save' : 'no'}.png?v=${Date.now()}" alt="${hasEnough ? 'Available' : 'Not Available'}" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; transform: rotate(15deg); z-index: 5;">`;
       html += `</span>`;
     }
     if (upgradeCost.bricks > 0) {
       const hasEnough = gameState.resources.bricks >= upgradeCost.bricks;
-      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const borderColor = 'rgba(255,255,255,0.2)';
       const textColor = '#FFFFFF';
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.bricks}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.bricks}; border-radius: 5px; border: 3px solid ${borderColor}; position: relative;">`;
       html += `<img src="images/claybricks.png" alt="Bricks" style="width: 35px; height: 35px; vertical-align: middle;">`;
-       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.bricks)}</span>`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.bricks)}</span>`;
+      html += `<img src="images/${hasEnough ? 'save' : 'no'}.png?v=${Date.now()}" alt="${hasEnough ? 'Available' : 'Not Available'}" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; transform: rotate(15deg); z-index: 5;">`;
       html += `</span>`;
     }
     if (upgradeCost.gold > 0) {
       const hasEnough = gameState.resources.gold >= upgradeCost.gold;
-      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const borderColor = 'rgba(255,255,255,0.2)';
       const textColor = '#000000';
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.gold}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.gold}; border-radius: 5px; border: 3px solid ${borderColor}; position: relative;">`;
       html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
-       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.gold)}</span>`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.gold)}</span>`;
+      html += `<img src="images/${hasEnough ? 'save' : 'no'}.png?v=${Date.now()}" alt="${hasEnough ? 'Available' : 'Not Available'}" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; transform: rotate(15deg); z-index: 5;">`;
       html += `</span>`;
     }
     if (upgradeCost.ironBars > 0) {
       const hasEnough = gameState.resources.ironBars >= upgradeCost.ironBars;
-      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const borderColor = 'rgba(255,255,255,0.2)';
       const textColor = '#FFFFFF';
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.ironBars}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.ironBars}; border-radius: 5px; border: 3px solid ${borderColor}; position: relative;">`;
       html += `<img src="images/ironBar.webp" alt="Iron Bars" style="width: 35px; height: 35px; vertical-align: middle;">`;
-       html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.ironBars)}</span>`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${formatNumber(upgradeCost.ironBars)}</span>`;
+      html += `<img src="images/${hasEnough ? 'save' : 'no'}.png?v=${Date.now()}" alt="${hasEnough ? 'Available' : 'Not Available'}" style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; transform: rotate(15deg); z-index: 5;">`;
       html += `</span>`;
     }
     html += `</div>`;

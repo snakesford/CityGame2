@@ -1712,7 +1712,7 @@ function positionTooltip(event, tooltip) {
   
   // Position tooltip below the cursor with offset so it doesn't block what cursor is pointing at
   const offsetX = 0; // Small horizontal offset
-  const offsetY = 60; // Vertical offset below cursor
+  const offsetY = 25; // Vertical offset below cursor
   
   tooltip.style.left = (event.clientX + offsetX) + 'px';
   tooltip.style.top = (event.clientY + offsetY) + 'px';

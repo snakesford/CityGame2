@@ -69,24 +69,29 @@ let editMode = false;
 
 // Format number with shorthand (k/M/B)
 function formatNumber(num) {
+  // Round to 2 decimal places
+  num = Math.round(num * 100) / 100;
   if (num >= 1000000000) {
-    return (num / 1000000000).toFixed(2).replace(/\.?0+$/, '') + 'B';
+    return (num / 1000000000).toFixed(2) + 'B';
   } else if (num >= 1000000) {
-    return (num / 1000000).toFixed(2).replace(/\.?0+$/, '') + 'M';
+    return (num / 1000000).toFixed(2) + 'M';
   } else if (num >= 1000) {
-    return (num / 1000).toFixed(2).replace(/\.?0+$/, '') + 'k';
+    return (num / 1000).toFixed(2) + 'k';
   }
-  return Math.floor(num).toString();
+  return num.toFixed(2);
 }
 
 // Format number with decimals and shorthand
 function formatNumberWithDecimals(num, decimals = 2) {
+  // Round to specified decimal places
+  const multiplier = Math.pow(10, decimals);
+  num = Math.round(num * multiplier) / multiplier;
   if (num >= 1000000000) {
-    return (num / 1000000000).toFixed(decimals).replace(/\.?0+$/, '') + 'B';
+    return (num / 1000000000).toFixed(decimals) + 'B';
   } else if (num >= 1000000) {
-    return (num / 1000000).toFixed(decimals).replace(/\.?0+$/, '') + 'M';
+    return (num / 1000000).toFixed(decimals) + 'M';
   } else if (num >= 1000) {
-    return (num / 1000).toFixed(decimals).replace(/\.?0+$/, '') + 'k';
+    return (num / 1000).toFixed(decimals) + 'k';
   }
   return num.toFixed(decimals);
 }

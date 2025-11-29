@@ -337,6 +337,16 @@ h4 {
   border-color: #757575;
 }
 
+.cell-coalMine {
+  background: 
+    url('images/coal.png'),
+    linear-gradient(135deg, #212121 0%, #424242 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #616161;
+}
+
 .cell-deepMine {
   background: 
     url('images/pickaxe.png'),

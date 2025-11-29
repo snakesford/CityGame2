@@ -1704,15 +1704,14 @@ function updateTileInfo() {
   };
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
-  html += `<p><strong>Production per second:</strong></p>`;
-  if (production.wood > 0) html += `<p>Wood: ${formatNumberWithDecimals(production.wood)}</p>`;
-  if (production.stone > 0) html += `<p>Stone: ${formatNumberWithDecimals(production.stone)}</p>`;
-  if (production.clay > 0) html += `<p>Clay: ${formatNumberWithDecimals(production.clay)}</p>`;
-  if (production.iron > 0) html += `<p>Iron: ${formatNumberWithDecimals(production.iron)}</p>`;
-  if (production.coal > 0) html += `<p>Coal: ${formatNumberWithDecimals(production.coal)} <img src="images/coal.png" alt="Coal" style="width: 25px; height: 25px; vertical-align: middle;"></p>`;
-  if (production.bricks > 0) html += `<p>Clay Bricks: ${formatNumberWithDecimals(production.bricks)}</p>`;
-  if (production.population > 0) html += `<p>Population: ${formatNumberWithDecimals(production.population)}</p>`;
-  if (production.capacity > 0) html += `<p>Capacity: ${formatNumber(production.capacity)}</p>`;
+  if (production.wood > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.wood)}/s</p>`;
+  if (production.stone > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/rock.png" alt="Stone" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.stone)}/s</p>`;
+  if (production.clay > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/clay.png" alt="Clay" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.clay)}/s</p>`;
+  if (production.iron > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/iron.png" alt="Iron" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.iron)}/s</p>`;
+  if (production.coal > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/coal.png" alt="Coal" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.coal)}/s</p>`;
+  if (production.bricks > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.bricks)}/s</p>`;
+  if (production.population > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/population.png" alt="Population" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.population)}/s</p>`;
+  if (production.capacity > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: bold;">Capacity:</span> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumber(production.capacity)}</p>`;
   
   // Special handling for smelter
   if (tile.type === "smelter") {

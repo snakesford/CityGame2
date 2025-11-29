@@ -1603,7 +1603,7 @@ function updateTileInfo() {
     const fuelSpace = fuelCapacity - smelter.fuel;
     const canAddFuel = fuelSpace > 0 && gameState.resources.wood > 0;
     const fuelToAdd = Math.min(10, fuelSpace, gameState.resources.wood);
-    html += `<button id="add-fuel-btn" style="margin: 5px 0; width: 100%; padding: 8px; background: ${canAddFuel ? 'rgba(139, 69, 19, 0.3)' : 'rgba(100, 100, 100, 0.2)'}; border: 2px solid ${canAddFuel ? '#8B4513' : '#666'}; border-radius: 5px; cursor: ${canAddFuel ? 'pointer' : 'not-allowed'}; opacity: ${canAddFuel ? '1' : '0.5'};" ${!canAddFuel ? 'disabled' : ''}>`;
+    html += `<button id="add-fuel-btn" style="margin: 5px 0; width: 100%; padding: 8px; background: ${canAddFuel ? '#6D4C41' : 'rgba(100, 100, 100, 0.2)'}; border: 2px solid ${canAddFuel ? '#8D6E63' : '#666'}; border-radius: 5px; cursor: ${canAddFuel ? 'pointer' : 'not-allowed'}; opacity: ${canAddFuel ? '1' : '0.5'};" ${!canAddFuel ? 'disabled' : ''}>`;
     html += `<img src="images/wood-log.png" alt="Wood" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 5px;"> Add ${fuelToAdd} Wood to Storage`;
     html += `</button>`;
     

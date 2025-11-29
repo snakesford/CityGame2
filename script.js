@@ -3419,6 +3419,48 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Shift' && !shiftHeld) {
     shiftHeld = true;
   }
+  
+  // Close menus and exit edit mode when Escape is pressed
+  if (e.key === 'Escape') {
+    const shopModal = document.getElementById('shop-modal');
+    const questsModal = document.getElementById('quests-modal');
+    const loadModal = document.getElementById('load-modal');
+    
+    // Close shop if it's open
+    if (shopModal && shopModal.style.display === 'flex') {
+      shopModal.style.display = 'none';
+    }
+    
+    // Close quests if it's open
+    if (questsModal && questsModal.style.display === 'flex') {
+      questsModal.style.display = 'none';
+    }
+    
+    // Close load menu if it's open
+    if (loadModal && loadModal.style.display === 'flex') {
+      loadModal.style.display = 'none';
+    }
+    
+    // Exit edit mode if active
+    if (editMode) {
+      editMode = false;
+      tileBeingMoved = null;
+      selectedBuildingType = null;
+      selectedTile = null;
+      
+      const editBtn = document.getElementById('edit-mode-btn');
+      const editText = editBtn ? editBtn.querySelector('.edit-text') : null;
+      
+      if (editBtn && editText) {
+        editText.textContent = 'Edit Mode';
+        editBtn.style.background = '';
+        showMessage("Edit mode disabled.");
+      }
+      
+      renderGrid();
+      updateUI();
+    }
+  }
 });
 
 window.addEventListener('keyup', (e) => {

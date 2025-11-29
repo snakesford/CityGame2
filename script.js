@@ -1409,7 +1409,20 @@ function updateTileInfo() {
                           gameState.resources.stone >= (upgradeCost.stone || 0) &&
                           gameState.resources.clay >= (upgradeCost.clay || 0) &&
                           gameState.resources.iron >= (upgradeCost.iron || 0) &&
-                          gameState.resources.bricks >= (upgradeCost.bricks || 0);
+                          gameState.resources.bricks >= (upgradeCost.bricks || 0) &&
+                          gameState.resources.gold >= (upgradeCost.gold || 0) &&
+                          gameState.resources.ironBars >= (upgradeCost.ironBars || 0);
+  
+  // Resource colors matching the game's color scheme
+  const resourceBgColors = {
+    wood: '#8B4513',
+    stone: '#9E9E9E',
+    clay: '#8D6E63',
+    iron: '#708090',
+    gold: '#FFD700',
+    bricks: '#D32F2F',
+    ironBars: '#708090'
+  };
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
   html += `<p><strong>Production per second:</strong></p>`;
@@ -1528,13 +1541,71 @@ function updateTileInfo() {
   
   if (canUpgrade) {
     html += `<p><strong>Upgrade Cost:</strong></p>`;
-    let costStr = [];
-    if (upgradeCost.wood > 0) costStr.push(`${upgradeCost.wood} Wood`);
-    if (upgradeCost.stone > 0) costStr.push(`${upgradeCost.stone} Stone`);
-    if (upgradeCost.clay > 0) costStr.push(`${upgradeCost.clay} Clay`);
-    if (upgradeCost.iron > 0) costStr.push(`${upgradeCost.iron} Iron`);
-    if (upgradeCost.bricks > 0) costStr.push(`${upgradeCost.bricks} Bricks`);
-    html += `<p>${costStr.join(' | ')}</p>`;
+    html += `<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0;">`;
+    if (upgradeCost.wood > 0) {
+      const hasEnough = gameState.resources.wood >= upgradeCost.wood;
+      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const textColor = '#FFFFFF';
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.wood}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.wood}</span>`;
+      html += `</span>`;
+    }
+    if (upgradeCost.stone > 0) {
+      const hasEnough = gameState.resources.stone >= upgradeCost.stone;
+      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const textColor = '#FFFFFF';
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.stone}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<img src="images/rock.png" alt="Stone" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.stone}</span>`;
+      html += `</span>`;
+    }
+    if (upgradeCost.clay > 0) {
+      const hasEnough = gameState.resources.clay >= upgradeCost.clay;
+      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const textColor = '#FFFFFF';
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.clay}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<img src="images/clay.png" alt="Clay" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.clay}</span>`;
+      html += `</span>`;
+    }
+    if (upgradeCost.iron > 0) {
+      const hasEnough = gameState.resources.iron >= upgradeCost.iron;
+      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const textColor = '#FFFFFF';
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.iron}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<img src="images/iron.png" alt="Iron" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.iron}</span>`;
+      html += `</span>`;
+    }
+    if (upgradeCost.bricks > 0) {
+      const hasEnough = gameState.resources.bricks >= upgradeCost.bricks;
+      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const textColor = '#FFFFFF';
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.bricks}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<img src="images/claybricks.png" alt="Bricks" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.bricks}</span>`;
+      html += `</span>`;
+    }
+    if (upgradeCost.gold > 0) {
+      const hasEnough = gameState.resources.gold >= upgradeCost.gold;
+      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const textColor = '#000000';
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.gold}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.gold}</span>`;
+      html += `</span>`;
+    }
+    if (upgradeCost.ironBars > 0) {
+      const hasEnough = gameState.resources.ironBars >= upgradeCost.ironBars;
+      const borderColor = hasEnough ? '#4CAF50' : '#F44336';
+      const textColor = '#FFFFFF';
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: ${resourceBgColors.ironBars}; border-radius: 5px; border: 3px solid ${borderColor};">`;
+      html += `<img src="images/ironBar.webp" alt="Iron Bars" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: ${textColor};">${upgradeCost.ironBars}</span>`;
+      html += `</span>`;
+    }
+    html += `</div>`;
     html += `<button id="upgrade-btn" ${!canAffordUpgrade ? 'disabled' : ''}><img src="images/upgrade.png" alt="Upgrade" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;"> Upgrade</button>`;
     } else {
     html += `<p>Max level reached</p>`;

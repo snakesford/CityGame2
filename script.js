@@ -3995,6 +3995,11 @@ function renderQuests() {
     let hasQuests = false;
     
     questDefinitions.forEach(questDef => {
+      // Skip milestone quests that unlock buildings - they're handled automatically
+      if (questDef.unlocksBuilding) {
+        return;
+      }
+      
       const quest = gameState.quests.find(q => q.id === questDef.id);
       if (!quest) return;
       

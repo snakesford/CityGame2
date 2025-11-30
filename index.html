@@ -14,6 +14,22 @@
   <div id="tooltip" style="display: none;"></div>
   <div id="message" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.8); color: white; padding: 10px 20px; border-radius: 5px; z-index: 2000;"></div>
 
+  <!-- Confirmation Modal -->
+  <div id="confirmation-modal" class="shop-modal" style="display: none; z-index: 6000;">
+    <div class="shop-content" style="max-width: 800px; width: 70%; min-height: 200px;">
+      <div class="shop-header">
+        <h2>Confirm</h2>
+      </div>
+      <div class="shop-body" style="padding: 30px;">
+        <p id="confirmation-message" style="margin-bottom: 30px; color: white; font-size: 18px; line-height: 1.6;"></p>
+        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+          <button id="confirmation-yes" class="shop-buy-btn" style="min-width: 120px; padding: 12px 24px; font-size: 16px;">Yes</button>
+          <button id="confirmation-no" class="shop-buy-btn" style="min-width: 120px; padding: 12px 24px; font-size: 16px; background: rgba(200, 50, 50, 0.8);">No</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Character Selection Screen -->
   <div id="character-selection" class="character-selection-screen">
     <h1>Choose Your Character</h1>
@@ -82,6 +98,12 @@
   <!-- Settings Button (Upper Left) -->
   <button id="settings-btn" class="settings-btn" onclick="toggleSettings()" style="position: fixed; top: 10px; left: 10px; z-index: 1000; padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
     ⚙️ Settings
+  </button>
+
+  <!-- Book of Buildings Button (Below Settings) -->
+  <button id="book-btn" class="book-btn" onclick="toggleBookOfBuildings()" style="position: fixed; top: 55px; left: 10px; z-index: 1000; padding: 10px 15px; background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
+    <img src="images/book.png" alt="Book" style="width: 20px; height: 20px; vertical-align: middle;">
+    Book of Buildings
   </button>
 
   <!-- Player Indicator (Upper Right) -->
@@ -450,6 +472,21 @@
           <div id="town-merchants-content">
             <p style="color: #aaa;">No merchants available yet. Complete quests to unlock merchants.</p>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book of Buildings Modal -->
+  <div id="book-of-buildings-modal" class="shop-modal" style="display: none; z-index: 5000;">
+    <div class="shop-content" style="max-width: 1200px; width: 90%; max-height: 80vh; height: auto;">
+      <div class="shop-header">
+        <h2>📚 Book of Buildings</h2>
+        <button class="shop-close" onclick="toggleBookOfBuildings()">&times;</button>
+      </div>
+      <div class="shop-body" style="min-height: 400px;">
+        <div id="building-combos-list">
+          <!-- Building combos will be populated dynamically -->
         </div>
       </div>
     </div>

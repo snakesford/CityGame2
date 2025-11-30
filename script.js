@@ -90,6 +90,31 @@ let selectedBuildingType = null;
 // Selected tile for info panel
 let selectedTile = null;
 
+// Building combos data structure
+const buildingCombos = {
+  townCenter: {
+    id: 'townCenter',
+    name: 'Town Center',
+    description: 'Form a town by placing buildings in a specific 3×3 pattern with a Cabin at the center.',
+    pattern: {
+      center: 'Cabin',
+      size: '3×3',
+      buildings: [
+        { position: 'Top-left', building: 'Mineral (Quarry, Iron Mine, Coal Mine, or Deep Mine)' },
+        { position: 'Top', building: 'Tepee' },
+        { position: 'Top-right', building: 'Farm' },
+        { position: 'Right', building: 'Tepee' },
+        { position: 'Bottom-right', building: 'Mineral (Quarry, Iron Mine, Coal Mine, or Deep Mine)' },
+        { position: 'Bottom', building: 'Tepee' },
+        { position: 'Bottom-left', building: 'Farm' },
+        { position: 'Left', building: 'Tepee' }
+      ],
+      note: 'This pattern can be rotated in any of the 4 cardinal directions. When the pattern is detected, the center Cabin will be converted into a Town Center (Level 1).'
+    },
+    reward: 'Creates a Town Center that unlocks quests, merchants, and increases your building cap by 5 per town level.'
+  }
+};
+
 // Edit mode state
 let editMode = false;
 
@@ -2782,6 +2807,50 @@ function showMessage(text) {
   }
 }
 
+// Show custom confirmation modal (replaces browser confirm)
+function showConfirmation(message) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirmation-modal');
+    const messageEl = document.getElementById('confirmation-message');
+    const yesBtn = document.getElementById('confirmation-yes');
+    const noBtn = document.getElementById('confirmation-no');
+    
+    if (!modal || !messageEl || !yesBtn || !noBtn) {
+      // Fallback to browser confirm if modal elements not found
+      resolve(confirm(message));
+      return;
+    }
+    
+    messageEl.textContent = message;
+    modal.style.display = 'flex';
+    
+    const cleanup = () => {
+      modal.style.display = 'none';
+      yesBtn.onclick = null;
+      noBtn.onclick = null;
+      modal.onclick = null;
+    };
+    
+    yesBtn.onclick = () => {
+      cleanup();
+      resolve(true);
+    };
+    
+    noBtn.onclick = () => {
+      cleanup();
+      resolve(false);
+    };
+    
+    // Close on background click
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        cleanup();
+        resolve(false);
+      }
+    };
+  });
+}
+
 // Update building selection UI
 function updateBuildingSelection() {
   const buttons = document.querySelectorAll('.building-btn');
@@ -3291,8 +3360,8 @@ function updateTileInfo() {
   
   const removeBtn = document.getElementById('remove-btn');
   if (removeBtn) {
-    removeBtn.addEventListener('click', () => {
-      if (confirm('Remove this building? You will receive 50% refund.')) {
+    removeBtn.addEventListener('click', async () => {
+      if (await showConfirmation('Remove this building? You will receive 50% refund.')) {
         removeBuilding(selectedTile.row, selectedTile.col);
         selectedTile = null;
         updateTileInfo();
@@ -3761,11 +3830,13 @@ function deleteGameSlot(slot) {
     return;
   }
   
-  if (confirm(`Are you sure you want to delete the save in slot ${slot}? This cannot be undone.`)) {
-    localStorage.removeItem(slotKey);
-    updateSaveSlots();
-    showMessage(`Save slot ${slot} deleted.`);
-  }
+  showConfirmation(`Are you sure you want to delete the save in slot ${slot}? This cannot be undone.`).then(confirmed => {
+    if (confirmed) {
+      localStorage.removeItem(slotKey);
+      updateSaveSlots();
+      showMessage(`Save slot ${slot} deleted.`);
+    }
+  });
 }
 
 // Load game from specific slot
@@ -3777,11 +3848,12 @@ function loadGameSlot(slot) {
     return;
   }
   
-  if (confirm('Load this save? Current progress will be lost.')) {
-    try {
-      gameState = JSON.parse(saved);
-      migrateSaveData();
-      applyPlayerColor();
+  showConfirmation('Load this save? Current progress will be lost.').then(confirmed => {
+    if (confirmed) {
+      try {
+        gameState = JSON.parse(saved);
+        migrateSaveData();
+        applyPlayerColor();
       updatePlayerIndicator();
       initializeQuests();
       calculateProduction();
@@ -3800,11 +3872,12 @@ function loadGameSlot(slot) {
       startGameLoop();
       hideLoadMenu();
       showMessage(`Game loaded from slot ${slot}!`);
-    } catch (e) {
-      console.error('Error loading game:', e);
-      showMessage("Error loading save file.");
+      } catch (e) {
+        console.error('Error loading game:', e);
+        showMessage("Error loading save file.");
+      }
     }
-  }
+  });
 }
 
 // Load game (checks last used slot first, then old default save)
@@ -3857,11 +3930,12 @@ function resetGame() {
       smeltingSpeed: false
     };
   }
-  if (confirm('Are you sure you want to reset your game? This cannot be undone.')) {
-    localStorage.removeItem('cityBuilderSave');
-    // Cycle to next save slot for new game
-    cycleToNextSaveSlot();
-    gameState = {
+  showConfirmation('Are you sure you want to reset your game? This cannot be undone.').then(confirmed => {
+    if (confirmed) {
+      localStorage.removeItem('cityBuilderSave');
+      // Cycle to next save slot for new game
+      cycleToNextSaveSlot();
+      gameState = {
       resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0, ironBars: 0, coal: 0 },
       rates: { wps: 1, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0 }, // Base 1 wps
       smelters: {},
@@ -3901,7 +3975,8 @@ function resetGame() {
     updateTileInfo();
     // Show character selection screen
     showCharacterSelection();
-  }
+    }
+  });
 }
 
 // Update save status
@@ -4004,26 +4079,28 @@ function importSave(event) {
     try {
       const loaded = JSON.parse(e.target.result);
       
-      if (confirm('Import this save? Current progress will be lost.')) {
-        gameState = loaded;
-        migrateSaveData();
-        applyPlayerColor();
-        updatePlayerIndicator();
-        initializeQuests();
-        calculateProduction();
-        checkUnlocks();
-        checkQuests();
-        renderGrid();
-        updateUI();
-        updateSaveStatus();
-        updateQuestIndicator();
-        initializeBuildMenu();
-        updateBuildMenu();
-        initializeResourceTooltips();
-        updateSaveSlots();
-        startGameLoop();
-        showMessage("Save file imported!");
-      }
+      showConfirmation('Import this save? Current progress will be lost.').then(confirmed => {
+        if (confirmed) {
+          gameState = loaded;
+          migrateSaveData();
+          applyPlayerColor();
+          updatePlayerIndicator();
+          initializeQuests();
+          calculateProduction();
+          checkUnlocks();
+          checkQuests();
+          renderGrid();
+          updateUI();
+          updateSaveStatus();
+          updateQuestIndicator();
+          initializeBuildMenu();
+          updateBuildMenu();
+          initializeResourceTooltips();
+          updateSaveSlots();
+          startGameLoop();
+          showMessage("Save file imported!");
+        }
+      });
     } catch (e) {
       console.error('Error importing save:', e);
       showMessage("Error: Invalid save file.");
@@ -5154,6 +5231,101 @@ function toggleSettings() {
   toggleModal('settings-modal');
 }
 
+// Toggle book of buildings modal
+function toggleBookOfBuildings() {
+  toggleModal('book-of-buildings-modal', () => {
+    renderBuildingCombos();
+  });
+}
+
+// Render building combos in the book modal
+function renderBuildingCombos() {
+  const container = document.getElementById('building-combos-list');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  // Iterate through all building combos
+  for (const comboKey in buildingCombos) {
+    const combo = buildingCombos[comboKey];
+    
+    const comboCard = document.createElement('div');
+    comboCard.style.cssText = 'background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,215,0,0.3);';
+    
+    // Title
+    const title = document.createElement('h3');
+    title.textContent = combo.name;
+    title.style.cssText = 'color: #FFD700; margin-bottom: 10px; font-size: 20px;';
+    comboCard.appendChild(title);
+    
+    // Description
+    const description = document.createElement('p');
+    description.textContent = combo.description;
+    description.style.cssText = 'color: #ddd; margin-bottom: 15px; line-height: 1.5;';
+    comboCard.appendChild(description);
+    
+    // Pattern section
+    const patternSection = document.createElement('div');
+    patternSection.style.cssText = 'margin-bottom: 15px;';
+    
+    const patternTitle = document.createElement('h4');
+    patternTitle.textContent = `Pattern (${combo.pattern.size}):`;
+    patternTitle.style.cssText = 'color: #FFD700; margin-bottom: 10px; font-size: 16px;';
+    patternSection.appendChild(patternTitle);
+    
+    // Center building
+    const centerInfo = document.createElement('p');
+    centerInfo.innerHTML = `<strong style="color: #fff;">Center:</strong> <span style="color: #ddd;">${combo.pattern.center}</span>`;
+    centerInfo.style.cssText = 'margin-bottom: 10px; padding-left: 10px;';
+    patternSection.appendChild(centerInfo);
+    
+    // Pattern grid visualization (simple list)
+    const patternList = document.createElement('ul');
+    patternList.style.cssText = 'list-style: none; padding: 0; margin: 10px 0; color: #ddd;';
+    
+    combo.pattern.buildings.forEach(building => {
+      const listItem = document.createElement('li');
+      listItem.style.cssText = 'padding: 5px 10px; border-left: 2px solid rgba(255,215,0,0.5); margin-bottom: 5px;';
+      listItem.innerHTML = `<strong style="color: #fff;">${building.position}:</strong> ${building.building}`;
+      patternList.appendChild(listItem);
+    });
+    
+    patternSection.appendChild(patternList);
+    comboCard.appendChild(patternSection);
+    
+    // Note
+    if (combo.pattern.note) {
+      const note = document.createElement('p');
+      note.textContent = combo.pattern.note;
+      note.style.cssText = 'color: #aaa; font-style: italic; margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 5px;';
+      comboCard.appendChild(note);
+    }
+    
+    // Reward section
+    const rewardSection = document.createElement('div');
+    rewardSection.style.cssText = 'background: rgba(0,255,0,0.1); padding: 10px; border-radius: 5px; border: 1px solid rgba(0,255,0,0.3);';
+    
+    const rewardTitle = document.createElement('strong');
+    rewardTitle.textContent = 'Reward: ';
+    rewardTitle.style.cssText = 'color: #4CAF50;';
+    rewardSection.appendChild(rewardTitle);
+    
+    const rewardText = document.createTextNode(combo.reward);
+    rewardSection.appendChild(rewardText);
+    
+    comboCard.appendChild(rewardSection);
+    container.appendChild(comboCard);
+  }
+  
+  // If no combos exist, show a message
+  if (Object.keys(buildingCombos).length === 0) {
+    const emptyMessage = document.createElement('p');
+    emptyMessage.textContent = 'No building combos available yet.';
+    emptyMessage.style.cssText = 'color: #aaa; text-align: center; padding: 20px;';
+    container.appendChild(emptyMessage);
+  }
+}
+
 // Toggle quests window
 function toggleQuests() {
   toggleModal('quests-modal', () => {
@@ -6162,6 +6334,12 @@ window.addEventListener('click', (event) => {
   if (loadModal && event.target === loadModal) {
     loadModal.style.display = 'none';
   }
+  
+  // Close book of buildings modal when clicking outside
+  const bookModal = document.getElementById('book-of-buildings-modal');
+  if (bookModal && event.target === bookModal) {
+    bookModal.style.display = 'none';
+  }
 });
 
 // Track Shift key state for multiple building placement
@@ -6291,7 +6469,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   } catch (e) {
     console.error('Error initializing game:', e);
-    alert('Error loading game. Please refresh the page.');
+    showMessage('Error loading game. Please refresh the page.');
   }
 });
 

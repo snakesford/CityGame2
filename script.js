@@ -2408,6 +2408,12 @@ function upgradeBuilding(row, col) {
     return false;
   }
   
+  // Cannot upgrade base markers
+  if (tile.type === "baseMarker") {
+    showMessage("Base markers cannot be upgraded!");
+    return false;
+  }
+  
   // Check max level
   if (building.maxLevel && tile.level >= building.maxLevel) return false;
   
@@ -2855,7 +2861,8 @@ function updateTileInfo() {
   const building = buildingTypes[tile.type];
   const production = getBuildingProduction(tile.type, tile.level);
   const upgradeCost = getBuildingCost(tile.type, tile.level + 1);
-  const canUpgrade = building.maxLevel === null || tile.level < building.maxLevel;
+  // Base markers cannot be upgraded
+  const canUpgrade = tile.type !== "baseMarker" && (building.maxLevel === null || tile.level < building.maxLevel);
   const canAffordUpgrade = canAfford(upgradeCost);
   
   // Resource colors matching the game's color scheme

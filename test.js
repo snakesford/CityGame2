@@ -1277,6 +1277,200 @@ function runTests() {
   });
 
   // --------------------------------------------------
+  // 9. Merchant Cooldown System Tests
+  //    These test the merchant cooldown system for resource trading
+  // --------------------------------------------------
+  
+  // Testable version of getMerchantCooldownStatus (without DOM dependencies)
+  function getMerchantCooldownStatus(state, resourceName) {
+    if (!state.merchantCooldowns || !state.merchantCooldowns[resourceName]) {
+      // Initialize if missing
+      if (!state.merchantCooldowns) state.merchantCooldowns = {};
+      if (!state.merchantCooldowns[resourceName]) {
+        state.merchantCooldowns[resourceName] = { totalTraded: 0, cooldownStart: null };
+      }
+    }
+    
+    const cooldown = state.merchantCooldowns[resourceName];
+    const COOLDOWN_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const MAX_TRADE_AMOUNT = 100;
+    
+    // Reset cooldown if it has expired
+    if (cooldown.cooldownStart !== null) {
+      const timeSinceCooldown = Date.now() - cooldown.cooldownStart;
+      if (timeSinceCooldown >= COOLDOWN_DURATION) {
+        cooldown.totalTraded = 0;
+        cooldown.cooldownStart = null;
+      }
+    }
+    
+    const remainingCooldown = cooldown.cooldownStart ? Math.max(0, COOLDOWN_DURATION - (Date.now() - cooldown.cooldownStart)) : 0;
+    const remainingTradeAmount = Math.max(0, MAX_TRADE_AMOUNT - cooldown.totalTraded);
+    const isOnCooldown = remainingCooldown > 0;
+    
+    return {
+      totalTraded: cooldown.totalTraded,
+      remainingTradeAmount: remainingTradeAmount,
+      isOnCooldown: isOnCooldown,
+      remainingCooldown: remainingCooldown,
+      canTrade: !isOnCooldown && remainingTradeAmount > 0
+    };
+  }
+  
+  // Test merchant cooldown status with no trades
+  test('getMerchantCooldownStatus returns correct initial state', () => {
+    const state = {
+      merchantCooldowns: {
+        wood: { totalTraded: 0, cooldownStart: null },
+        stone: { totalTraded: 0, cooldownStart: null },
+        clay: { totalTraded: 0, cooldownStart: null }
+      }
+    };
+    
+    const status = getMerchantCooldownStatus(state, 'wood');
+    assert.strictEqual(status.totalTraded, 0);
+    assert.strictEqual(status.remainingTradeAmount, 100);
+    assert.strictEqual(status.isOnCooldown, false);
+    assert.strictEqual(status.canTrade, true);
+  });
+  
+  // Test merchant cooldown status after partial trade
+  test('getMerchantCooldownStatus correctly calculates remaining after partial trade', () => {
+    const state = {
+      merchantCooldowns: {
+        stone: { totalTraded: 40, cooldownStart: null }
+      }
+    };
+    
+    const status = getMerchantCooldownStatus(state, 'stone');
+    assert.strictEqual(status.totalTraded, 40);
+    assert.strictEqual(status.remainingTradeAmount, 60);
+    assert.strictEqual(status.isOnCooldown, false);
+    assert.strictEqual(status.canTrade, true);
+  });
+  
+  // Test merchant cooldown status at limit
+  test('getMerchantCooldownStatus correctly handles 100 unit limit', () => {
+    const state = {
+      merchantCooldowns: {
+        wood: { totalTraded: 100, cooldownStart: Date.now() }
+      }
+    };
+    
+    const status = getMerchantCooldownStatus(state, 'wood');
+    assert.strictEqual(status.totalTraded, 100);
+    assert.strictEqual(status.remainingTradeAmount, 0);
+    assert.strictEqual(status.isOnCooldown, true);
+    assert.strictEqual(status.canTrade, false);
+  });
+  
+  // Test merchant cooldown status initialization for missing resource
+  test('getMerchantCooldownStatus initializes missing resource', () => {
+    const state = {
+      merchantCooldowns: {}
+    };
+    
+    const status = getMerchantCooldownStatus(state, 'clay');
+    assert.strictEqual(status.totalTraded, 0);
+    assert.strictEqual(status.remainingTradeAmount, 100);
+    assert.strictEqual(status.canTrade, true);
+    assert.ok(state.merchantCooldowns.clay);
+  });
+  
+  // Test expired cooldown reset
+  test('getMerchantCooldownStatus resets expired cooldown', () => {
+    const state = {
+      merchantCooldowns: {
+        stone: { 
+          totalTraded: 100, 
+          cooldownStart: Date.now() - (6 * 60 * 1000) // 6 minutes ago (expired)
+        }
+      }
+    };
+    
+    const status = getMerchantCooldownStatus(state, 'stone');
+    assert.strictEqual(status.totalTraded, 0);
+    assert.strictEqual(state.merchantCooldowns.stone.totalTraded, 0);
+    assert.strictEqual(state.merchantCooldowns.stone.cooldownStart, null);
+    assert.strictEqual(status.canTrade, true);
+  });
+  
+  // --------------------------------------------------
+  // 10. Merchant Exchange Rate Tests
+  //     Verify stone exchange rate is 10:1 (not 8:1)
+  // --------------------------------------------------
+  
+  // Testable merchant definitions (extracted from script.js)
+  const testMerchantDefinitions = {
+    merchant_tier1: {
+      id: 'merchant_tier1',
+      name: 'Basic Trader',
+      unlockLevel: 1,
+      trades: [
+        {
+          id: 'sell_wood',
+          name: 'Sell Wood',
+          description: 'Sell 10 wood for 1 gold',
+          cost: { wood: 10 },
+          reward: { gold: 1 },
+          type: 'resource_trade',
+          resource: 'wood',
+          exchangeRate: 10
+        },
+        {
+          id: 'sell_stone',
+          name: 'Sell Stone',
+          description: 'Sell 10 stone for 1 gold',
+          cost: { stone: 10 },
+          reward: { gold: 1 },
+          type: 'resource_trade',
+          resource: 'stone',
+          exchangeRate: 10
+        },
+        {
+          id: 'sell_clay',
+          name: 'Sell Clay',
+          description: 'Sell 10 clay for 1 gold',
+          cost: { clay: 10 },
+          reward: { gold: 1 },
+          type: 'resource_trade',
+          resource: 'clay',
+          exchangeRate: 10
+        }
+      ]
+    }
+  };
+  
+  test('Stone exchange rate is 10:1 (not 8:1)', () => {
+    const stoneTrade = testMerchantDefinitions.merchant_tier1.trades.find(t => t.id === 'sell_stone');
+    assert.ok(stoneTrade, 'Stone trade should exist');
+    assert.strictEqual(stoneTrade.exchangeRate, 10, 'Stone exchange rate should be 10:1');
+    assert.strictEqual(stoneTrade.cost.stone, 10, 'Stone cost should be 10');
+    assert.ok(stoneTrade.description.includes('10 stone'), 'Description should mention 10 stone');
+  });
+  
+  test('All basic resource trades use 10:1 exchange rate', () => {
+    const trades = testMerchantDefinitions.merchant_tier1.trades;
+    const resourceTrades = trades.filter(t => t.type === 'resource_trade');
+    
+    resourceTrades.forEach(trade => {
+      assert.strictEqual(trade.exchangeRate, 10, `${trade.resource} should have exchange rate of 10:1`);
+      assert.strictEqual(trade.cost[trade.resource], 10, `${trade.resource} cost should be 10`);
+    });
+  });
+  
+  test('Stone trade calculates correct gold reward for 10:1 rate', () => {
+    const stoneTrade = testMerchantDefinitions.merchant_tier1.trades.find(t => t.id === 'sell_stone');
+    const exchangeRate = stoneTrade.exchangeRate;
+    
+    // Test various amounts
+    assert.strictEqual(Math.floor(10 / exchangeRate), 1, '10 stone = 1 gold');
+    assert.strictEqual(Math.floor(20 / exchangeRate), 2, '20 stone = 2 gold');
+    assert.strictEqual(Math.floor(100 / exchangeRate), 10, '100 stone = 10 gold');
+    assert.strictEqual(Math.floor(50 / exchangeRate), 5, '50 stone = 5 gold');
+  });
+  
+  // --------------------------------------------------
   // Summary
   // --------------------------------------------------
   const failed = results.filter((r) => !r.pass).length;

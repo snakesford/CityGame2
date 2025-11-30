@@ -870,6 +870,7 @@ h4 {
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
+  transition: none;
 }
 
 /* Brick slider wrapper for green trail */
@@ -963,6 +964,125 @@ h4 {
 }
 
 #brick-slider::-moz-range-thumb:hover {
+  background: #FFC700;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+/* Generic resource slider styling - applies to wood, stone, clay sliders */
+#wood-slider,
+#stone-slider,
+#clay-slider,
+#merchant-wood-slider,
+#merchant-stone-slider,
+#merchant-clay-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: transparent;
+  outline: none;
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+}
+
+#wood-slider::-webkit-slider-runnable-track,
+#stone-slider::-webkit-slider-runnable-track,
+#clay-slider::-webkit-slider-runnable-track,
+#merchant-wood-slider::-webkit-slider-runnable-track,
+#merchant-stone-slider::-webkit-slider-runnable-track,
+#merchant-clay-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+}
+
+#wood-slider::-moz-range-track,
+#stone-slider::-moz-range-track,
+#clay-slider::-moz-range-track,
+#merchant-wood-slider::-moz-range-track,
+#merchant-stone-slider::-moz-range-track,
+#merchant-clay-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+}
+
+#wood-slider:hover::-webkit-slider-runnable-track,
+#stone-slider:hover::-webkit-slider-runnable-track,
+#clay-slider:hover::-webkit-slider-runnable-track,
+#merchant-wood-slider:hover::-webkit-slider-runnable-track,
+#merchant-stone-slider:hover::-webkit-slider-runnable-track,
+#merchant-clay-slider:hover::-webkit-slider-runnable-track {
+  background: rgba(255,255,255,0.3);
+}
+
+#wood-slider:hover::-moz-range-track,
+#stone-slider:hover::-moz-range-track,
+#clay-slider:hover::-moz-range-track,
+#merchant-wood-slider:hover::-moz-range-track,
+#merchant-stone-slider:hover::-moz-range-track,
+#merchant-clay-slider:hover::-moz-range-track {
+  background: rgba(255,255,255,0.3);
+}
+
+#wood-slider::-webkit-slider-thumb,
+#stone-slider::-webkit-slider-thumb,
+#clay-slider::-webkit-slider-thumb,
+#merchant-wood-slider::-webkit-slider-thumb,
+#merchant-stone-slider::-webkit-slider-thumb,
+#merchant-clay-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFD700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+  margin-top: -6px;
+  position: relative;
+}
+
+#wood-slider::-webkit-slider-thumb:hover,
+#stone-slider::-webkit-slider-thumb:hover,
+#clay-slider::-webkit-slider-thumb:hover,
+#merchant-wood-slider::-webkit-slider-thumb:hover,
+#merchant-stone-slider::-webkit-slider-thumb:hover,
+#merchant-clay-slider::-webkit-slider-thumb:hover {
+  background: #FFC700;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+#wood-slider::-moz-range-thumb,
+#stone-slider::-moz-range-thumb,
+#clay-slider::-moz-range-thumb,
+#merchant-wood-slider::-moz-range-thumb,
+#merchant-stone-slider::-moz-range-thumb,
+#merchant-clay-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFD700;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+}
+
+#wood-slider::-moz-range-thumb:hover,
+#stone-slider::-moz-range-thumb:hover,
+#clay-slider::-moz-range-thumb:hover,
+#merchant-wood-slider::-moz-range-thumb:hover,
+#merchant-stone-slider::-moz-range-thumb:hover,
+#merchant-clay-slider::-moz-range-thumb:hover {
   background: #FFC700;
   transform: scale(1.1);
   box-shadow: 0 3px 6px rgba(0,0,0,0.4);

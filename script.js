@@ -41,7 +41,13 @@ let gameState = {
   quests: [], // Array of quest progress: [{id, completed, claimed}]
   towns: {}, // {townId: {level, questsCompleted, linkedPositions: [{row, col}], merchantUnlocks: []}}
   globalBuildingCap: 20, // Starting cap
-  nextTownId: 1 // Auto-incrementing town ID
+  nextTownId: 1, // Auto-incrementing town ID
+  merchantCooldowns: {
+    // Track cooldowns for each resource: {resource: {totalTraded: number, cooldownStart: timestamp}}
+    wood: { totalTraded: 0, cooldownStart: null },
+    stone: { totalTraded: 0, cooldownStart: null },
+    clay: { totalTraded: 0, cooldownStart: null }
+  }
 };
 
 // Player color definitions
@@ -194,6 +200,29 @@ function migrateSaveData() {
   // Ensure resource fields exist
   if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
   if (!gameState.resources.coal) gameState.resources.coal = 0;
+  
+  // Ensure merchant cooldowns exist
+  if (!gameState.merchantCooldowns) {
+    gameState.merchantCooldowns = {
+      wood: { totalTraded: 0, cooldownStart: null },
+      stone: { totalTraded: 0, cooldownStart: null },
+      clay: { totalTraded: 0, cooldownStart: null }
+    };
+  } else {
+    // Ensure each resource has cooldown tracking
+    ['wood', 'stone', 'clay'].forEach(resource => {
+      if (!gameState.merchantCooldowns[resource]) {
+        gameState.merchantCooldowns[resource] = { totalTraded: 0, cooldownStart: null };
+      }
+      // Ensure both properties exist
+      if (gameState.merchantCooldowns[resource].totalTraded === undefined) {
+        gameState.merchantCooldowns[resource].totalTraded = 0;
+      }
+      if (gameState.merchantCooldowns[resource].cooldownStart === undefined) {
+        gameState.merchantCooldowns[resource].cooldownStart = null;
+      }
+    });
+  }
   
   // Migrate old "kilns" to "smelters"
   if (gameState.kilns && !gameState.smelters) {
@@ -618,23 +647,29 @@ const merchantDefinitions = {
         description: 'Sell 10 wood for 1 gold',
         cost: { wood: 10 },
         reward: { gold: 1 },
-        type: 'resource_trade'
+        type: 'resource_trade',
+        resource: 'wood',
+        exchangeRate: 10
       },
       {
         id: 'sell_stone',
         name: 'Sell Stone',
-        description: 'Sell 10 stone for 1 gold',
-        cost: { stone: 10 },
+        description: 'Sell 8 stone for 1 gold',
+        cost: { stone: 8 },
         reward: { gold: 1 },
-        type: 'resource_trade'
+        type: 'resource_trade',
+        resource: 'stone',
+        exchangeRate: 8
       },
       {
         id: 'sell_clay',
         name: 'Sell Clay',
-        description: 'Sell 8 clay for 1 gold',
-        cost: { clay: 8 },
+        description: 'Sell 10 clay for 1 gold',
+        cost: { clay: 10 },
         reward: { gold: 1 },
-        type: 'resource_trade'
+        type: 'resource_trade',
+        resource: 'clay',
+        exchangeRate: 10
       }
     ]
   },
@@ -3836,7 +3871,12 @@ function resetGame() {
         housingCapacity: false,
         smeltingSpeed: false
       },
-      quests: []
+      quests: [],
+      merchantCooldowns: {
+        wood: { totalTraded: 0, cooldownStart: null },
+        stone: { totalTraded: 0, cooldownStart: null },
+        clay: { totalTraded: 0, cooldownStart: null }
+      }
     };
     resetBuildingUnlocks();
     initializeQuests();
@@ -4186,6 +4226,7 @@ function initializeBuildMenu() {
 // Main game loop
 let lastAutoSave = Date.now();
 let gameLoopInterval = null;
+let merchantCooldownUpdateInterval = null;
 
 function startGameLoop() {
   if (gameLoopInterval) {
@@ -5270,20 +5311,89 @@ function openTownCenterModal(townId, row, col) {
     if (availableMerchants.length === 0) {
       merchantsEl.innerHTML = '<p style="color: #aaa;">No merchants available yet. Complete quests to unlock merchants.</p>';
     } else {
+      // Preserve slider values before regenerating HTML
+      const preservedSliderValues = {};
+      ['wood', 'stone', 'clay'].forEach(resource => {
+        const sliderId = `merchant-${resource}-slider`;
+        const existingSlider = document.getElementById(sliderId);
+        if (existingSlider) {
+          preservedSliderValues[resource] = parseInt(existingSlider.value) || 0;
+        }
+      });
+      
       let html = '';
       availableMerchants.forEach(merchant => {
         html += `<div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">`;
         html += `<h4 style="color: #FFD700; margin-bottom: 10px;">${merchant.name}</h4>`;
         merchant.trades.forEach(trade => {
-          html += `<div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">`;
-          html += `<strong>${trade.name}</strong><br>`;
-          html += `<span style="font-size: 12px; color: #aaa;">${trade.description}</span>`;
-          html += `<button class="shop-buy-btn" style="margin-top: 5px; width: 100%;" onclick="executeMerchantTrade('${townId}', '${trade.id}')">Trade</button>`;
-          html += `</div>`;
+          // Check if this is a slider-based resource trade (wood, stone, clay)
+          if (trade.type === 'resource_trade' && trade.resource && ['wood', 'stone', 'clay'].includes(trade.resource)) {
+            const resource = trade.resource;
+            const exchangeRate = trade.exchangeRate || 10;
+            const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+            const resourceImage = resource === 'wood' ? 'wood-log.png' : resource === 'stone' ? 'rock.png' : 'clay.png';
+            
+            // Use preserved value if available, otherwise 0
+            const initialValue = preservedSliderValues[resource] || 0;
+            
+            html += `<div style="margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 5px;">`;
+            html += `<strong style="color: #FFD700;">Sell ${resourceName}</strong><br>`;
+            html += `<span style="display: inline-flex; align-items: center; gap: 5px; margin: 5px 0; font-size: 12px; color: #aaa;">`;
+            html += `<span style="display: inline-flex; align-items: center; gap: 3px;"><span style="font-weight: bold;">${exchangeRate}</span> <img src="images/${resourceImage}" alt="${resourceName}" style="width: 16px; height: 16px; vertical-align: middle;"></span>`;
+            html += `<span>:</span>`;
+            html += `<span style="display: inline-flex; align-items: center; gap: 3px;"><span style="font-weight: bold;">1</span> <img src="images/gold.png" alt="Gold" style="width: 16px; height: 16px; vertical-align: middle;"></span>`;
+            html += `</span>`;
+            
+            html += `<div style="margin: 10px 0;">`;
+            html += `<label for="merchant-${resource}-slider" style="display: block; margin-bottom: 8px; color: #fff; font-size: 13px;">`;
+            html += `Amount: <span id="merchant-${resource}-amount">0</span> ${resource}`;
+            html += `</label>`;
+            html += `<div class="brick-slider-wrapper">`;
+            html += `<div class="brick-slider-fill" id="merchant-${resource}-slider-fill"></div>`;
+            html += `<input type="range" id="merchant-${resource}-slider" min="0" max="100" step="${exchangeRate}" value="${initialValue}" `;
+            html += `oninput="updateMerchantResourceTrade('${resource}', ${exchangeRate}, this.value)">`;
+            html += `</div>`;
+            html += `</div>`;
+            
+            html += `<div class="shop-item-cost" style="margin: 10px 0;">`;
+            html += `<span class="shop-cost-item">`;
+            html += `<img src="images/${resourceImage}" alt="${resourceName}" style="width: 24px; height: 24px; vertical-align: middle;">`;
+            html += `<span id="merchant-${resource}-cost-display">0</span>`;
+            html += `</span>`;
+            html += `<span style="margin: 0 10px;">→</span>`;
+            html += `<span class="shop-cost-item">`;
+            html += `<img src="images/gold.png" alt="Gold" style="width: 24px; height: 24px; vertical-align: middle;">`;
+            html += `<span id="merchant-${resource}-gold-reward-display">0</span>`;
+            html += `</span>`;
+            html += `</div>`;
+            
+            html += `<div id="merchant-${resource}-cooldown-status" style="margin-top: 5px;"></div>`;
+            html += `<button id="merchant-sell-${resource}-btn" class="shop-buy-btn" style="width: 100%; margin-top: 5px;" onclick="executeMerchantResourceTrade('${townId}', '${resource}', ${exchangeRate})">Sell</button>`;
+            html += `</div>`;
+          } else {
+            // Regular trade button for non-slider trades
+            html += `<div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">`;
+            html += `<strong>${trade.name}</strong><br>`;
+            html += `<span style="font-size: 12px; color: #aaa;">${trade.description}</span>`;
+            html += `<button class="shop-buy-btn" style="margin-top: 5px; width: 100%;" onclick="executeMerchantTrade('${townId}', '${trade.id}')">Trade</button>`;
+            html += `</div>`;
+          }
         });
         html += `</div>`;
       });
       merchantsEl.innerHTML = html;
+      
+      // Initialize merchant sliders after HTML is inserted, using preserved values
+      requestAnimationFrame(() => {
+        availableMerchants.forEach(merchant => {
+          merchant.trades.forEach(trade => {
+            if (trade.type === 'resource_trade' && trade.resource && ['wood', 'stone', 'clay'].includes(trade.resource)) {
+              const preservedValue = preservedSliderValues[trade.resource];
+              updateMerchantResourceTrade(trade.resource, trade.exchangeRate || 10, preservedValue);
+            }
+          });
+        });
+      });
     }
   }
   
@@ -5294,6 +5404,27 @@ function openTownCenterModal(townId, row, col) {
   if (modal) {
     modal.style.display = 'flex';
   }
+  
+  // Start cooldown update timer if not already running
+  if (merchantCooldownUpdateInterval) {
+    clearInterval(merchantCooldownUpdateInterval);
+  }
+  merchantCooldownUpdateInterval = setInterval(() => {
+    // Update all merchant sliders to refresh cooldown displays
+    if (currentTownId !== null) {
+      const availableMerchants = getAvailableMerchants(currentTownId);
+      availableMerchants.forEach(merchant => {
+        merchant.trades.forEach(trade => {
+          if (trade.type === 'resource_trade' && trade.resource && ['wood', 'stone', 'clay'].includes(trade.resource)) {
+            const slider = document.getElementById(`merchant-${trade.resource}-slider`);
+            if (slider) {
+              updateMerchantResourceTrade(trade.resource, trade.exchangeRate || 10, slider.value);
+            }
+          }
+        });
+      });
+    }
+  }, 1000); // Update every second
 }
 
 function closeTownCenterModal() {
@@ -5301,6 +5432,12 @@ function closeTownCenterModal() {
   currentTownId = null;
   currentTownRow = null;
   currentTownCol = null;
+  
+  // Clear cooldown update timer
+  if (merchantCooldownUpdateInterval) {
+    clearInterval(merchantCooldownUpdateInterval);
+    merchantCooldownUpdateInterval = null;
+  }
 }
 
 // Refresh town center modal if it's currently open (for real-time updates)
@@ -5450,107 +5587,131 @@ function closeQuestCompletionPopup() {
 }
 
 // Update brick trade display
-function updateBrickTrade(amount) {
-  const slider = document.getElementById('brick-slider');
+// Generic resource trade update function
+function updateResourceTrade(resourceName, exchangeRate, step, amount) {
+  // Handle brick/bricks naming inconsistency
+  const sliderId = resourceName === 'bricks' ? 'brick-slider' : `${resourceName}-slider`;
+  const amountId = resourceName === 'bricks' ? 'brick-amount' : `${resourceName}-amount`;
+  const costDisplayId = resourceName === 'bricks' ? 'brick-cost-display' : `${resourceName}-cost-display`;
+  // For bricks, use 'gold-reward-display' for backward compatibility, otherwise use resource-specific ID
+  const rewardDisplayId = resourceName === 'bricks' ? 'gold-reward-display' : `${resourceName}-gold-reward-display`;
+  const fillBarId = resourceName === 'bricks' ? 'brick-slider-fill' : `${resourceName}-slider-fill`;
+  const sellBtnId = resourceName === 'bricks' ? 'sell-bricks-btn' : `sell-${resourceName}-btn`;
+  
+  const slider = document.getElementById(sliderId);
   if (!slider) return;
   
-  // Always update slider max based on available bricks (rounded down to nearest 5)
-  const maxBricks = Math.floor(gameState.resources.bricks);
+  const maxResource = Math.floor(gameState.resources[resourceName] || 0);
   
-  // If player has less than 5 bricks, set everything to 0 and disable slider
-  if (maxBricks < 5) {
+  // If player has less than exchange rate, disable slider
+  if (maxResource < exchangeRate) {
     slider.disabled = true;
-    slider.min = 0; // Allow 0 value
-    slider.max = 5; // Keep max at minimum valid range
+    slider.min = 0;
+    slider.max = exchangeRate;
     slider.value = 0;
     
-    // Update slider filled portion (green trail) to 0%
-    const fillBar = document.getElementById('brick-slider-fill');
+    const fillBar = document.getElementById(fillBarId);
     if (fillBar) {
       fillBar.style.width = '0%';
     }
     
-    // Set all displays to 0
-    document.getElementById('brick-amount').textContent = '0';
-    document.getElementById('brick-cost-display').textContent = '0';
-    document.getElementById('gold-reward-display').textContent = '0';
+    const amountEl = document.getElementById(amountId);
+    const costEl = document.getElementById(costDisplayId);
+    const rewardEl = document.getElementById(rewardDisplayId);
+    if (amountEl) amountEl.textContent = '0';
+    if (costEl) costEl.textContent = '0';
+    if (rewardEl) rewardEl.textContent = '0';
     
-    // Disable sell button
-    const sellBricksBtn = document.getElementById('sell-bricks-btn');
-    if (sellBricksBtn) {
-      sellBricksBtn.disabled = true;
-      sellBricksBtn.title = `Not enough bricks (need 5, have ${maxBricks})`;
+    const sellBtn = document.getElementById(sellBtnId);
+    if (sellBtn) {
+      // Only update disabled state if it actually changed to prevent flashing
+      if (!sellBtn.disabled) {
+        sellBtn.disabled = true;
+      }
+      sellBtn.title = `Not enough ${resourceName} (need ${exchangeRate}, have ${maxResource})`;
     }
     return;
   }
   
-  // Player has at least 5 bricks, enable slider
-  const maxSliderValue = Math.floor(maxBricks / 5) * 5; // Round down to nearest 5
+  // Player has enough, enable slider
+  const maxSliderValue = Math.floor(maxResource / step) * step;
   
-  // Get the current or provided amount and ensure it's within valid range and a multiple of 5
-  // Allow 0 as a valid value
   const currentValue = parseInt(amount || slider.value || 0);
-  // Round to nearest multiple of 5 to match step (0 is valid)
-  const roundedValue = Math.round(currentValue / 5) * 5;
-  const brickAmount = Math.max(0, Math.min(roundedValue, maxSliderValue));
+  const roundedValue = Math.round(currentValue / step) * step;
+  const resourceAmount = Math.max(0, Math.min(roundedValue, maxSliderValue));
   
-  // Update max first, then value (order matters for browser compatibility)
-  // Set min to 0 to allow user to choose 0 bricks
   slider.disabled = false;
   slider.min = 0;
   slider.max = maxSliderValue;
   
-  // Calculate progress percentage (this determines both green fill and thumb position)
-  // When maxSliderValue is 0 (shouldn't happen here, but handle it), progress is 0
-  const progress = maxSliderValue > 0 ? (brickAmount / maxSliderValue) * 100 : 0;
+  const progress = maxSliderValue > 0 ? (resourceAmount / maxSliderValue) * 100 : 0;
   
-  // Set the slider value immediately
-  slider.value = brickAmount;
+  slider.value = resourceAmount;
   
-  // Use requestAnimationFrame to ensure browser updates thumb position after max change
-  // This ensures the thumb follows the green fill correctly
   requestAnimationFrame(() => {
-    slider.value = brickAmount;
-    // Update slider filled portion (green trail) - matches thumb position
-    const fillBar = document.getElementById('brick-slider-fill');
+    slider.value = resourceAmount;
+    const fillBar = document.getElementById(fillBarId);
     if (fillBar) {
       fillBar.style.width = `${progress}%`;
     }
   });
   
-  // Update slider filled portion (green trail) immediately for visual feedback
-  const fillBar = document.getElementById('brick-slider-fill');
+  const fillBar = document.getElementById(fillBarId);
   if (fillBar) {
     fillBar.style.width = `${progress}%`;
   }
   
-  const goldReward = Math.floor(brickAmount / 5);
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
   
-  document.getElementById('brick-amount').textContent = brickAmount;
-  document.getElementById('brick-cost-display').textContent = brickAmount;
-  document.getElementById('gold-reward-display').textContent = goldReward;
+  const amountEl = document.getElementById(amountId);
+  const costEl = document.getElementById(costDisplayId);
+  const rewardEl = document.getElementById(rewardDisplayId);
+  if (amountEl) amountEl.textContent = resourceAmount;
+  if (costEl) costEl.textContent = resourceAmount;
+  if (rewardEl) rewardEl.textContent = goldReward;
   
-  // Update button state - disable if 0 bricks or not enough bricks
-  const sellBricksBtn = document.getElementById('sell-bricks-btn');
-  if (sellBricksBtn) {
-    const canAfford = brickAmount > 0 && gameState.resources.bricks >= brickAmount;
-    sellBricksBtn.disabled = !canAfford;
-    if (brickAmount === 0) {
-      sellBricksBtn.title = 'Select an amount of bricks to sell';
+  const sellBtn = document.getElementById(sellBtnId);
+  if (sellBtn) {
+    const canAfford = resourceAmount > 0 && gameState.resources[resourceName] >= resourceAmount;
+    const shouldBeDisabled = !canAfford;
+    
+    // Only update disabled state if it actually changed to prevent flashing
+    if (sellBtn.disabled !== shouldBeDisabled) {
+      sellBtn.disabled = shouldBeDisabled;
+    }
+    
+    if (resourceAmount === 0) {
+      sellBtn.title = `Select an amount of ${resourceName} to sell`;
     } else if (!canAfford) {
-      sellBricksBtn.title = `Not enough bricks (need ${brickAmount}, have ${Math.floor(gameState.resources.bricks)})`;
+      sellBtn.title = `Not enough ${resourceName} (need ${resourceAmount}, have ${maxResource})`;
     } else {
-      sellBricksBtn.title = `Sell ${brickAmount} Clay Bricks for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}`;
+      sellBtn.title = `Sell ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}`;
     }
   }
 }
 
+function updateBrickTrade(amount) {
+  updateResourceTrade('bricks', 5, 5, amount);
+}
+
+function updateWoodTrade(amount) {
+  updateResourceTrade('wood', 10, 10, amount);
+}
+
+function updateStoneTrade(amount) {
+  updateResourceTrade('stone', 8, 8, amount);
+}
+
+function updateClayTrade(amount) {
+  updateResourceTrade('clay', 10, 10, amount);
+}
+
 // Update shop UI to reflect current resources
 function updateShopUI() {
-  const slider = document.getElementById('brick-slider');
-  if (slider) {
-    // Update the slider max first, then update the trade display
-    updateBrickTrade(slider.value);
+  // Update brick slider (wood, stone, and clay moved to merchant menu)
+  const brickSlider = document.getElementById('brick-slider');
+  if (brickSlider) {
+    updateBrickTrade(brickSlider.value);
   }
   
   // Update upgrade buttons
@@ -5585,27 +5746,326 @@ function updateShopUI() {
   });
 }
 
-// Sell bricks for gold
-function sellBricksForGold() {
-  const slider = document.getElementById('brick-slider');
-  const brickAmount = slider ? parseInt(slider.value) : 0;
+// Generic resource sell function
+function sellResourceForGold(resourceName, exchangeRate, displayName) {
+  const sliderId = `${resourceName}-slider`;
+  const slider = document.getElementById(sliderId);
+  const resourceAmount = slider ? parseInt(slider.value) : 0;
   
-  // Don't allow selling 0 bricks
-  if (brickAmount <= 0) {
-    showMessage(`Please select an amount of bricks to sell.`);
+  if (resourceAmount <= 0) {
+    if (typeof showMessage === 'function') {
+      showMessage(`Please select an amount of ${displayName.toLowerCase()} to sell.`);
+    }
     return;
   }
   
-  const goldReward = Math.floor(brickAmount / 5);
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
   
-  if (gameState.resources.bricks >= brickAmount) {
-    gameState.resources.bricks -= brickAmount;
+  if (gameState.resources[resourceName] >= resourceAmount) {
+    gameState.resources[resourceName] -= resourceAmount;
     gameState.resources.gold += goldReward;
-    updateUI();
-    updateShopUI();
-    showMessage(`Sold ${brickAmount} Clay Bricks for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}!`);
+    if (typeof updateUI === 'function') {
+      updateUI();
+    }
+    if (typeof updateShopUI === 'function') {
+      updateShopUI();
+    }
+    if (typeof showMessage === 'function') {
+      showMessage(`Sold ${resourceAmount} ${displayName} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}!`);
+    }
   } else {
-    showMessage(`Not enough bricks! Need ${brickAmount} bricks, have ${Math.floor(gameState.resources.bricks)}.`);
+    if (typeof showMessage === 'function') {
+      showMessage(`Not enough ${displayName.toLowerCase()}! Need ${resourceAmount} ${displayName.toLowerCase()}, have ${Math.floor(gameState.resources[resourceName])}.`);
+    }
+  }
+}
+
+// Sell bricks for gold
+function sellBricksForGold() {
+  sellResourceForGold('bricks', 5, 'Clay Bricks');
+}
+
+// Sell wood for gold
+function sellWoodForGold() {
+  sellResourceForGold('wood', 10, 'Wood');
+}
+
+// Sell stone for gold
+function sellStoneForGold() {
+  sellResourceForGold('stone', 8, 'Stone');
+}
+
+// Sell clay for gold
+function sellClayForGold() {
+  sellResourceForGold('clay', 10, 'Clay');
+}
+
+// Merchant-specific resource trade update function
+function updateMerchantResourceTrade(resourceName, exchangeRate, amount) {
+  const sliderId = `merchant-${resourceName}-slider`;
+  const amountId = `merchant-${resourceName}-amount`;
+  const costDisplayId = `merchant-${resourceName}-cost-display`;
+  const rewardDisplayId = `merchant-${resourceName}-gold-reward-display`;
+  const fillBarId = `merchant-${resourceName}-slider-fill`;
+  const sellBtnId = `merchant-sell-${resourceName}-btn`;
+  
+  const slider = document.getElementById(sliderId);
+  if (!slider) return;
+  
+  const maxResource = Math.floor(gameState.resources[resourceName] || 0);
+  
+  // If player has less than exchange rate, disable slider
+  if (maxResource < exchangeRate) {
+    slider.disabled = true;
+    slider.min = 0;
+    slider.max = exchangeRate;
+    slider.value = 0;
+    
+    const fillBar = document.getElementById(fillBarId);
+    if (fillBar) {
+      fillBar.style.width = '0%';
+    }
+    
+    const amountEl = document.getElementById(amountId);
+    const costEl = document.getElementById(costDisplayId);
+    const rewardEl = document.getElementById(rewardDisplayId);
+    if (amountEl) amountEl.textContent = '0';
+    if (costEl) costEl.textContent = '0';
+    if (rewardEl) rewardEl.textContent = '0';
+    
+    const sellBtn = document.getElementById(sellBtnId);
+    if (sellBtn) {
+      // Only update disabled state if it actually changed to prevent flashing
+      if (!sellBtn.disabled) {
+        sellBtn.disabled = true;
+      }
+      sellBtn.title = `Not enough ${resourceName} (need ${exchangeRate}, have ${maxResource})`;
+    }
+    return;
+  }
+  
+  // Check cooldown status
+  const cooldownStatus = getMerchantCooldownStatus(resourceName);
+  
+  // Calculate max slider value based on available resources AND cooldown limit
+  const maxResourceByCooldown = cooldownStatus.canTrade ? cooldownStatus.remainingTradeAmount : 0;
+  const maxResourceByAvailable = Math.floor(maxResource / exchangeRate) * exchangeRate;
+  
+  // Player has enough, but check cooldown status
+  let maxSliderValue;
+  if (!cooldownStatus.canTrade) {
+    // On cooldown - disable slider
+    maxSliderValue = 0;
+    slider.disabled = true;
+  } else {
+    // Not on cooldown - limit by both available resources and remaining trade amount
+    maxSliderValue = Math.min(maxResourceByAvailable, maxResourceByCooldown);
+    slider.disabled = maxSliderValue < exchangeRate;
+  }
+  
+  // Preserve current slider value if amount is not provided or is undefined
+  // Only use the provided amount if it's explicitly passed (not undefined)
+  let currentValue;
+  if (amount !== undefined && amount !== null) {
+    currentValue = parseInt(amount);
+  } else {
+    // Preserve existing slider value
+    currentValue = parseInt(slider.value) || 0;
+  }
+  
+  const roundedValue = Math.round(currentValue / exchangeRate) * exchangeRate;
+  // Clamp to both maxSliderValue and remaining trade amount
+  const maxByRemainingTrade = cooldownStatus.canTrade ? cooldownStatus.remainingTradeAmount : 0;
+  const resourceAmount = Math.max(0, Math.min(roundedValue, maxSliderValue, maxByRemainingTrade));
+  
+  slider.min = 0;
+  slider.max = maxSliderValue;
+  
+  const progress = maxSliderValue > 0 ? (resourceAmount / maxSliderValue) * 100 : 0;
+  
+  slider.value = resourceAmount;
+  
+  requestAnimationFrame(() => {
+    slider.value = resourceAmount;
+    const fillBar = document.getElementById(fillBarId);
+    if (fillBar) {
+      fillBar.style.width = `${progress}%`;
+    }
+  });
+  
+  const fillBar = document.getElementById(fillBarId);
+  if (fillBar) {
+    fillBar.style.width = `${progress}%`;
+  }
+  
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
+  
+  const amountEl = document.getElementById(amountId);
+  const costEl = document.getElementById(costDisplayId);
+  const rewardEl = document.getElementById(rewardDisplayId);
+  if (amountEl) amountEl.textContent = resourceAmount;
+  if (costEl) costEl.textContent = resourceAmount;
+  if (rewardEl) rewardEl.textContent = goldReward;
+  
+  const sellBtn = document.getElementById(sellBtnId);
+  if (sellBtn) {
+    const canAfford = resourceAmount > 0 && gameState.resources[resourceName] >= resourceAmount;
+    const canTrade = cooldownStatus.canTrade && resourceAmount > 0;
+    const shouldBeDisabled = !canAfford || !canTrade;
+    
+    // Only update disabled state if it actually changed to prevent flashing
+    if (sellBtn.disabled !== shouldBeDisabled) {
+      sellBtn.disabled = shouldBeDisabled;
+    }
+    
+    // Update button title with cooldown info
+    if (!cooldownStatus.canTrade) {
+      if (cooldownStatus.isOnCooldown) {
+        const totalSeconds = Math.floor(cooldownStatus.remainingCooldown / 1000);
+        const minutesRemaining = Math.floor(totalSeconds / 60);
+        const secondsRemaining = totalSeconds % 60;
+        sellBtn.title = `This trader is on cooldown! Wait ${minutesRemaining}:${secondsRemaining.toString().padStart(2, '0')} before trading ${resourceName} again.`;
+      } else {
+        sellBtn.title = `This trader has reached the 100 unit limit and is on cooldown. Wait 5 minutes.`;
+      }
+    } else if (resourceAmount === 0) {
+      sellBtn.title = `Select an amount of ${resourceName} to sell (${cooldownStatus.remainingTradeAmount}/100 remaining before cooldown)`;
+    } else if (!canAfford) {
+      sellBtn.title = `Not enough ${resourceName} (need ${resourceAmount}, have ${maxResource})`;
+    } else {
+      sellBtn.title = `Sell ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''} (${cooldownStatus.remainingTradeAmount - resourceAmount}/100 remaining)`;
+    }
+  }
+  
+  // Update cooldown status display
+  const cooldownStatusId = `merchant-${resourceName}-cooldown-status`;
+  const cooldownStatusEl = document.getElementById(cooldownStatusId);
+  if (cooldownStatusEl) {
+    if (!cooldownStatus.canTrade) {
+      if (cooldownStatus.isOnCooldown) {
+        const totalSeconds = Math.floor(cooldownStatus.remainingCooldown / 1000);
+        const minutesRemaining = Math.floor(totalSeconds / 60);
+        const secondsRemaining = totalSeconds % 60;
+        cooldownStatusEl.innerHTML = `<div style="color: #FF9800; font-size: 12px; margin-top: 5px;">⏱️ Cooldown: ${minutesRemaining}:${secondsRemaining.toString().padStart(2, '0')} remaining</div>`;
+      } else {
+        cooldownStatusEl.innerHTML = `<div style="color: #FF9800; font-size: 12px; margin-top: 5px;">⏱️ Cooldown: 5:00 remaining</div>`;
+      }
+    } else {
+      cooldownStatusEl.innerHTML = `<div style="color: #4CAF50; font-size: 12px; margin-top: 5px;">✓ ${cooldownStatus.remainingTradeAmount}/100 units available before cooldown</div>`;
+    }
+  }
+}
+
+// Check merchant cooldown status for a resource
+function getMerchantCooldownStatus(resourceName) {
+  if (!gameState.merchantCooldowns || !gameState.merchantCooldowns[resourceName]) {
+    // Initialize if missing
+    if (!gameState.merchantCooldowns) gameState.merchantCooldowns = {};
+    if (!gameState.merchantCooldowns[resourceName]) {
+      gameState.merchantCooldowns[resourceName] = { totalTraded: 0, cooldownStart: null };
+    }
+  }
+  
+  const cooldown = gameState.merchantCooldowns[resourceName];
+  const COOLDOWN_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const MAX_TRADE_AMOUNT = 100;
+  
+  // Reset cooldown if it has expired
+  if (cooldown.cooldownStart !== null) {
+    const timeSinceCooldown = Date.now() - cooldown.cooldownStart;
+    if (timeSinceCooldown >= COOLDOWN_DURATION) {
+      cooldown.totalTraded = 0;
+      cooldown.cooldownStart = null;
+    }
+  }
+  
+  const remainingCooldown = cooldown.cooldownStart ? Math.max(0, COOLDOWN_DURATION - (Date.now() - cooldown.cooldownStart)) : 0;
+  const remainingTradeAmount = Math.max(0, MAX_TRADE_AMOUNT - cooldown.totalTraded);
+  const isOnCooldown = remainingCooldown > 0;
+  
+  return {
+    totalTraded: cooldown.totalTraded,
+    remainingTradeAmount: remainingTradeAmount,
+    isOnCooldown: isOnCooldown,
+    remainingCooldown: remainingCooldown,
+    canTrade: !isOnCooldown && remainingTradeAmount > 0
+  };
+}
+
+// Execute merchant resource trade (with slider)
+function executeMerchantResourceTrade(townId, resourceName, exchangeRate) {
+  const sliderId = `merchant-${resourceName}-slider`;
+  const slider = document.getElementById(sliderId);
+  const resourceAmount = slider ? parseInt(slider.value) : 0;
+  
+  if (resourceAmount <= 0) {
+    if (typeof showMessage === 'function') {
+      showMessage(`Please select an amount of ${resourceName} to sell.`);
+    }
+    return;
+  }
+  
+  // Check cooldown status
+  const cooldownStatus = getMerchantCooldownStatus(resourceName);
+  
+  if (!cooldownStatus.canTrade) {
+    if (cooldownStatus.isOnCooldown) {
+      const totalSeconds = Math.floor(cooldownStatus.remainingCooldown / 1000);
+      const minutesRemaining = Math.floor(totalSeconds / 60);
+      const secondsRemaining = totalSeconds % 60;
+      if (typeof showMessage === 'function') {
+        showMessage(`This trader is on cooldown! Please wait ${minutesRemaining}:${secondsRemaining.toString().padStart(2, '0')} before trading ${resourceName} again.`);
+      }
+    } else {
+      if (typeof showMessage === 'function') {
+        showMessage(`This trader has already accepted 100 ${resourceName} and is on cooldown. Please wait 5 minutes.`);
+      }
+    }
+    return;
+  }
+  
+  // Check if this trade would exceed the 100 unit limit
+  if (resourceAmount > cooldownStatus.remainingTradeAmount) {
+    if (typeof showMessage === 'function') {
+      showMessage(`You can only trade ${cooldownStatus.remainingTradeAmount} more ${resourceName} before the 5-minute cooldown.`);
+    }
+    return;
+  }
+  
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
+  
+  if (gameState.resources[resourceName] >= resourceAmount) {
+    // Execute trade
+    gameState.resources[resourceName] -= resourceAmount;
+    gameState.resources.gold += goldReward;
+    
+    // Update cooldown tracking
+    const cooldown = gameState.merchantCooldowns[resourceName];
+    cooldown.totalTraded += resourceAmount;
+    
+    // Start cooldown if we've reached 100 units
+    if (cooldown.totalTraded >= 100) {
+      cooldown.cooldownStart = Date.now();
+      if (typeof showMessage === 'function') {
+        showMessage(`Sold ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}! This trader has reached the 100 unit limit and is now on a 5-minute cooldown.`);
+      }
+    } else {
+      if (typeof showMessage === 'function') {
+        showMessage(`Sold ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}! (${cooldown.totalTraded}/100 traded before cooldown)`);
+      }
+    }
+    
+    if (typeof updateUI === 'function') {
+      updateUI();
+    }
+    if (typeof refreshTownCenterModalIfOpen === 'function') {
+      refreshTownCenterModalIfOpen();
+    }
+  } else {
+    if (typeof showMessage === 'function') {
+      const resourceDisplayName = resourceName.charAt(0).toUpperCase() + resourceName.slice(1);
+      showMessage(`Not enough ${resourceDisplayName.toLowerCase()}! Need ${resourceAmount} ${resourceDisplayName.toLowerCase()}, have ${Math.floor(gameState.resources[resourceName])}.`);
+    }
   }
 }
 
@@ -5956,4 +6416,5 @@ function runTests() {
 }
 
 // Make it easy to call from the console
+window.runTests = runTests;
 window.runTests = runTests;

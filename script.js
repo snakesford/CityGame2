@@ -903,7 +903,7 @@ const buildingTypes = {
   baseMarker: {
     displayName: "Base Marker",
     category: "special",
-    baseCost: { wood: 150, gold: 50, iron: 20 },
+    baseCost: { wood: 150, gold: 400, iron: 20 },
     costGrowthFactor: 1.3,
     baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.2,
@@ -1336,15 +1336,19 @@ function calculateProduction() {
         }
         
         const production = getBuildingProduction(tile.type, tile.level);
-        totalWood += production.wood;
-        totalStone += production.stone;
-        totalClay += production.clay;
-        totalIron += production.iron;
-        totalBricks += production.bricks;
-        totalGold += production.gold;
-        totalCoal += production.coal;
-        totalPopulation += production.population;
-        totalCapacity += production.capacity;
+        
+        // Apply 5% production boost for owned tiles
+        const ownedBoost = tile.owned ? 1.05 : 1.0;
+        
+        totalWood += production.wood * ownedBoost;
+        totalStone += production.stone * ownedBoost;
+        totalClay += production.clay * ownedBoost;
+        totalIron += production.iron * ownedBoost;
+        totalBricks += production.bricks * ownedBoost;
+        totalGold += production.gold * ownedBoost;
+        totalCoal += production.coal * ownedBoost;
+        totalPopulation += production.population * ownedBoost;
+        totalCapacity += production.capacity * ownedBoost;
       }
     }
   }
@@ -1390,6 +1394,12 @@ function processSmelter(row, col, level) {
     // Apply smelting speed upgrade (20% faster = 80% of original time)
     if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
       smeltTime = smeltTime * 0.8;
+    }
+    
+    // Apply 5% speed boost for owned tiles (5% faster = 95% of time)
+    const tile = gameState.map[row][col];
+    if (tile && tile.owned) {
+      smeltTime = smeltTime * 0.95;
     }
     
     if (elapsedTime >= smeltTime) {
@@ -2698,17 +2708,52 @@ function updateTileInfo() {
   };
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
+  
+  // Calculate actual production with owned boost
+  const ownedBoost = tile.owned ? 1.05 : 1.0;
+  const actualProduction = {
+    wood: production.wood * ownedBoost,
+    stone: production.stone * ownedBoost,
+    clay: production.clay * ownedBoost,
+    iron: production.iron * ownedBoost,
+    coal: production.coal * ownedBoost,
+    bricks: production.bricks * ownedBoost,
+    population: production.population * ownedBoost,
+    capacity: production.capacity * ownedBoost
+  };
+  
   if (tile.owned) {
     html += `<p style="color: #4CAF50; font-weight: bold; margin: 5px 0;">✓ Owned - Protected from random events</p>`;
   }
-  if (production.wood > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.wood)}/s</p>`;
-  if (production.stone > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/rock.png" alt="Stone" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.stone)}/s</p>`;
-  if (production.clay > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/clay.png" alt="Clay" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.clay)}/s</p>`;
-  if (production.iron > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/iron.png" alt="Iron" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.iron)}/s</p>`;
-  if (production.coal > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/coal.png" alt="Coal" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.coal)}/s</p>`;
-  if (production.bricks > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.bricks)}/s</p>`;
-  if (production.population > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/population.png" alt="Population" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.population)}/s</p>`;
-  if (production.capacity > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: bold;">Capacity:</span> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumber(production.capacity)}</p>`;
+  
+  // Helper function to format production with boost indicator
+  const formatProductionWithBoost = (baseValue, actualValue, icon, label) => {
+    if (baseValue <= 0) return '';
+    let text = `<p style="display: flex; align-items: center; gap: 8px;">`;
+    text += `<img src="${icon}" alt="${label}" style="width: 30px; height: 30px; vertical-align: middle;">`;
+    text += `<span style="color: #4CAF50; font-weight: bold;">↑</span>`;
+    text += `<span>${formatNumberWithDecimals(actualValue)}/s</span>`;
+    if (tile.owned && baseValue > 0) {
+      text += `<span style="color: #FFD700; font-size: 11px; margin-left: 5px;">(+5%)</span>`;
+    }
+    text += `</p>`;
+    return text;
+  };
+  
+  if (actualProduction.wood > 0) html += formatProductionWithBoost(production.wood, actualProduction.wood, 'images/wood-log.png', 'Wood');
+  if (actualProduction.stone > 0) html += formatProductionWithBoost(production.stone, actualProduction.stone, 'images/rock.png', 'Stone');
+  if (actualProduction.clay > 0) html += formatProductionWithBoost(production.clay, actualProduction.clay, 'images/clay.png', 'Clay');
+  if (actualProduction.iron > 0) html += formatProductionWithBoost(production.iron, actualProduction.iron, 'images/iron.png', 'Iron');
+  if (actualProduction.coal > 0) html += formatProductionWithBoost(production.coal, actualProduction.coal, 'images/coal.png', 'Coal');
+  if (actualProduction.bricks > 0) html += formatProductionWithBoost(production.bricks, actualProduction.bricks, 'images/claybricks.png', 'Bricks');
+  if (actualProduction.population > 0) html += formatProductionWithBoost(production.population, actualProduction.population, 'images/population.png', 'Population');
+  if (actualProduction.capacity > 0) {
+    html += `<p style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: bold;">Capacity:</span> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumber(actualProduction.capacity)}`;
+    if (tile.owned && production.capacity > 0) {
+      html += `<span style="color: #FFD700; font-size: 11px; margin-left: 5px;">(+5%)</span>`;
+    }
+    html += `</p>`;
+  }
   
   // Special handling for smelter
   if (tile.type === "smelter") {
@@ -2830,7 +2875,15 @@ function updateTileInfo() {
     
     // Show smelting progress
     if (smelter.smeltingStartTime !== null && currentBatch) {
-      const totalTimeSeconds = Math.ceil(smeltTime / 1000);
+      // Calculate smelt time with all bonuses
+      let displaySmeltTime = currentBatch.type === 'clay' ? building.smeltClayTime : building.smeltIronTime;
+      if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
+        displaySmeltTime = displaySmeltTime * 0.8;
+      }
+      if (tile.owned) {
+        displaySmeltTime = displaySmeltTime * 0.95;
+      }
+      const totalTimeSeconds = Math.ceil(displaySmeltTime / 1000);
       const elapsedSeconds = Math.floor((Date.now() - smelter.smeltingStartTime) / 1000);
       const inputIcon = currentBatch.type === 'clay' ? 'images/clay.png' : 'images/iron.png';
       const outputIcon = currentBatch.type === 'clay' ? 'images/claybricks.png' : 'images/ironBar.webp';
@@ -2840,6 +2893,10 @@ function updateTileInfo() {
       html += `<div style="background: ${smelter.mineralType === 'clay' ? '#8B4513' : '#708090'}; height: 100%; width: ${smeltingProgress}%; border-radius: 4px; transition: width 0.3s;"></div>`;
       html += `<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">${smeltingTimeLeft}s / ${totalTimeSeconds}s</div>`;
       html += `</div>`;
+      // Show speed boost info
+      if (tile.owned) {
+        html += `<p style="color: #FFD700; font-size: 11px; margin: 2px 0;">⚡ +5% Smelting Speed Boost Active</p>`;
+      }
     } else if (smelter.amount > 0 && smelter.smeltingStartTime === null) {
       // Has resources but not smelting (shouldn't happen, but handle it)
       html += `<p style="color: #FF6B6B;">Ready to start smelting ${smelter.mineralType}...</p>`;
@@ -3171,19 +3228,58 @@ function showCellTooltip(event, row, col) {
   
   const production = getBuildingProduction(tile.type, tile.level);
   
+  // Calculate actual production with owned boost
+  const ownedBoost = tile.owned ? 1.05 : 1.0;
+  const actualProduction = {
+    wood: production.wood * ownedBoost,
+    stone: production.stone * ownedBoost,
+    clay: production.clay * ownedBoost,
+    iron: production.iron * ownedBoost,
+    coal: production.coal * ownedBoost,
+    bricks: production.bricks * ownedBoost,
+    population: production.population * ownedBoost,
+    capacity: production.capacity * ownedBoost
+  };
+  
   let html = `<strong>${building.displayName}</strong><br>`;
   html += `Level: ${tile.level}<br>`;
-  if (production.wood > 0) html += `Wood/sec: ${formatNumberWithDecimals(production.wood)}<br>`;
-  if (production.stone > 0) html += `Stone/sec: ${formatNumberWithDecimals(production.stone)}<br>`;
-  if (production.clay > 0) html += `Clay/sec: ${formatNumberWithDecimals(production.clay)}<br>`;
-  if (production.iron > 0) html += `Iron/sec: ${formatNumberWithDecimals(production.iron)}<br>`;
-  if (production.coal > 0) html += `Coal/sec: ${formatNumberWithDecimals(production.coal)}<br>`;
-  if (production.population > 0) html += `Population/sec: ${formatNumberWithDecimals(production.population)}<br>`;
-  if (production.capacity > 0) html += `Capacity: ${formatNumber(production.capacity)}<br>`;
   
-  // Special indicator for smelter - fuel requirement
+  // Show ownership information if tile is owned
+  if (tile.owned) {
+    const playerName = gameState.playerName || 'Player';
+    html += `<br><span style="color: #4CAF50; font-weight: bold;">✓ Owned by ${playerName}</span><br>`;
+  }
+  
+  // Helper function to format production with boost info
+  const formatProductionTooltip = (baseValue, actualValue, label) => {
+    if (baseValue <= 0) return '';
+    let text = `${label}/sec: ${formatNumberWithDecimals(actualValue)}`;
+    if (tile.owned && baseValue > 0) {
+      text += ` <span style="color: #FFD700;">(+5%)</span>`;
+    }
+    return text + '<br>';
+  };
+  
+  if (actualProduction.wood > 0) html += formatProductionTooltip(production.wood, actualProduction.wood, 'Wood');
+  if (actualProduction.stone > 0) html += formatProductionTooltip(production.stone, actualProduction.stone, 'Stone');
+  if (actualProduction.clay > 0) html += formatProductionTooltip(production.clay, actualProduction.clay, 'Clay');
+  if (actualProduction.iron > 0) html += formatProductionTooltip(production.iron, actualProduction.iron, 'Iron');
+  if (actualProduction.coal > 0) html += formatProductionTooltip(production.coal, actualProduction.coal, 'Coal');
+  if (actualProduction.population > 0) html += formatProductionTooltip(production.population, actualProduction.population, 'Population');
+  if (actualProduction.capacity > 0) {
+    html += `Capacity: ${formatNumber(actualProduction.capacity)}`;
+    if (tile.owned && production.capacity > 0) {
+      html += ` <span style="color: #FFD700;">(+5%)</span>`;
+    }
+    html += '<br>';
+  }
+  
+  // Special indicator for smelter - fuel requirement and speed boost
   if (tile.type === "smelter" && building.smeltClayWoodAmount) {
     html += `<br><span style="color: #8B4513; font-weight: bold;">🔥 Clay: ${building.smeltClayWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 20px; height: 20px; vertical-align: middle;"> wood or 1 <img src="images/coal.png" alt="Coal" style="width: 20px; height: 20px; vertical-align: middle;"> coal (3 batches) | Iron: ${building.smeltIronWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 20px; height: 20px; vertical-align: middle;"> wood or ${building.smeltIronCoalAmount} <img src="images/coal.png" alt="Coal" style="width: 20px; height: 20px; vertical-align: middle;"> coal per batch</span><br>`;
+    if (tile.owned) {
+      html += `<span style="color: #FFD700; font-weight: bold; font-size: 11px;">⚡ +5% Smelting Speed Boost Active</span><br>`;
+    }
   }
   
   tooltip.innerHTML = html;

@@ -244,6 +244,30 @@ h4 {
   background: rgba(100,100,100,0.2);
 }
 
+/* Owned tile indicator */
+.cell-owned {
+  position: relative;
+}
+
+.cell-owned::after {
+  content: '✓';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 14px;
+  background: rgba(76, 175, 80, 0.3);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #4CAF50;
+  z-index: 3;
+}
+
 /* Housing - Orange */
 .cell-tepee {
   background: 

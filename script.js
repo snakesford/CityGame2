@@ -206,15 +206,23 @@ function migrateSaveData() {
     initializeGrid();
   }
   
-  // Migrate old building types
+  // Migrate old building types and ensure owned property exists
   if (gameState.map && gameState.map.length > 0) {
     for (let row = 0; row < gameState.map.length; row++) {
       for (let col = 0; col < gameState.map[row].length; col++) {
-        if (gameState.map[row][col].type === "house") {
-          gameState.map[row][col].type = "tepee";
+        const tile = gameState.map[row][col];
+        if (!tile) continue;
+        
+        if (tile.type === "house") {
+          tile.type = "tepee";
         }
-        if (gameState.map[row][col].type === "brickKiln") {
-          gameState.map[row][col].type = "smelter";
+        if (tile.type === "brickKiln") {
+          tile.type = "smelter";
+        }
+        
+        // Ensure owned property exists (for old saves)
+        if (tile.owned === undefined) {
+          tile.owned = false;
         }
       }
     }
@@ -798,7 +806,8 @@ function initializeGrid() {
     for (let col = 0; col < GRID_SIZE; col++) {
       gameState.map[row][col] = {
         type: "empty",
-        level: 0
+        level: 0,
+        owned: false
       };
     }
   }
@@ -1329,6 +1338,22 @@ function checkUnlocks() {
   }
 }
 
+// Purchase a tile to own it (protects from random events)
+function purchaseTile(row, col) {
+  if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
+  
+  const tile = gameState.map[row][col];
+  if (tile.owned) return false; // Already owned
+  
+  const tileCost = 50; // Cost in gold
+  if (gameState.resources.gold < tileCost) return false;
+  
+  gameState.resources.gold -= tileCost;
+  tile.owned = true;
+  
+  return true;
+}
+
 // Place building on grid
 function placeBuilding(row, col, buildingType) {
   if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
@@ -1462,6 +1487,12 @@ function renderGrid() {
         cell.setAttribute('data-level', tile.level);
     } else {
         cell.classList.add('cell-empty');
+      }
+      
+      // Show ownership indicator
+      if (tile.owned) {
+        cell.classList.add('cell-owned');
+        cell.title = 'Owned tile - protected from random events';
       }
       
       // Highlight selected cell
@@ -1659,8 +1690,8 @@ function handleCellClick(row, col) {
     renderGrid();
     updateTileInfo();
   } else if (!selectedBuildingType && tile.type === "empty") {
-    // Clear tile selection if clicking empty with no building selected
-    selectedTile = null;
+    // Select empty tile to show purchase option
+    selectedTile = { row, col };
     renderGrid();
     updateTileInfo();
   }
@@ -1717,7 +1748,46 @@ function updateTileInfo() {
   const tile = gameState.map[selectedTile.row][selectedTile.col];
   
   if (tile.type === "empty") {
-    infoPanel.innerHTML = '<p>Empty tile. Select a building type to place here.</p>';
+    const tileCost = 50; // Cost in gold to purchase a tile
+    const canAffordTile = gameState.resources.gold >= tileCost;
+    
+    let html = '<div style="padding: 10px;">';
+    html += `<h3>Empty Tile</h3>`;
+    
+    if (tile.owned) {
+      html += `<p style="color: #4CAF50; font-weight: bold;">✓ This tile is owned and protected from random events.</p>`;
+    } else {
+      html += `<p>This tile is not owned. Random events can affect unowned tiles.</p>`;
+      html += `<p style="margin: 15px 0;"><strong>Purchase Cost:</strong> `;
+      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: #FFD700; border-radius: 5px; border: 3px solid rgba(255,255,255,0.2);">`;
+      html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 16px; color: #000000;">${formatNumber(tileCost)}</span>`;
+      html += `</span></p>`;
+      
+      html += `<button id="purchase-tile-btn" style="width: 100%; padding: 12px; background: ${canAffordTile ? '#4CAF50' : '#666'}; border: 2px solid ${canAffordTile ? '#66BB6A' : '#888'}; border-radius: 6px; cursor: ${canAffordTile ? 'pointer' : 'not-allowed'}; opacity: ${canAffordTile ? '1' : '0.5'}; color: white; font-weight: bold; font-size: 16px; margin-top: 10px;" ${!canAffordTile ? 'disabled' : ''}>`;
+      html += canAffordTile ? 'Purchase Tile' : `Not enough gold (need ${tileCost})`;
+      html += `</button>`;
+    }
+    
+    html += `<p style="margin-top: 15px; font-size: 12px; color: #aaa;">Select a building type from the menu to place here.</p>`;
+    html += `</div>`;
+    
+    infoPanel.innerHTML = html;
+    
+    // Add event listener for purchase button
+    const purchaseBtn = document.getElementById('purchase-tile-btn');
+    if (purchaseBtn) {
+      purchaseBtn.addEventListener('click', () => {
+        if (selectedTile && purchaseTile(selectedTile.row, selectedTile.col)) {
+          updateTileInfo();
+          updateUI();
+          renderGrid();
+          showMessage("Tile purchased! This tile is now protected from random events.");
+        } else {
+          showMessage("Cannot purchase tile: insufficient gold.");
+        }
+      });
+    }
     return;
   }
   
@@ -1739,6 +1809,9 @@ function updateTileInfo() {
   };
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
+  if (tile.owned) {
+    html += `<p style="color: #4CAF50; font-weight: bold; margin: 5px 0;">✓ Owned - Protected from random events</p>`;
+  }
   if (production.wood > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.wood)}/s</p>`;
   if (production.stone > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/rock.png" alt="Stone" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.stone)}/s</p>`;
   if (production.clay > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/clay.png" alt="Clay" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.clay)}/s</p>`;
@@ -4049,3 +4122,169 @@ window.addEventListener('DOMContentLoaded', () => {
     alert('Error loading game. Please refresh the page.');
   }
 });
+
+
+
+
+// ======================================================
+// SIMPLE IN-BROWSER TEST HARNESS
+// ======================================================
+
+function runTests() {
+  const results = [];
+
+  function logResult(name, pass, actual, expected) {
+    const status = pass ? "✅ PASS" : "❌ FAIL";
+    const message = `${status} | ${name} | actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`;
+    results.push({ name, pass, actual, expected });
+    console[pass ? "log" : "error"](message);
+  }
+
+  function assertEqual(name, actual, expected) {
+    const pass = JSON.stringify(actual) === JSON.stringify(expected);
+    logResult(name, pass, actual, expected);
+  }
+
+  function assertClose(name, actual, expected, epsilon = 1e-6) {
+    const pass = Math.abs(actual - expected) <= epsilon;
+    logResult(name, pass, actual, expected);
+  }
+
+  function resetStateForTests() {
+    // Reset the parts of gameState that matter for logic tests
+    gameState.character = null;
+    gameState.upgrades = {
+      woodProduction: false,
+      stoneProduction: false,
+      clayProduction: false,
+      housingCapacity: false,
+      smeltingSpeed: false
+    };
+    gameState.resources = {
+      wood: 50,
+      stone: 0,
+      clay: 0,
+      iron: 0,
+      gold: 0,
+      bricks: 0,
+      ironBars: 0,
+      coal: 0
+    };
+    gameState.population.current = 0;
+    gameState.population.capacity = 0;
+    initializeGrid();
+  }
+
+  console.log("====== RUNNING TESTS ======");
+
+  // ---------------------------
+  // 1) formatNumber tests
+  // ---------------------------
+  assertEqual("formatNumber(999, 0)", formatNumber(999, 0), "999");
+  assertEqual("formatNumber(1500, 1)", formatNumber(1500, 1), "1.5k");
+  assertEqual("formatNumber(1500000, 2)", formatNumber(1500000, 2), "1.50M");
+  assertEqual("formatNumber(2000000000, 1)", formatNumber(2000000000, 1), "2.0B");
+
+  // ---------------------------
+  // 2) getBuildingProduction base values
+  // ---------------------------
+  resetStateForTests();
+  let prod = getBuildingProduction("lumberMill", 1);
+  assertClose("lumberMill lvl1 wood", prod.wood, 0.6);
+  assertClose("lumberMill lvl1 stone", prod.stone, 0);
+
+  prod = getBuildingProduction("quarry", 1);
+  assertClose("quarry lvl1 stone", prod.stone, 0.3);
+
+  // Level-scaling check (productionGrowthFactor)
+  const lvl2Factor = Math.pow(buildingTypes.lumberMill.productionGrowthFactor, 1); // level - 1
+  prod = getBuildingProduction("lumberMill", 2);
+  assertClose("lumberMill lvl2 wood scaling",
+    prod.wood,
+    0.6 * lvl2Factor
+  );
+
+  // ---------------------------
+  // 3) Character bonuses in getBuildingProduction
+  // ---------------------------
+  resetStateForTests();
+  gameState.character = "miner";
+  prod = getBuildingProduction("quarry", 1);
+  // base stone 0.3 * 1.5 miningProductionMultiplier
+  assertClose("miner stone bonus (quarry)",
+    prod.stone,
+    0.3 * characterTypes.miner.miningProductionMultiplier
+  );
+
+  resetStateForTests();
+  gameState.character = "farmer";
+  prod = getBuildingProduction("advancedFarm", 1);
+  // base pop 1.0 * 1.5 farmingProductionMultiplier * 1.3 populationMultiplier
+  const expectedFarmerPop =
+    buildingTypes.advancedFarm.baseProduction.population *
+    characterTypes.farmer.farmingProductionMultiplier *
+    characterTypes.farmer.populationMultiplier;
+  assertClose("farmer population bonus (advancedFarm)", prod.population, expectedFarmerPop);
+
+  // ---------------------------
+  // 4) getBuildingCost + character discounts
+  // ---------------------------
+  resetStateForTests();
+  let cost = getBuildingCost("tepee", 1);
+  assertEqual("tepee lvl1 cost wood", cost.wood, buildingTypes.tepee.baseCost.wood);
+  assertEqual("tepee lvl1 cost stone", cost.stone, buildingTypes.tepee.baseCost.stone || 0);
+
+  // Farmer discount on farming buildings (level 1 only)
+  resetStateForTests();
+  gameState.character = "farmer";
+  cost = getBuildingCost("farm", 1);
+  const baseFarmCostWood = buildingTypes.farm.baseCost.wood;
+  const farmerDiscount = characterTypes.farmer.buildDiscount;
+  assertEqual("farmer farm lvl1 wood cost",
+    cost.wood,
+    Math.floor(baseFarmCostWood * farmerDiscount)
+  );
+
+  // Miner discount on stone buildings (all levels)
+  resetStateForTests();
+  gameState.character = "miner";
+  const quarryBaseWood = buildingTypes.quarry.baseCost.wood || 0;
+  const quarryFactorLvl2 = Math.pow(buildingTypes.quarry.costGrowthFactor, 2 - 1);
+  const expectedQuarryLvl2Wood = Math.floor(quarryBaseWood * quarryFactorLvl2 * characterTypes.miner.upgradeDiscount);
+
+  cost = getBuildingCost("quarry", 2);
+  assertEqual("miner quarry lvl2 wood cost", cost.wood, expectedQuarryLvl2Wood);
+
+  // ---------------------------
+  // 5) calculateProduction integration test
+  // ---------------------------
+  resetStateForTests();
+
+  // Place a few simple buildings
+  gameState.map[0][0] = { type: "lumberMill", level: 1 }; // +0.6 wood
+  gameState.map[0][1] = { type: "quarry", level: 1 };     // +0.3 stone
+  gameState.map[0][2] = { type: "tepee", level: 1 };      // +3 capacity
+
+  calculateProduction();
+
+  assertClose("calculateProduction wps (base 1 + lumberMill)",
+    gameState.rates.wps,
+    1 + 0.6
+  );
+  assertClose("calculateProduction sps (quarry only)",
+    gameState.rates.sps,
+    0.3
+  );
+  assertClose("calculateProduction capacity (tepee)",
+    gameState.population.capacity,
+    buildingTypes.tepee.baseProduction.capacity
+  );
+
+  console.log("====== TESTS FINISHED ======");
+  const failed = results.filter(r => !r.pass).length;
+  console.log(`Summary: ${results.length - failed} passed, ${failed} failed.`);
+  return results;
+}
+
+// Make it easy to call from the console
+window.runTests = runTests;

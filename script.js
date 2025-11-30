@@ -3440,9 +3440,14 @@ function selectCharacter(characterType) {
     return;
   }
   
+  // Auto-select a color if none is chosen
   if (!selectedColor) {
-    showMessage("Please select a color first!");
-    return;
+    // Pick a random color from available colors
+    const colorKeys = Object.keys(playerColors);
+    const randomIndex = Math.floor(Math.random() * colorKeys.length);
+    selectedColor = colorKeys[randomIndex];
+    // Update the visual selection
+    selectColor(selectedColor);
   }
   
   // Get player name from input field

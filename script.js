@@ -1487,6 +1487,49 @@ function removeBuilding(row, col) {
   return true;
 }
 
+// Find connected groups of owned tiles using flood-fill
+function findOwnedTileGroups() {
+  const groups = [];
+  const visited = new Set();
+  
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      const key = `${row}_${col}`;
+      if (visited.has(key)) continue;
+      
+      const tile = gameState.map[row][col];
+      if (!tile || !tile.owned) continue;
+      
+      // Flood-fill to find all connected owned tiles
+      const group = [];
+      const stack = [[row, col]];
+      
+      while (stack.length > 0) {
+        const [r, c] = stack.pop();
+        const k = `${r}_${c}`;
+        
+        if (visited.has(k)) continue;
+        if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) continue;
+        
+        const t = gameState.map[r][c];
+        if (!t || !t.owned) continue;
+        
+        visited.add(k);
+        group.push({ row: r, col: c });
+        
+        // Check neighbors (up, down, left, right)
+        stack.push([r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]);
+      }
+      
+      if (group.length > 0) {
+        groups.push(group);
+      }
+    }
+  }
+  
+  return groups;
+}
+
 // Render grid
 function renderGrid() {
   const gridContainer = document.getElementById('grid-container');
@@ -1494,6 +1537,18 @@ function renderGrid() {
   
   gridContainer.innerHTML = '';
   gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+  
+  // Find owned tile groups
+  const ownedGroups = findOwnedTileGroups();
+  const tileToGroup = new Map();
+  ownedGroups.forEach((group, groupIndex) => {
+    group.forEach(tile => {
+      tileToGroup.set(`${tile.row}_${tile.col}`, groupIndex);
+    });
+  });
+  
+  // Get player color for borders
+  const playerColor = gameState.playerColor ? playerColors[gameState.playerColor] : '#4CAF50';
   
   for (let row = 0; row < GRID_SIZE; row++) {
     for (let col = 0; col < GRID_SIZE; col++) {
@@ -1508,10 +1563,40 @@ function renderGrid() {
         cell.classList.add('cell-empty');
       }
       
-      // Show ownership indicator
+      // Show ownership indicator with grouped borders
       if (tile.owned) {
         cell.classList.add('cell-owned');
         cell.title = 'Owned tile - protected from random events';
+        
+        const groupIndex = tileToGroup.get(`${row}_${col}`);
+        if (groupIndex !== undefined) {
+          // Initialize all borders to default (will be overridden for outer edges)
+          cell.style.borderTop = '1px solid rgba(255,255,255,0.2)';
+          cell.style.borderBottom = '1px solid rgba(255,255,255,0.2)';
+          cell.style.borderLeft = '1px solid rgba(255,255,255,0.2)';
+          cell.style.borderRight = '1px solid rgba(255,255,255,0.2)';
+          
+          // Check neighbors to determine which borders to show (only outer edges)
+          const neighbors = [
+            { r: row - 1, c: col, side: 'Top' },    // top
+            { r: row + 1, c: col, side: 'Bottom' }, // bottom
+            { r: row, c: col - 1, side: 'Left' },  // left
+            { r: row, c: col + 1, side: 'Right' }   // right
+          ];
+          
+          neighbors.forEach(neighbor => {
+            const neighborKey = `${neighbor.r}_${neighbor.c}`;
+            const neighborGroup = tileToGroup.get(neighborKey);
+            const neighborTile = (neighbor.r >= 0 && neighbor.r < GRID_SIZE && neighbor.c >= 0 && neighbor.c < GRID_SIZE) 
+              ? gameState.map[neighbor.r][neighbor.c] 
+              : null;
+            
+            // Show player color border if this is an outer edge (neighbor is not in the same group or isn't owned)
+            if (neighborGroup !== groupIndex || !neighborTile || !neighborTile.owned) {
+              cell.style[`border${neighbor.side}`] = `3px solid ${playerColor}`;
+            }
+          });
+        }
       }
       
       // Highlight selected cell
@@ -1777,14 +1862,9 @@ function updateTileInfo() {
       html += `<p style="color: #4CAF50; font-weight: bold;">✓ This tile is owned and protected from random events.</p>`;
     } else {
       html += `<p>This tile is not owned. Random events can affect unowned tiles.</p>`;
-      html += `<p style="margin: 15px 0;"><strong>Purchase Cost:</strong> `;
-      html += `<span style="display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: #FFD700; border-radius: 5px; border: 3px solid rgba(255,255,255,0.2);">`;
+      html += `<button id="purchase-tile-btn" style="margin: 15px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: ${canAffordTile ? '#FFD700' : '#666'}; border: 3px solid ${canAffordTile ? 'rgba(255,255,255,0.4)' : '#888'}; border-radius: 8px; cursor: ${canAffordTile ? 'pointer' : 'not-allowed'}; opacity: ${canAffordTile ? '1' : '0.5'}; transition: all 0.2s; font-weight: bold; font-size: 16px;" ${!canAffordTile ? 'disabled' : ''} onmouseover="if(this.style.opacity!=='0.5')this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">`;
       html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
-      html += `<span style="font-weight: bold; font-size: 16px; color: #000000;">${formatNumber(tileCost)}</span>`;
-      html += `</span></p>`;
-      
-      html += `<button id="purchase-tile-btn" style="width: 100%; padding: 12px; background: ${canAffordTile ? '#4CAF50' : '#666'}; border: 2px solid ${canAffordTile ? '#66BB6A' : '#888'}; border-radius: 6px; cursor: ${canAffordTile ? 'pointer' : 'not-allowed'}; opacity: ${canAffordTile ? '1' : '0.5'}; color: white; font-weight: bold; font-size: 16px; margin-top: 10px;" ${!canAffordTile ? 'disabled' : ''}>`;
-      html += canAffordTile ? 'Purchase Tile' : `Not enough gold (need ${tileCost})`;
+      html += `<span style="font-weight: bold; font-size: 18px; color: ${canAffordTile ? '#000000' : '#ffffff'};">${formatNumber(tileCost)}</span>`;
       html += `</button>`;
     }
     
@@ -2341,6 +2421,9 @@ function updateUI() {
   } else if (charIndicator) {
     charIndicator.style.display = 'none';
   }
+  
+  // Update player indicator (upper right)
+  updatePlayerIndicator();
   
   // Update resources
   const woodEl = document.getElementById('wood');
@@ -3359,6 +3442,9 @@ function selectCharacter(characterType) {
   // Apply player color to UI
   applyPlayerColor();
   
+  // Update player indicator
+  updatePlayerIndicator();
+  
   // Update UI to reflect character bonuses
   calculateProduction();
   checkUnlocks();
@@ -3378,6 +3464,35 @@ function selectCharacter(characterType) {
   saveGame();
 }
 
+// Update player indicator in upper right
+function updatePlayerIndicator() {
+  const playerIndicator = document.getElementById('player-indicator');
+  if (!playerIndicator) return;
+  
+  if (gameState.character && gameState.playerColor) {
+    const character = characterTypes[gameState.character];
+    const color = playerColors[gameState.playerColor];
+    
+    // Update color dot
+    const colorDot = playerIndicator.querySelector('.player-color-dot');
+    if (colorDot) {
+      colorDot.style.background = color;
+    }
+    
+    // Update character text
+    const characterText = playerIndicator.querySelector('.player-character-text');
+    if (characterText) {
+      characterText.textContent = `${character.icon} ${character.name}`;
+    }
+    
+    // Show indicator
+    playerIndicator.style.display = 'flex';
+  } else {
+    // Hide indicator if no character/color selected
+    playerIndicator.style.display = 'none';
+  }
+}
+
 // Apply player color to UI elements
 function applyPlayerColor() {
   if (!gameState.playerColor || !playerColors[gameState.playerColor]) {
@@ -3391,14 +3506,10 @@ function applyPlayerColor() {
   root.style.setProperty('--player-color', color);
   
   // Apply to specific elements that should use player color
-  // Selected tile border
+  // Character card selection only (tile selection stays gold)
   const style = document.createElement('style');
   style.id = 'player-color-styles';
   style.textContent = `
-    .cell-selected {
-      border-color: ${color} !important;
-      box-shadow: 0 0 10px ${color}80 !important;
-    }
     .character-card.selected {
       border-color: ${color} !important;
       box-shadow: 0 0 20px ${color}80 !important;

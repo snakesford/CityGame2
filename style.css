@@ -249,23 +249,9 @@ h4 {
   position: relative;
 }
 
-.cell-owned::after {
-  content: '✓';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  color: #4CAF50;
-  font-weight: bold;
-  font-size: 14px;
-  background: rgba(76, 175, 80, 0.3);
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #4CAF50;
-  z-index: 3;
+/* Ensure owned tile borders are visible and override default borders */
+.cell-owned[style*="border"] {
+  box-shadow: 0 0 5px currentColor;
 }
 
 /* Housing - Orange */

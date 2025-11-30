@@ -758,6 +758,10 @@ function runTests() {
     return buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
   }
   
+  function isMineralType(buildingType) {
+    return buildingType === "quarry" || buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
+  }
+  
   function getBuildingCount(state) {
     let count = 0;
     for (let row = 0; row < TOWN_TEST_GRID_SIZE; row++) {
@@ -808,13 +812,13 @@ function runTests() {
       return -1;
     }
     
-    // Pattern: Mine, Tepee, Farm, Tepee, Mine, Tepee, Farm, Tepee (around cabin center)
+    // Pattern: Mineral (any: quarry/ironMine/coalMine/deepMine), Tepee, Farm, Tepee, Mineral, Tepee, Farm, Tepee (around cabin center)
     const pattern0 = [
-      { row: centerRow - 1, col: centerCol - 1, expected: "mine" },
+      { row: centerRow - 1, col: centerCol - 1, expected: "mineral" },
       { row: centerRow - 1, col: centerCol, expected: "tepee" },
       { row: centerRow - 1, col: centerCol + 1, expected: "farm" },
       { row: centerRow, col: centerCol + 1, expected: "tepee" },
-      { row: centerRow + 1, col: centerCol + 1, expected: "mine" },
+      { row: centerRow + 1, col: centerCol + 1, expected: "mineral" },
       { row: centerRow + 1, col: centerCol, expected: "tepee" },
       { row: centerRow + 1, col: centerCol - 1, expected: "farm" },
       { row: centerRow, col: centerCol - 1, expected: "tepee" }
@@ -868,8 +872,8 @@ function runTests() {
         
         const expectedType = pattern0[i].expected;
         
-        if (expectedType === "mine") {
-          if (!isMineType(rotatedTile.type)) {
+        if (expectedType === "mineral") {
+          if (!isMineralType(rotatedTile.type)) {
             matches = false;
             break;
           }
@@ -1055,12 +1059,12 @@ function runTests() {
     const centerRow = 7;
     const centerCol = 7;
     
-    // Place pattern (0° rotation)
-    state.map[centerRow - 1][centerCol - 1].type = 'ironMine';
+    // Place pattern (0° rotation) - using quarry to test mineral acceptance
+    state.map[centerRow - 1][centerCol - 1].type = 'quarry';
     state.map[centerRow - 1][centerCol].type = 'tepee';
     state.map[centerRow - 1][centerCol + 1].type = 'farm';
     state.map[centerRow][centerCol + 1].type = 'tepee';
-    state.map[centerRow + 1][centerCol + 1].type = 'coalMine';
+    state.map[centerRow + 1][centerCol + 1].type = 'ironMine';
     state.map[centerRow + 1][centerCol].type = 'tepee';
     state.map[centerRow + 1][centerCol - 1].type = 'farm';
     state.map[centerRow][centerCol - 1].type = 'tepee';
@@ -1068,6 +1072,32 @@ function runTests() {
     
     const result = checkTownPattern(state, centerRow, centerCol);
     assert.ok(result >= 0, 'Pattern should be detected');
+  });
+  
+  test('checkTownPattern accepts any mineral type (quarry, ironMine, coalMine, deepMine)', () => {
+    const state = createTownTestState();
+    const centerRow = 7;
+    const centerCol = 7;
+    
+    // Test with quarry
+    state.map[centerRow - 1][centerCol - 1].type = 'quarry';
+    state.map[centerRow - 1][centerCol].type = 'tepee';
+    state.map[centerRow - 1][centerCol + 1].type = 'farm';
+    state.map[centerRow][centerCol + 1].type = 'tepee';
+    state.map[centerRow + 1][centerCol + 1].type = 'quarry';
+    state.map[centerRow + 1][centerCol].type = 'tepee';
+    state.map[centerRow + 1][centerCol - 1].type = 'farm';
+    state.map[centerRow][centerCol - 1].type = 'tepee';
+    state.map[centerRow][centerCol].type = 'cabin';
+    
+    const result1 = checkTownPattern(state, centerRow, centerCol);
+    assert.ok(result1 >= 0, 'Pattern with quarry should be detected');
+    
+    // Test with deepMine
+    state.map[centerRow - 1][centerCol - 1].type = 'deepMine';
+    state.map[centerRow + 1][centerCol + 1].type = 'deepMine';
+    const result2 = checkTownPattern(state, centerRow, centerCol);
+    assert.ok(result2 >= 0, 'Pattern with deepMine should be detected');
   });
   
   // Note: 90° and 270° rotation tests are commented out due to pattern verification needed

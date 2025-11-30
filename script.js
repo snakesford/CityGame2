@@ -1870,8 +1870,13 @@ function isMineType(buildingType) {
   return buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
 }
 
+// Check if a building type is a mineral building (quarry or any mine type)
+function isMineralType(buildingType) {
+  return buildingType === "quarry" || buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
+}
+
 // Check if a 3x3 pattern matches the town pattern at the given center position
-// Pattern: Outer ring (8 tiles): Mine, Tepee, Farm, Tepee, Mine, Tepee, Farm, Tepee
+// Pattern: Outer ring (8 tiles): Mineral (any: quarry/ironMine/coalMine/deepMine), Tepee, Farm, Tepee, Mineral, Tepee, Farm, Tepee
 // Center: Cabin
 // Returns rotation (0, 90, 180, 270) if pattern matches, -1 otherwise
 function checkTownPattern(centerRow, centerCol) {
@@ -1893,13 +1898,13 @@ function checkTownPattern(centerRow, centerCol) {
   
   // Define the pattern positions relative to center (0° rotation)
   // Pattern order: Top-left, Top, Top-right, Right, Bottom-right, Bottom, Bottom-left, Left
-  // Expected: Mine, Tepee, Farm, Tepee, Mine, Tepee, Farm, Tepee
+  // Expected: Mineral (any: quarry, ironMine, coalMine, deepMine), Tepee, Farm, Tepee, Mineral, Tepee, Farm, Tepee
   const pattern0 = [
-    { row: centerRow - 1, col: centerCol - 1, expected: "mine" },
+    { row: centerRow - 1, col: centerCol - 1, expected: "mineral" },
     { row: centerRow - 1, col: centerCol, expected: "tepee" },
     { row: centerRow - 1, col: centerCol + 1, expected: "farm" },
     { row: centerRow, col: centerCol + 1, expected: "tepee" },
-    { row: centerRow + 1, col: centerCol + 1, expected: "mine" },
+    { row: centerRow + 1, col: centerCol + 1, expected: "mineral" },
     { row: centerRow + 1, col: centerCol, expected: "tepee" },
     { row: centerRow + 1, col: centerCol - 1, expected: "farm" },
     { row: centerRow, col: centerCol - 1, expected: "tepee" }
@@ -1959,8 +1964,8 @@ function checkTownPattern(centerRow, centerCol) {
       const expectedType = pattern0[i].expected;
       
       // Check if building matches expected type
-      if (expectedType === "mine") {
-        if (!isMineType(rotatedTile.type)) {
+      if (expectedType === "mineral") {
+        if (!isMineralType(rotatedTile.type)) {
           matches = false;
           break;
         }
@@ -4487,6 +4492,55 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
     }
     const newKey = `${toRow}_${toCol}`;
     gameState.smelters[newKey] = smelterData;
+  }
+  
+  // Check for town pattern after moving a building
+  // This allows completing a town pattern by dragging a cabin or other building into position
+  let patternFound = false;
+  
+  // Check all possible cabin center positions that could form a 3x3 pattern with the moved building
+  const minRow = Math.max(1, toRow - 2);
+  const maxRow = Math.min(GRID_SIZE - 2, toRow + 2);
+  const minCol = Math.max(1, toCol - 2);
+  const maxCol = Math.min(GRID_SIZE - 2, toCol + 2);
+  
+  console.log(`🔍 Checking for town patterns after moving ${buildingType} to (${toRow}, ${toCol})`);
+  console.log(`   Scanning cabin centers from (${minRow}, ${minCol}) to (${maxRow}, ${maxCol})`);
+  
+  // Check all possible cabin center positions
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const tile = gameState.map[r][c];
+      
+      // Check if this position is a cabin (either existing or just moved here)
+      const isCabin = (r === toRow && c === toCol && buildingType === "cabin") || 
+                      (tile && tile.type === "cabin");
+      
+      if (isCabin && tile && !tile.townId) {
+        console.log(`   Checking pattern with cabin center at (${r}, ${c})...`);
+        const result = checkTownPattern(r, c);
+        if (result >= 0) {
+          console.log(`   ✅ Town pattern detected at (${r}, ${c}) with rotation ${result * 90}°`);
+          patternFound = true;
+          break; // Pattern found, no need to check other positions
+        } else {
+          console.log(`   ❌ No pattern match at (${r}, ${c})`);
+        }
+      }
+    }
+    if (patternFound) break; // Pattern found, no need to check other positions
+  }
+  
+  // As a final comprehensive check, scan ALL cabins on the entire map
+  if (!patternFound) {
+    console.log(`   Performing comprehensive scan of all cabins on map...`);
+    const patternsFound = checkAllCabinsForPatterns();
+    if (patternsFound > 0) {
+      console.log(`   ✅ Found ${patternsFound} town pattern(s) by comprehensive scan`);
+      patternFound = true;
+    } else {
+      console.log(`   ❌ No patterns found in comprehensive scan`);
+    }
   }
   
   calculateProduction();

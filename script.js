@@ -2365,21 +2365,8 @@ function renderGrid() {
         cell.classList.add('cell-empty');
       }
       
-      // Show town-locked indicator
-      if (tile.townId) {
-        cell.classList.add('cell-town-locked');
-        const town = gameState.towns[tile.townId];
-        if (town) {
-          cell.title = `Town Center (Level ${town.level}) - Locked tile`;
-        } else {
-          cell.title = 'Town-locked tile';
-        }
-        
-        // Apply subtle border to show it's locked
-        cell.style.border = '2px solid rgba(255, 215, 0, 0.5)';
-      }
-      
       // Show ownership indicator with player color background
+      // This applies to both purchased tiles and town-claimed tiles (same styling)
       if (tile.owned) {
         cell.classList.add('cell-owned');
         cell.title = 'Owned tile - protected from random events';

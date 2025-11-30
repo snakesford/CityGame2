@@ -38,7 +38,16 @@ let gameState = {
     housingCapacity: false, // +20% housing capacity
     smeltingSpeed: false // +20% smelting speed
   },
-  quests: [] // Array of quest progress: [{id, completed, claimed}]
+  quests: [], // Array of quest progress: [{id, completed, claimed}]
+  towns: {}, // {townId: {level, questsCompleted, linkedPositions: [{row, col}], merchantUnlocks: []}}
+  globalBuildingCap: 20, // Starting cap
+  nextTownId: 1, // Auto-incrementing town ID
+  merchantCooldowns: {
+    // Track cooldowns for each resource: {resource: {totalTraded: number, cooldownStart: timestamp}}
+    wood: { totalTraded: 0, cooldownStart: null },
+    stone: { totalTraded: 0, cooldownStart: null },
+    clay: { totalTraded: 0, cooldownStart: null }
+  }
 };
 
 // Player color definitions
@@ -192,6 +201,29 @@ function migrateSaveData() {
   if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
   if (!gameState.resources.coal) gameState.resources.coal = 0;
   
+  // Ensure merchant cooldowns exist
+  if (!gameState.merchantCooldowns) {
+    gameState.merchantCooldowns = {
+      wood: { totalTraded: 0, cooldownStart: null },
+      stone: { totalTraded: 0, cooldownStart: null },
+      clay: { totalTraded: 0, cooldownStart: null }
+    };
+  } else {
+    // Ensure each resource has cooldown tracking
+    ['wood', 'stone', 'clay'].forEach(resource => {
+      if (!gameState.merchantCooldowns[resource]) {
+        gameState.merchantCooldowns[resource] = { totalTraded: 0, cooldownStart: null };
+      }
+      // Ensure both properties exist
+      if (gameState.merchantCooldowns[resource].totalTraded === undefined) {
+        gameState.merchantCooldowns[resource].totalTraded = 0;
+      }
+      if (gameState.merchantCooldowns[resource].cooldownStart === undefined) {
+        gameState.merchantCooldowns[resource].cooldownStart = null;
+      }
+    });
+  }
+  
   // Migrate old "kilns" to "smelters"
   if (gameState.kilns && !gameState.smelters) {
     gameState.smelters = gameState.kilns;
@@ -227,6 +259,16 @@ function migrateSaveData() {
   // Ensure map is initialized
   if (!gameState.map || gameState.map.length === 0) {
     initializeGrid();
+  }
+  
+  // Ensure town system fields exist
+  if (!gameState.towns) gameState.towns = {};
+  if (typeof gameState.globalBuildingCap !== 'number') gameState.globalBuildingCap = 20;
+  if (typeof gameState.nextTownId !== 'number') gameState.nextTownId = 1;
+  
+  // Recalculate building cap from existing towns (safety check)
+  if (Object.keys(gameState.towns).length > 0) {
+    updateBuildingCap();
   }
   
   // Migrate old building types and ensure owned property exists
@@ -508,6 +550,224 @@ const questDefinitions = [
   }
 ];
 
+// Town quest definitions (one per level)
+const townQuestDefinitions = [
+  {
+    id: 'town_quest_L1',
+    level: 1,
+    description: 'Build 5 buildings (any type)',
+    checkCondition: () => getBuildingCount() >= 5,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier1'
+  },
+  {
+    id: 'town_quest_L2',
+    level: 2,
+    description: 'Gather 100 wood',
+    checkCondition: () => gameState.resources.wood >= 100,
+    buildingCapReward: 5,
+    merchantUnlock: null // Tier 1 already unlocked
+  },
+  {
+    id: 'town_quest_L3',
+    level: 3,
+    description: 'Build 3 Farms',
+    checkCondition: () => countBuildings('farm') >= 3,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier2'
+  },
+  {
+    id: 'town_quest_L4',
+    level: 4,
+    description: 'Reach 20 population',
+    checkCondition: () => gameState.population.current >= 20,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L5',
+    level: 5,
+    description: 'Store 50 gold',
+    checkCondition: () => gameState.resources.gold >= 50,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L6',
+    level: 6,
+    description: 'Build 2 Quarries',
+    checkCondition: () => countBuildings('quarry') >= 2,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier3'
+  },
+  {
+    id: 'town_quest_L7',
+    level: 7,
+    description: 'Produce 30 bricks',
+    checkCondition: () => gameState.resources.bricks >= 30,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L8',
+    level: 8,
+    description: 'Build 10 total buildings',
+    checkCondition: () => getBuildingCount() >= 10,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L9',
+    level: 9,
+    description: 'Reach 50 population',
+    checkCondition: () => gameState.population.current >= 50,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L10',
+    level: 10,
+    description: 'Store 200 gold',
+    checkCondition: () => gameState.resources.gold >= 200,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier4'
+  }
+];
+
+// Merchant definitions
+const merchantDefinitions = {
+  merchant_tier1: {
+    id: 'merchant_tier1',
+    name: 'Basic Trader',
+    unlockLevel: 1,
+    trades: [
+      {
+        id: 'sell_wood',
+        name: 'Sell Wood',
+        description: 'Sell 10 wood for 1 gold',
+        cost: { wood: 10 },
+        reward: { gold: 1 },
+        type: 'resource_trade',
+        resource: 'wood',
+        exchangeRate: 10
+      },
+      {
+        id: 'sell_stone',
+        name: 'Sell Stone',
+        description: 'Sell 10 stone for 1 gold',
+        cost: { stone: 10 },
+        reward: { gold: 1 },
+        type: 'resource_trade',
+        resource: 'stone',
+        exchangeRate: 10
+      },
+      {
+        id: 'sell_clay',
+        name: 'Sell Clay',
+        description: 'Sell 10 clay for 1 gold',
+        cost: { clay: 10 },
+        reward: { gold: 1 },
+        type: 'resource_trade',
+        resource: 'clay',
+        exchangeRate: 10
+      }
+    ]
+  },
+  merchant_tier2: {
+    id: 'merchant_tier2',
+    name: 'Rare Goods Trader',
+    unlockLevel: 3,
+    trades: [
+      {
+        id: 'sell_iron',
+        name: 'Sell Iron',
+        description: 'Sell 5 iron for 2 gold',
+        cost: { iron: 5 },
+        reward: { gold: 2 },
+        type: 'resource_trade'
+      },
+      {
+        id: 'sell_coal',
+        name: 'Sell Coal',
+        description: 'Sell 5 coal for 2 gold',
+        cost: { coal: 5 },
+        reward: { gold: 2 },
+        type: 'resource_trade'
+      },
+      {
+        id: 'buy_wood',
+        name: 'Buy Wood',
+        description: 'Buy 8 wood for 1 gold',
+        cost: { gold: 1 },
+        reward: { wood: 8 },
+        type: 'resource_trade'
+      }
+    ]
+  },
+  merchant_tier3: {
+    id: 'merchant_tier3',
+    name: 'Boost Merchant',
+    unlockLevel: 6,
+    trades: [
+      {
+        id: 'production_boost_wood',
+        name: 'Wood Production Boost',
+        description: '+50% wood production for 5 minutes (50 gold)',
+        cost: { gold: 50 },
+        reward: { boost: 'woodProduction', duration: 300000 }, // 5 minutes in ms
+        type: 'boost'
+      },
+      {
+        id: 'production_boost_stone',
+        name: 'Stone Production Boost',
+        description: '+50% stone production for 5 minutes (50 gold)',
+        cost: { gold: 50 },
+        reward: { boost: 'stoneProduction', duration: 300000 },
+        type: 'boost'
+      },
+      {
+        id: 'building_discount',
+        name: 'Building Discount',
+        description: '20% discount on next 3 buildings (75 gold)',
+        cost: { gold: 75 },
+        reward: { discount: 0.8, uses: 3 },
+        type: 'upgrade'
+      }
+    ]
+  },
+  merchant_tier4: {
+    id: 'merchant_tier4',
+    name: 'Master Merchant',
+    unlockLevel: 10,
+    trades: [
+      {
+        id: 'permanent_wood_boost',
+        name: 'Permanent Wood Boost',
+        description: 'Permanent +10% wood production (200 gold)',
+        cost: { gold: 200 },
+        reward: { permanentUpgrade: 'woodProduction' },
+        type: 'permanent_upgrade'
+      },
+      {
+        id: 'permanent_stone_boost',
+        name: 'Permanent Stone Boost',
+        description: 'Permanent +10% stone production (200 gold)',
+        cost: { gold: 200 },
+        reward: { permanentUpgrade: 'stoneProduction' },
+        type: 'permanent_upgrade'
+      },
+      {
+        id: 'extra_building_cap',
+        name: 'Extra Building Capacity',
+        description: '+10 permanent building capacity (300 gold)',
+        cost: { gold: 300 },
+        reward: { extraBuildingCap: 10 },
+        type: 'permanent_upgrade'
+      }
+    ]
+  }
+};
+
 // Building type definitions
 const buildingTypes = {
   tepee: {
@@ -678,12 +938,112 @@ const buildingTypes = {
   baseMarker: {
     displayName: "Base Marker",
     category: "special",
-    baseCost: { wood: 150, gold: 50, iron: 20 },
+    baseCost: { wood: 150, gold: 400, iron: 20 },
     costGrowthFactor: 1.3,
     baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: true
+  },
+  townCenter_L1: {
+    displayName: "Town Center (Level 1)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false // Cannot be built directly
+  },
+  townCenter_L2: {
+    displayName: "Town Center (Level 2)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L3: {
+    displayName: "Town Center (Level 3)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L4: {
+    displayName: "Town Center (Level 4)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L5: {
+    displayName: "Town Center (Level 5)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L6: {
+    displayName: "Town Center (Level 6)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L7: {
+    displayName: "Town Center (Level 7)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L8: {
+    displayName: "Town Center (Level 8)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L9: {
+    displayName: "Town Center (Level 9)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L10: {
+    displayName: "Town Center (Level 10)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
   }
 };
 
@@ -703,7 +1063,17 @@ const buildingIcons = {
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
   smelter: 'images/kiln.png',
-  baseMarker: 'images/baseMarker.png'
+  baseMarker: 'images/baseMarker.png',
+  townCenter_L1: 'images/cabin.png',
+  townCenter_L2: 'images/cabin.png',
+  townCenter_L3: 'images/cabin.png',
+  townCenter_L4: 'images/cabin.png',
+  townCenter_L5: 'images/cabin.png',
+  townCenter_L6: 'images/cabin.png',
+  townCenter_L7: 'images/cabin.png',
+  townCenter_L8: 'images/cabin.png',
+  townCenter_L9: 'images/cabin.png',
+  townCenter_L10: 'images/cabin.png'
 };
 
 // Resource icons for requirements
@@ -910,6 +1280,12 @@ function getBuildingProduction(buildingType, level) {
   return production;
 }
 
+async function loadExternalQuests() {
+  const res = await fetch("quests.json");
+  const data = await res.json();
+  return data.quests;
+}
+
 // Calculate cost for a building at a given level
 function getBuildingCost(buildingType, level) {
   const building = buildingTypes[buildingType];
@@ -995,15 +1371,19 @@ function calculateProduction() {
         }
         
         const production = getBuildingProduction(tile.type, tile.level);
-        totalWood += production.wood;
-        totalStone += production.stone;
-        totalClay += production.clay;
-        totalIron += production.iron;
-        totalBricks += production.bricks;
-        totalGold += production.gold;
-        totalCoal += production.coal;
-        totalPopulation += production.population;
-        totalCapacity += production.capacity;
+        
+        // Apply 5% production boost for owned tiles
+        const ownedBoost = tile.owned ? 1.05 : 1.0;
+        
+        totalWood += production.wood * ownedBoost;
+        totalStone += production.stone * ownedBoost;
+        totalClay += production.clay * ownedBoost;
+        totalIron += production.iron * ownedBoost;
+        totalBricks += production.bricks * ownedBoost;
+        totalGold += production.gold * ownedBoost;
+        totalCoal += production.coal * ownedBoost;
+        totalPopulation += production.population * ownedBoost;
+        totalCapacity += production.capacity * ownedBoost;
       }
     }
   }
@@ -1049,6 +1429,12 @@ function processSmelter(row, col, level) {
     // Apply smelting speed upgrade (20% faster = 80% of original time)
     if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
       smeltTime = smeltTime * 0.8;
+    }
+    
+    // Apply 5% speed boost for owned tiles (5% faster = 95% of time)
+    const tile = gameState.map[row][col];
+    if (tile && tile.owned) {
+      smeltTime = smeltTime * 0.95;
     }
     
     if (elapsedTime >= smeltTime) {
@@ -1411,11 +1797,23 @@ function placeBuilding(row, col, buildingType) {
   const tile = gameState.map[row][col];
   if (tile.type !== "empty") return false;
   
+  // Check if tile is locked by a town
+  if (tile.townId) {
+    showMessage("Cannot place building on town-locked tile!");
+    return false;
+  }
+  
   const building = buildingTypes[buildingType];
   if (!building || !building.unlocked) return false;
   
   // Check character requirement
   if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
+    return false;
+  }
+  
+  // Check building cap (don't count town centers as they're not placed directly)
+  if (getBuildingCount() >= gameState.globalBuildingCap) {
+    showMessage(`Building cap reached (${gameState.globalBuildingCap}). Level up towns to increase capacity.`);
     return false;
   }
   
@@ -1432,9 +1830,9 @@ function placeBuilding(row, col, buildingType) {
     getSmelter(row, col); // This creates and initializes the smelter
   }
   
-  // Claim surrounding tiles if it's a base marker (5x5 area)
+  // Claim surrounding tiles if it's a base marker (3x3 area)
   if (buildingType === "baseMarker") {
-    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    const claimRadius = 1; // 1 tile in each direction = 3x3 total
     for (let r = row - claimRadius; r <= row + claimRadius; r++) {
       for (let c = col - claimRadius; c <= col + claimRadius; c++) {
         // Check bounds
@@ -1455,7 +1853,543 @@ function placeBuilding(row, col, buildingType) {
   renderGrid();
   updateUI();
   
+  // Check for town pattern whenever any building is placed
+  // Strategy: Check all possible cabin center positions that could form a 3x3 pattern
+  // with the newly placed building. This works regardless of placement order.
+  
+  let patternFound = false;
+  
+  // The placed building could be part of a 3x3 pattern where the cabin center is
+  // anywhere from 2 tiles away (if placed at corner) to 0 tiles away (if cabin itself)
+  // Check all positions within 2 tiles that could be valid cabin centers (need 1 tile margin)
+  const minRow = Math.max(1, row - 2);
+  const maxRow = Math.min(GRID_SIZE - 2, row + 2);
+  const minCol = Math.max(1, col - 2);
+  const maxCol = Math.min(GRID_SIZE - 2, col + 2);
+  
+  console.log(`🔍 Checking for town patterns after placing ${buildingType} at (${row}, ${col})`);
+  console.log(`   Scanning cabin centers from (${minRow}, ${minCol}) to (${maxRow}, ${maxCol})`);
+  
+  // Check all possible cabin center positions
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const tile = gameState.map[r][c];
+      
+      // Check if this position is a cabin (either existing or just placed)
+      const isCabin = (r === row && c === col && buildingType === "cabin") || 
+                      (tile && tile.type === "cabin");
+      
+      if (isCabin && tile && !tile.townId) {
+        console.log(`   Checking pattern with cabin center at (${r}, ${c})...`);
+        const result = checkTownPattern(r, c);
+        if (result >= 0) {
+          console.log(`   ✅ Town pattern detected at (${r}, ${c}) with rotation ${result * 90}°`);
+          patternFound = true;
+          break; // Pattern found, no need to check other positions
+        } else {
+          console.log(`   ❌ No pattern match at (${r}, ${c})`);
+        }
+      }
+    }
+    if (patternFound) break; // Pattern found, no need to check other positions
+  }
+  
+  // As a final comprehensive check, scan ALL cabins on the entire map
+  // This is a safety net to catch any patterns we might have missed
+  if (!patternFound) {
+    console.log(`   Performing comprehensive scan of all cabins on map...`);
+    const patternsFound = checkAllCabinsForPatterns();
+    if (patternsFound > 0) {
+      console.log(`   ✅ Found ${patternsFound} town pattern(s) by comprehensive scan`);
+      patternFound = true;
+    } else {
+      console.log(`   ❌ No patterns found in comprehensive scan`);
+    }
+  }
+  
   return true;
+}
+
+// Check if a building type is a mine (any mine type)
+function isMineType(buildingType) {
+  return buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
+}
+
+// Check if a building type is a mineral building (quarry or any mine type)
+function isMineralType(buildingType) {
+  return buildingType === "quarry" || buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
+}
+
+// Check if a 3x3 pattern matches the town pattern at the given center position
+// Pattern: Outer ring (8 tiles): Mineral (any: quarry/ironMine/coalMine/deepMine), Tepee, Farm, Tepee, Mineral, Tepee, Farm, Tepee
+// Center: Cabin
+// Returns rotation (0, 90, 180, 270) if pattern matches, -1 otherwise
+function checkTownPattern(centerRow, centerCol) {
+  // Check bounds - need 1 tile in each direction
+  if (centerRow < 1 || centerRow >= GRID_SIZE - 1 || centerCol < 1 || centerCol >= GRID_SIZE - 1) {
+    return -1;
+  }
+  
+  // Check if center is a Cabin
+  const centerTile = gameState.map[centerRow][centerCol];
+  if (centerTile.type !== "cabin") {
+    return -1;
+  }
+  
+  // Check if center is already part of a town
+  if (centerTile.townId) {
+    return -1;
+  }
+  
+  // Define the pattern positions relative to center (0° rotation)
+  // Pattern order: Top-left, Top, Top-right, Right, Bottom-right, Bottom, Bottom-left, Left
+  // Expected: Mineral (any: quarry, ironMine, coalMine, deepMine), Tepee, Farm, Tepee, Mineral, Tepee, Farm, Tepee
+  const pattern0 = [
+    { row: centerRow - 1, col: centerCol - 1, expected: "mineral" },
+    { row: centerRow - 1, col: centerCol, expected: "tepee" },
+    { row: centerRow - 1, col: centerCol + 1, expected: "farm" },
+    { row: centerRow, col: centerCol + 1, expected: "tepee" },
+    { row: centerRow + 1, col: centerCol + 1, expected: "mineral" },
+    { row: centerRow + 1, col: centerCol, expected: "tepee" },
+    { row: centerRow + 1, col: centerCol - 1, expected: "farm" },
+    { row: centerRow, col: centerCol - 1, expected: "tepee" }
+  ];
+  
+  // Check all 4 rotations
+  for (let rotation = 0; rotation < 4; rotation++) {
+    let matches = true;
+    
+    for (let i = 0; i < pattern0.length; i++) {
+      const pos = pattern0[i];
+      
+      // Calculate rotated position
+      let rotatedRow, rotatedCol;
+      const relRow = pos.row - centerRow;
+      const relCol = pos.col - centerCol;
+      
+      switch (rotation) {
+        case 0: // 0°
+          rotatedRow = centerRow + relRow;
+          rotatedCol = centerCol + relCol;
+          break;
+        case 1: // 90° clockwise
+          rotatedRow = centerRow - relCol;
+          rotatedCol = centerCol + relRow;
+          break;
+        case 2: // 180°
+          rotatedRow = centerRow - relRow;
+          rotatedCol = centerCol - relCol;
+          break;
+        case 3: // 270° clockwise (90° counter-clockwise)
+          rotatedRow = centerRow + relCol;
+          rotatedCol = centerCol - relRow;
+          break;
+      }
+      
+      // Check bounds
+      if (rotatedRow < 0 || rotatedRow >= GRID_SIZE || rotatedCol < 0 || rotatedCol >= GRID_SIZE) {
+        matches = false;
+        break;
+      }
+      
+      const rotatedTile = gameState.map[rotatedRow][rotatedCol];
+      
+      // Check if tile is empty (pattern requires all tiles to have buildings)
+      if (!rotatedTile || rotatedTile.type === "empty") {
+        matches = false;
+        break;
+      }
+      
+      // Check if tile is already part of a town
+      if (rotatedTile.townId) {
+        matches = false;
+        break;
+      }
+      
+      const expectedType = pattern0[i].expected;
+      
+      // Check if building matches expected type
+      if (expectedType === "mineral") {
+        if (!isMineralType(rotatedTile.type)) {
+          matches = false;
+          break;
+        }
+      } else if (rotatedTile.type !== expectedType) {
+        matches = false;
+        break;
+      }
+    }
+    
+    if (matches) {
+      // Pattern found! Create town
+      console.log(`✅ Town pattern detected at (${centerRow}, ${centerCol}) with rotation ${rotation * 90}°`);
+      createTown(centerRow, centerCol, rotation);
+      return rotation;
+    }
+  }
+  
+  return -1;
+}
+
+// Check all cabins on the map for town patterns
+// This is a comprehensive check that ensures no patterns are missed
+function checkAllCabinsForPatterns() {
+  let patternsFound = 0;
+  
+  for (let row = 1; row < GRID_SIZE - 1; row++) {
+    for (let col = 1; col < GRID_SIZE - 1; col++) {
+      const tile = gameState.map[row][col];
+      if (tile && tile.type === "cabin" && !tile.townId) {
+        const result = checkTownPattern(row, col);
+        if (result >= 0) {
+          patternsFound++;
+          // Pattern found and town created, continue checking other cabins
+        }
+      }
+    }
+  }
+  
+  return patternsFound;
+}
+
+// Create a town at the given center position with the specified rotation
+function createTown(centerRow, centerCol, rotation) {
+  const townId = gameState.nextTownId++;
+  
+  const linkedPositions = [];
+  
+  // Claim surrounding tiles in a 5x5 area (same as base marker)
+  // This uses the same code as when a player purchases tiles with gold
+  const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+  for (let r = centerRow - claimRadius; r <= centerRow + claimRadius; r++) {
+    for (let c = centerCol - claimRadius; c <= centerCol + claimRadius; c++) {
+      // Check bounds
+      if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+        const targetTile = gameState.map[r][c];
+        if (targetTile) {
+          // Claim the tile (same as gold purchase)
+          if (!targetTile.owned) {
+            targetTile.owned = true;
+          }
+          // Also set townId for town-specific locking
+          targetTile.townId = townId;
+          linkedPositions.push({ row: r, col: c });
+        }
+      }
+    }
+  }
+  
+  // Replace center Cabin with Town Center L1
+  const centerTile = gameState.map[centerRow][centerCol];
+  centerTile.type = "townCenter_L1";
+  centerTile.level = 1;
+  
+  // Create town data
+  gameState.towns[townId] = {
+    level: 1,
+    questsCompleted: [],
+    linkedPositions: linkedPositions,
+    merchantUnlocks: []
+  };
+  
+  // Update building cap
+  updateBuildingCap();
+  
+  // Console log town center creation
+  console.log(`🏛️ TOWN CENTER CREATED!`);
+  console.log(`   Town ID: ${townId}`);
+  console.log(`   Location: (${centerRow}, ${centerCol})`);
+  console.log(`   Rotation: ${rotation * 90}°`);
+  console.log(`   Level: 1`);
+  console.log(`   Locked Tiles: ${linkedPositions.length} tiles (5x5 area)`);
+  console.log(`   New Building Cap: ${gameState.globalBuildingCap}`);
+  console.log(`   Linked Positions:`, linkedPositions);
+  
+  // Show message
+  if (typeof showMessage === 'function') {
+    showMessage("Town Center created! The area is now locked.");
+  }
+  
+  // Re-render grid to show changes
+  if (typeof renderGrid === 'function') {
+    renderGrid();
+  }
+  if (typeof updateUI === 'function') {
+    updateUI();
+  }
+}
+
+// Get town at a given position
+function getTownAtPosition(row, col) {
+  const tile = gameState.map[row][col];
+  if (!tile || !tile.townId) return null;
+  return gameState.towns[tile.townId] || null;
+}
+
+// Get building count (total non-empty buildings, excluding town centers)
+function getBuildingCount() {
+  let count = 0;
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      const tile = gameState.map[row][col];
+      if (tile && tile.type !== "empty" && !tile.type.startsWith('townCenter_')) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+// Update global building cap based on all towns
+function updateBuildingCap() {
+  let totalLevels = 0;
+  for (const townId in gameState.towns) {
+    totalLevels += gameState.towns[townId].level;
+  }
+  gameState.globalBuildingCap = 20 + (totalLevels * 5);
+}
+
+// Get detailed quest progress information
+function getQuestProgress(questDef) {
+  if (!questDef) return null;
+  
+  const description = questDef.description;
+  let progress = { current: 0, target: 0, percentage: 0, type: 'simple', details: {} };
+  
+  // Parse different quest types
+  if (description.includes('Build') && description.includes('buildings') && !description.includes('Farms') && !description.includes('Quarries')) {
+    // Extract number from "Build X buildings" or "Build X total buildings"
+    const match = description.match(/Build (\d+)\s+(?:total\s+)?buildings/i);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = getBuildingCount();
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'buildings',
+        icon: '🏗️',
+        details: { current, target, unit: 'buildings' }
+      };
+    }
+  } else if (description.includes('Gather') && description.includes('wood')) {
+    const match = description.match(/(\d+) wood/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.resources.wood || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'resource',
+        icon: '🪵',
+        resource: 'wood',
+        details: { current, target, unit: 'wood' }
+      };
+    }
+  } else if (description.includes('Farms')) {
+    const match = description.match(/Build (\d+) Farms/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = countBuildings('farm');
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'building',
+        icon: '🌾',
+        buildingType: 'farm',
+        details: { current, target, unit: 'farms' }
+      };
+    }
+  } else if (description.includes('Store') && description.includes('gold')) {
+    const match = description.match(/(\d+) gold/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.resources.gold || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'resource',
+        icon: '💰',
+        resource: 'gold',
+        details: { current, target, unit: 'gold' }
+      };
+    }
+  } else if (description.includes('Quarries')) {
+    const match = description.match(/Build (\d+) Quarries/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = countBuildings('quarry');
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'building',
+        icon: '⛏️',
+        buildingType: 'quarry',
+        details: { current, target, unit: 'quarries' }
+      };
+    }
+  } else if (description.includes('Produce') && description.includes('bricks')) {
+    const match = description.match(/(\d+) bricks/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.resources.bricks || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'resource',
+        icon: '🧱',
+        resource: 'bricks',
+        details: { current, target, unit: 'bricks' }
+      };
+    }
+  } else if (description.includes('Reach') && description.includes('population')) {
+    const match = description.match(/(\d+) population/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.population.current || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'population',
+        icon: '👥',
+        details: { current, target, unit: 'population' }
+      };
+    }
+  }
+  
+  // Default: return progress even if parsing didn't work (will show as simple quest)
+  
+  return progress;
+}
+
+// Check town quests for a specific town
+function checkTownQuests(townId) {
+  const town = gameState.towns[townId];
+  if (!town) return false;
+  
+  const currentLevel = town.level;
+  if (currentLevel >= 10) return false; // Already max level
+  
+  const questDef = townQuestDefinitions.find(q => q.level === currentLevel);
+  if (!questDef) return false;
+  
+  // Check if quest is already completed
+  if (town.questsCompleted.includes(questDef.id)) {
+    return true; // Quest already completed
+  }
+  
+  // Check if quest condition is met
+  if (questDef.checkCondition()) {
+    // Quest completed - mark it
+    town.questsCompleted.push(questDef.id);
+    return true;
+  }
+  
+  return false;
+}
+
+// Level up a town
+function levelUpTown(townId) {
+  const town = gameState.towns[townId];
+  if (!town) return false;
+  
+  const currentLevel = town.level;
+  if (currentLevel >= 10) {
+    if (typeof showMessage === 'function') {
+      showMessage("Town is already at maximum level!");
+    }
+    return false;
+  }
+  
+  // Check if quest is completed
+  const questDef = townQuestDefinitions.find(q => q.level === currentLevel);
+  if (!questDef) return false;
+  
+  if (!town.questsCompleted.includes(questDef.id)) {
+    // Check if quest can be completed now
+    if (!questDef.checkCondition()) {
+      if (typeof showMessage === 'function') {
+        showMessage("Quest not completed yet!");
+      }
+      return false;
+    }
+    town.questsCompleted.push(questDef.id);
+  }
+  
+  // Level up
+  town.level = currentLevel + 1;
+  
+  // Unlock merchant if applicable
+  if (questDef.merchantUnlock && !town.merchantUnlocks.includes(questDef.merchantUnlock)) {
+    town.merchantUnlocks.push(questDef.merchantUnlock);
+  }
+  
+  // Update building cap
+  updateBuildingCap();
+  
+  // Find center tile and update building type
+  // The center is the last position added in createTown, or we can find it by checking townId
+  let centerPos = null;
+  for (const pos of town.linkedPositions) {
+    const tile = gameState.map[pos.row][pos.col];
+    if (tile && tile.townId === townId && tile.type && tile.type.startsWith('townCenter_')) {
+      centerPos = pos;
+      break;
+    }
+  }
+  
+  if (centerPos) {
+    const centerTile = gameState.map[centerPos.row][centerPos.col];
+    centerTile.type = `townCenter_L${town.level}`;
+    centerTile.level = town.level;
+  } else {
+    console.warn(`Could not find center tile for town ${townId}`);
+  }
+  
+  // Show message
+  if (typeof showMessage === 'function') {
+    showMessage(`Town leveled up to Level ${town.level}! Building cap increased.`);
+  }
+  
+  // Re-render
+  if (typeof renderGrid === 'function') {
+    renderGrid();
+  }
+  
+  if (typeof updateUI === 'function') {
+    updateUI();
+  }
+  
+  return true;
+}
+
+// Get available merchants for a town
+function getAvailableMerchants(townId) {
+  const town = gameState.towns[townId];
+  if (!town) return [];
+  
+  const available = [];
+  for (const merchantId of town.merchantUnlocks) {
+    const merchant = merchantDefinitions[merchantId];
+    if (merchant) {
+      available.push(merchant);
+    }
+  }
+  
+  return available;
+}
+
+// Check all town quests (called periodically)
+function checkAllTownQuests() {
+  for (const townId in gameState.towns) {
+    checkTownQuests(townId);
+  }
 }
 
 // Upgrade building
@@ -1467,6 +2401,18 @@ function upgradeBuilding(row, col) {
   
   const building = buildingTypes[tile.type];
   if (!building) return false;
+  
+  // Cannot upgrade town centers through normal upgrade (must use town leveling)
+  if (tile.type && tile.type.startsWith('townCenter_')) {
+    showMessage("Use the Town Center panel to level up towns!");
+    return false;
+  }
+  
+  // Cannot upgrade base markers
+  if (tile.type === "baseMarker") {
+    showMessage("Base markers cannot be upgraded!");
+    return false;
+  }
   
   // Check max level
   if (building.maxLevel && tile.level >= building.maxLevel) return false;
@@ -1496,6 +2442,18 @@ function removeBuilding(row, col) {
   const tile = gameState.map[row][col];
   if (tile.type === "empty") return false;
   
+  // Cannot remove town centers
+  if (tile.type && tile.type.startsWith('townCenter_')) {
+    showMessage("Cannot remove Town Center!");
+    return false;
+  }
+  
+  // Cannot remove buildings on town-locked tiles
+  if (tile.townId) {
+    showMessage("Cannot remove buildings from town-locked tiles!");
+    return false;
+  }
+  
   // Refund 50% of total cost
   const totalCost = getTotalBuildingCost(tile.type, tile.level);
   const refund = {
@@ -1519,9 +2477,9 @@ function removeBuilding(row, col) {
     delete gameState.smelters[smelterKey(row, col)];
   }
   
-  // Unclaim surrounding tiles if it's a base marker (5x5 area)
+  // Unclaim surrounding tiles if it's a base marker (3x3 area)
   if (tile.type === "baseMarker") {
-    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    const claimRadius = 1; // 1 tile in each direction = 3x3 total
     for (let r = row - claimRadius; r <= row + claimRadius; r++) {
       for (let c = col - claimRadius; c <= col + claimRadius; c++) {
         // Check bounds
@@ -1575,11 +2533,18 @@ function renderGrid() {
       if (tile.type !== "empty") {
         cell.classList.add(`cell-${tile.type}`);
         cell.setAttribute('data-level', tile.level);
+        
+        // Add town center level class for styling
+        if (tile.type && tile.type.startsWith('townCenter_')) {
+          const level = tile.type.replace('townCenter_L', '');
+          cell.classList.add(`town-center-level-${level}`);
+        }
     } else {
         cell.classList.add('cell-empty');
       }
       
       // Show ownership indicator with player color background
+      // This applies to both purchased tiles and town-claimed tiles (same styling)
       if (tile.owned) {
         cell.classList.add('cell-owned');
         cell.title = 'Owned tile - protected from random events';
@@ -1773,17 +2738,29 @@ function handleCellClick(row, col) {
       }
     }
   } else if (!selectedBuildingType && tile.type !== "empty") {
-    // Select tile for info panel
-    selectedTile = { row, col };
-    renderGrid();
-    updateTileInfo();
+    // Check if it's a Town Center
+    if (tile.type && tile.type.startsWith('townCenter_') && tile.townId) {
+      openTownCenterModal(tile.townId, row, col);
+    } else {
+      // Select tile for info panel
+      selectedTile = { row, col };
+      renderGrid();
+      updateTileInfo();
+    }
   } else if (selectedBuildingType && tile.type !== "empty") {
-    // Clear selection and show tile info
-    selectedBuildingType = null;
-    updateBuildingSelection();
-    selectedTile = { row, col };
-    renderGrid();
-    updateTileInfo();
+    // Check if it's a Town Center
+    if (tile.type && tile.type.startsWith('townCenter_') && tile.townId) {
+      selectedBuildingType = null;
+      updateBuildingSelection();
+      openTownCenterModal(tile.townId, row, col);
+    } else {
+      // Clear selection and show tile info
+      selectedBuildingType = null;
+      updateBuildingSelection();
+      selectedTile = { row, col };
+      renderGrid();
+      updateTileInfo();
+    }
   } else if (!selectedBuildingType && tile.type === "empty") {
     // Select empty tile to show purchase option
     selectedTile = { row, col };
@@ -1884,7 +2861,8 @@ function updateTileInfo() {
   const building = buildingTypes[tile.type];
   const production = getBuildingProduction(tile.type, tile.level);
   const upgradeCost = getBuildingCost(tile.type, tile.level + 1);
-  const canUpgrade = building.maxLevel === null || tile.level < building.maxLevel;
+  // Base markers cannot be upgraded
+  const canUpgrade = tile.type !== "baseMarker" && (building.maxLevel === null || tile.level < building.maxLevel);
   const canAffordUpgrade = canAfford(upgradeCost);
   
   // Resource colors matching the game's color scheme
@@ -1899,17 +2877,52 @@ function updateTileInfo() {
   };
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
+  
+  // Calculate actual production with owned boost
+  const ownedBoost = tile.owned ? 1.05 : 1.0;
+  const actualProduction = {
+    wood: production.wood * ownedBoost,
+    stone: production.stone * ownedBoost,
+    clay: production.clay * ownedBoost,
+    iron: production.iron * ownedBoost,
+    coal: production.coal * ownedBoost,
+    bricks: production.bricks * ownedBoost,
+    population: production.population * ownedBoost,
+    capacity: production.capacity * ownedBoost
+  };
+  
   if (tile.owned) {
     html += `<p style="color: #4CAF50; font-weight: bold; margin: 5px 0;">✓ Owned - Protected from random events</p>`;
   }
-  if (production.wood > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.wood)}/s</p>`;
-  if (production.stone > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/rock.png" alt="Stone" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.stone)}/s</p>`;
-  if (production.clay > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/clay.png" alt="Clay" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.clay)}/s</p>`;
-  if (production.iron > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/iron.png" alt="Iron" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.iron)}/s</p>`;
-  if (production.coal > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/coal.png" alt="Coal" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.coal)}/s</p>`;
-  if (production.bricks > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/claybricks.png" alt="Bricks" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.bricks)}/s</p>`;
-  if (production.population > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/population.png" alt="Population" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.population)}/s</p>`;
-  if (production.capacity > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: bold;">Capacity:</span> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumber(production.capacity)}</p>`;
+  
+  // Helper function to format production with boost indicator
+  const formatProductionWithBoost = (baseValue, actualValue, icon, label) => {
+    if (baseValue <= 0) return '';
+    let text = `<p style="display: flex; align-items: center; gap: 8px;">`;
+    text += `<img src="${icon}" alt="${label}" style="width: 30px; height: 30px; vertical-align: middle;">`;
+    text += `<span style="color: #4CAF50; font-weight: bold;">↑</span>`;
+    text += `<span>${formatNumberWithDecimals(actualValue)}/s</span>`;
+    if (tile.owned && baseValue > 0) {
+      text += `<span style="color: #FFD700; font-size: 11px; margin-left: 5px;">(+5%)</span>`;
+    }
+    text += `</p>`;
+    return text;
+  };
+  
+  if (actualProduction.wood > 0) html += formatProductionWithBoost(production.wood, actualProduction.wood, 'images/wood-log.png', 'Wood');
+  if (actualProduction.stone > 0) html += formatProductionWithBoost(production.stone, actualProduction.stone, 'images/rock.png', 'Stone');
+  if (actualProduction.clay > 0) html += formatProductionWithBoost(production.clay, actualProduction.clay, 'images/clay.png', 'Clay');
+  if (actualProduction.iron > 0) html += formatProductionWithBoost(production.iron, actualProduction.iron, 'images/iron.png', 'Iron');
+  if (actualProduction.coal > 0) html += formatProductionWithBoost(production.coal, actualProduction.coal, 'images/coal.png', 'Coal');
+  if (actualProduction.bricks > 0) html += formatProductionWithBoost(production.bricks, actualProduction.bricks, 'images/claybricks.png', 'Bricks');
+  if (actualProduction.population > 0) html += formatProductionWithBoost(production.population, actualProduction.population, 'images/population.png', 'Population');
+  if (actualProduction.capacity > 0) {
+    html += `<p style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: bold;">Capacity:</span> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumber(actualProduction.capacity)}`;
+    if (tile.owned && production.capacity > 0) {
+      html += `<span style="color: #FFD700; font-size: 11px; margin-left: 5px;">(+5%)</span>`;
+    }
+    html += `</p>`;
+  }
   
   // Special handling for smelter
   if (tile.type === "smelter") {
@@ -2031,7 +3044,15 @@ function updateTileInfo() {
     
     // Show smelting progress
     if (smelter.smeltingStartTime !== null && currentBatch) {
-      const totalTimeSeconds = Math.ceil(smeltTime / 1000);
+      // Calculate smelt time with all bonuses
+      let displaySmeltTime = currentBatch.type === 'clay' ? building.smeltClayTime : building.smeltIronTime;
+      if (gameState.upgrades && gameState.upgrades.smeltingSpeed) {
+        displaySmeltTime = displaySmeltTime * 0.8;
+      }
+      if (tile.owned) {
+        displaySmeltTime = displaySmeltTime * 0.95;
+      }
+      const totalTimeSeconds = Math.ceil(displaySmeltTime / 1000);
       const elapsedSeconds = Math.floor((Date.now() - smelter.smeltingStartTime) / 1000);
       const inputIcon = currentBatch.type === 'clay' ? 'images/clay.png' : 'images/iron.png';
       const outputIcon = currentBatch.type === 'clay' ? 'images/claybricks.png' : 'images/ironBar.webp';
@@ -2041,6 +3062,10 @@ function updateTileInfo() {
       html += `<div style="background: ${smelter.mineralType === 'clay' ? '#8B4513' : '#708090'}; height: 100%; width: ${smeltingProgress}%; border-radius: 4px; transition: width 0.3s;"></div>`;
       html += `<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">${smeltingTimeLeft}s / ${totalTimeSeconds}s</div>`;
       html += `</div>`;
+      // Show speed boost info
+      if (tile.owned) {
+        html += `<p style="color: #FFD700; font-size: 11px; margin: 2px 0;">⚡ +5% Smelting Speed Boost Active</p>`;
+      }
     } else if (smelter.amount > 0 && smelter.smeltingStartTime === null) {
       // Has resources but not smelting (shouldn't happen, but handle it)
       html += `<p style="color: #FF6B6B;">Ready to start smelting ${smelter.mineralType}...</p>`;
@@ -2358,8 +3383,20 @@ function showCellTooltip(event, row, col) {
   
   const tile = gameState.map[row][col];
   
+  // Show ownership info for empty owned tiles
   if (tile.type === "empty") {
-    tooltip.style.display = 'none';
+    if (tile.owned) {
+      const playerName = gameState.playerName || 'Player';
+      let html = `<strong>Empty Tile</strong><br>`;
+      html += `<span style="color: #4CAF50; font-weight: bold;">✓ Owned by ${playerName}</span><br>`;
+      html += `<span style="color: #4CAF50; font-size: 11px;">Protected from random events</span><br>`;
+      html += `<span style="color: #FFD700; font-size: 11px;">⚡ +5% Production Boost (when building is placed)</span>`;
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      positionTooltip(event, tooltip);
+    } else {
+      tooltip.style.display = 'none';
+    }
     return;
   }
   
@@ -2372,19 +3409,58 @@ function showCellTooltip(event, row, col) {
   
   const production = getBuildingProduction(tile.type, tile.level);
   
+  // Calculate actual production with owned boost
+  const ownedBoost = tile.owned ? 1.05 : 1.0;
+  const actualProduction = {
+    wood: production.wood * ownedBoost,
+    stone: production.stone * ownedBoost,
+    clay: production.clay * ownedBoost,
+    iron: production.iron * ownedBoost,
+    coal: production.coal * ownedBoost,
+    bricks: production.bricks * ownedBoost,
+    population: production.population * ownedBoost,
+    capacity: production.capacity * ownedBoost
+  };
+  
   let html = `<strong>${building.displayName}</strong><br>`;
   html += `Level: ${tile.level}<br>`;
-  if (production.wood > 0) html += `Wood/sec: ${formatNumberWithDecimals(production.wood)}<br>`;
-  if (production.stone > 0) html += `Stone/sec: ${formatNumberWithDecimals(production.stone)}<br>`;
-  if (production.clay > 0) html += `Clay/sec: ${formatNumberWithDecimals(production.clay)}<br>`;
-  if (production.iron > 0) html += `Iron/sec: ${formatNumberWithDecimals(production.iron)}<br>`;
-  if (production.coal > 0) html += `Coal/sec: ${formatNumberWithDecimals(production.coal)}<br>`;
-  if (production.population > 0) html += `Population/sec: ${formatNumberWithDecimals(production.population)}<br>`;
-  if (production.capacity > 0) html += `Capacity: ${formatNumber(production.capacity)}<br>`;
   
-  // Special indicator for smelter - fuel requirement
+  // Show ownership information if tile is owned
+  if (tile.owned) {
+    const playerName = gameState.playerName || 'Player';
+    html += `<br><span style="color: #4CAF50; font-weight: bold;">✓ Owned by ${playerName}</span><br>`;
+  }
+  
+  // Helper function to format production with boost info
+  const formatProductionTooltip = (baseValue, actualValue, label) => {
+    if (baseValue <= 0) return '';
+    let text = `${label}/sec: ${formatNumberWithDecimals(actualValue)}`;
+    if (tile.owned && baseValue > 0) {
+      text += ` <span style="color: #FFD700;">(+5%)</span>`;
+    }
+    return text + '<br>';
+  };
+  
+  if (actualProduction.wood > 0) html += formatProductionTooltip(production.wood, actualProduction.wood, 'Wood');
+  if (actualProduction.stone > 0) html += formatProductionTooltip(production.stone, actualProduction.stone, 'Stone');
+  if (actualProduction.clay > 0) html += formatProductionTooltip(production.clay, actualProduction.clay, 'Clay');
+  if (actualProduction.iron > 0) html += formatProductionTooltip(production.iron, actualProduction.iron, 'Iron');
+  if (actualProduction.coal > 0) html += formatProductionTooltip(production.coal, actualProduction.coal, 'Coal');
+  if (actualProduction.population > 0) html += formatProductionTooltip(production.population, actualProduction.population, 'Population');
+  if (actualProduction.capacity > 0) {
+    html += `Capacity: ${formatNumber(actualProduction.capacity)}`;
+    if (tile.owned && production.capacity > 0) {
+      html += ` <span style="color: #FFD700;">(+5%)</span>`;
+    }
+    html += '<br>';
+  }
+  
+  // Special indicator for smelter - fuel requirement and speed boost
   if (tile.type === "smelter" && building.smeltClayWoodAmount) {
     html += `<br><span style="color: #8B4513; font-weight: bold;">🔥 Clay: ${building.smeltClayWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 20px; height: 20px; vertical-align: middle;"> wood or 1 <img src="images/coal.png" alt="Coal" style="width: 20px; height: 20px; vertical-align: middle;"> coal (3 batches) | Iron: ${building.smeltIronWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 20px; height: 20px; vertical-align: middle;"> wood or ${building.smeltIronCoalAmount} <img src="images/coal.png" alt="Coal" style="width: 20px; height: 20px; vertical-align: middle;"> coal per batch</span><br>`;
+    if (tile.owned) {
+      html += `<span style="color: #FFD700; font-weight: bold; font-size: 11px;">⚡ +5% Smelting Speed Boost Active</span><br>`;
+    }
   }
   
   tooltip.innerHTML = html;
@@ -2433,6 +3509,9 @@ function updateUI() {
   if (clayEl) clayEl.textContent = formatNumber(gameState.resources.clay);
   if (ironEl) ironEl.textContent = formatNumber(gameState.resources.iron);
   if (goldEl) goldEl.textContent = formatNumber(gameState.resources.gold);
+  
+  // Refresh town center modal if open (for real-time quest progress updates)
+  refreshTownCenterModalIfOpen();
   if (bricksEl) bricksEl.textContent = formatNumber(gameState.resources.bricks);
   if (ironBarsEl) ironBarsEl.textContent = formatNumber(gameState.resources.ironBars);
   if (coalEl) coalEl.textContent = formatNumber(gameState.resources.coal || 0);
@@ -2708,6 +3787,7 @@ function loadGameSlot(slot) {
       calculateProduction();
       checkUnlocks();
       checkQuests();
+      checkAllTownQuests(); // Check town quests on load
       renderGrid();
       updateUI();
       updateSaveStatus();
@@ -2798,7 +3878,12 @@ function resetGame() {
         housingCapacity: false,
         smeltingSpeed: false
       },
-      quests: []
+      quests: [],
+      merchantCooldowns: {
+        wood: { totalTraded: 0, cooldownStart: null },
+        stone: { totalTraded: 0, cooldownStart: null },
+        clay: { totalTraded: 0, cooldownStart: null }
+      }
     };
     resetBuildingUnlocks();
     initializeQuests();
@@ -3059,11 +4144,11 @@ function showBuildingTooltip(event, buildingType) {
     html += `</p>`;
   }
   
-  // Special info for base marker - claims surrounding tiles
+    // Special info for base marker - claims surrounding tiles in 3x3 area
   if (buildingType === "baseMarker") {
     html += `<p style="margin: 3px 0; padding: 5px; background: rgba(156, 39, 176, 0.2); border-left: 3px solid #9C27B0; border-radius: 3px;">`;
     html += `<strong style="color: #9C27B0;">📍 Special Ability:</strong> `;
-    html += `<span style="color: #9C27B0; font-size: 18px; font-weight: bold;">Claims all surrounding tiles in a 5x5 area, protecting them from random events</span>`;
+    html += `<span style="color: #9C27B0; font-size: 18px; font-weight: bold;">Claims all surrounding tiles in a 3x3 area, protecting them from random events</span>`;
     html += `</p>`;
   }
   
@@ -3148,6 +4233,7 @@ function initializeBuildMenu() {
 // Main game loop
 let lastAutoSave = Date.now();
 let gameLoopInterval = null;
+let merchantCooldownUpdateInterval = null;
 
 function startGameLoop() {
   if (gameLoopInterval) {
@@ -3155,6 +4241,8 @@ function startGameLoop() {
   }
   
   gameLoopInterval = setInterval(() => {
+    // Check town quests periodically
+    checkAllTownQuests();
     try {
       // Only run if game is initialized
       if (!gameState || !gameState.map || gameState.map.length === 0) {
@@ -3477,6 +4565,7 @@ function selectCharacter(characterType) {
   const isNewGame = !gameState.map || gameState.map.length === 0;
   if (isNewGame) {
     resetBuildingUnlocks();
+    // loadExternalQuests();
     initializeQuests();
     initializeGrid();
     // Cycle to next save slot for new game
@@ -3605,6 +4694,24 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
   
   if (fromTile.type === "empty" || toTile.type !== "empty") return false;
   
+  // Cannot move town centers
+  if (fromTile.type && fromTile.type.startsWith('townCenter_')) {
+    showMessage("Cannot move Town Center!");
+    return false;
+  }
+  
+  // Cannot move from town-locked tiles
+  if (fromTile.townId) {
+    showMessage("Cannot move buildings from town-locked tiles!");
+    return false;
+  }
+  
+  // Cannot move to town-locked tiles
+  if (toTile.townId) {
+    showMessage("Cannot move buildings to town-locked tiles!");
+    return false;
+  }
+  
   // Save building data
   const buildingType = fromTile.type;
   const buildingLevel = fromTile.level;
@@ -3632,6 +4739,55 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
     }
     const newKey = `${toRow}_${toCol}`;
     gameState.smelters[newKey] = smelterData;
+  }
+  
+  // Check for town pattern after moving a building
+  // This allows completing a town pattern by dragging a cabin or other building into position
+  let patternFound = false;
+  
+  // Check all possible cabin center positions that could form a 3x3 pattern with the moved building
+  const minRow = Math.max(1, toRow - 2);
+  const maxRow = Math.min(GRID_SIZE - 2, toRow + 2);
+  const minCol = Math.max(1, toCol - 2);
+  const maxCol = Math.min(GRID_SIZE - 2, toCol + 2);
+  
+  console.log(`🔍 Checking for town patterns after moving ${buildingType} to (${toRow}, ${toCol})`);
+  console.log(`   Scanning cabin centers from (${minRow}, ${minCol}) to (${maxRow}, ${maxCol})`);
+  
+  // Check all possible cabin center positions
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const tile = gameState.map[r][c];
+      
+      // Check if this position is a cabin (either existing or just moved here)
+      const isCabin = (r === toRow && c === toCol && buildingType === "cabin") || 
+                      (tile && tile.type === "cabin");
+      
+      if (isCabin && tile && !tile.townId) {
+        console.log(`   Checking pattern with cabin center at (${r}, ${c})...`);
+        const result = checkTownPattern(r, c);
+        if (result >= 0) {
+          console.log(`   ✅ Town pattern detected at (${r}, ${c}) with rotation ${result * 90}°`);
+          patternFound = true;
+          break; // Pattern found, no need to check other positions
+        } else {
+          console.log(`   ❌ No pattern match at (${r}, ${c})`);
+        }
+      }
+    }
+    if (patternFound) break; // Pattern found, no need to check other positions
+  }
+  
+  // As a final comprehensive check, scan ALL cabins on the entire map
+  if (!patternFound) {
+    console.log(`   Performing comprehensive scan of all cabins on map...`);
+    const patternsFound = checkAllCabinsForPatterns();
+    if (patternsFound > 0) {
+      console.log(`   ✅ Found ${patternsFound} town pattern(s) by comprehensive scan`);
+      patternFound = true;
+    } else {
+      console.log(`   ❌ No patterns found in comprehensive scan`);
+    }
   }
   
   calculateProduction();
@@ -4009,6 +5165,374 @@ function toggleQuests() {
   });
 }
 
+// Open Town Center modal
+let currentTownId = null;
+let currentTownRow = null;
+let currentTownCol = null;
+
+function openTownCenterModal(townId, row, col) {
+  currentTownId = townId;
+  currentTownRow = row;
+  currentTownCol = col;
+  
+  const town = gameState.towns[townId];
+  if (!town) return;
+  
+  // Update modal title
+  const titleEl = document.getElementById('town-center-title');
+  if (titleEl) {
+    titleEl.textContent = `Town Center (Level ${town.level})`;
+  }
+  
+  // Update quest section with enhanced UI
+  const questSectionEl = document.getElementById('town-quest-content');
+  
+  if (town.level >= 10) {
+    if (questSectionEl) {
+      questSectionEl.innerHTML = `
+        <div class="quest-completed-badge" style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 10px;">🏆</div>
+          <p style="color: #4CAF50; font-size: 18px; font-weight: bold;">Maximum Level Reached!</p>
+          <p style="color: #aaa; margin-top: 5px;">Your town has reached its full potential.</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: stretch; margin-top: 15px;">
+          <div class="quest-status-badge" style="flex: 1; padding: 12px; border-radius: 8px; text-align: center; background: rgba(76, 175, 80, 0.2); border: 2px solid #4CAF50;">
+            <div style="color: #4CAF50; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <span style="font-size: 20px;">✅</span>
+              <span>Maximum Level</span>
+            </div>
+          </div>
+          <button class="shop-buy-btn" disabled style="flex: 1; padding: 12px; font-size: 14px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;">Maximum Level</button>
+        </div>
+      `;
+    }
+  } else {
+    const questDef = townQuestDefinitions.find(q => q.level === town.level);
+    if (questDef && questSectionEl) {
+      const isCompleted = town.questsCompleted.includes(questDef.id);
+      const canComplete = questDef.checkCondition();
+      const progress = getQuestProgress(questDef);
+      
+      let html = '';
+      
+      // Quest title and description
+      html += `<div class="quest-header" style="margin-bottom: 15px;">`;
+      html += `<h4 style="color: #FFD700; margin-bottom: 5px; font-size: 16px;">Level ${town.level} Quest</h4>`;
+      html += `<p style="color: #fff; font-size: 14px; margin: 0;">${questDef.description}</p>`;
+      html += `</div>`;
+      
+      // Progress display
+      if (progress && progress.type !== 'simple') {
+        html += `<div class="quest-progress-container" style="margin-bottom: 15px;">`;
+        
+        // Progress bar
+        html += `<div class="quest-progress-bar-container" style="background: rgba(0,0,0,0.3); border-radius: 10px; height: 30px; margin-bottom: 10px; overflow: hidden; position: relative;">`;
+        html += `<div class="quest-progress-bar-fill" style="background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); height: 100%; width: ${progress.percentage}%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px;">`;
+        if (progress.percentage > 50) {
+          html += `<span style="color: white; font-weight: bold; font-size: 12px;">${progress.percentage}%</span>`;
+        }
+        html += `</div>`;
+        if (progress.percentage <= 50) {
+          html += `<span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: white; font-weight: bold; font-size: 12px;">${progress.percentage}%</span>`;
+        }
+        html += `</div>`;
+        
+        // Progress details
+        html += `<div class="quest-progress-details" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">`;
+        html += `<div style="display: flex; align-items: center; gap: 8px;">`;
+        html += `<span style="font-size: 20px;">${progress.icon || '📋'}</span>`;
+        html += `<span style="color: #fff; font-weight: bold;">${progress.current}</span>`;
+        html += `<span style="color: #aaa;">/ ${progress.target} ${progress.details.unit || ''}</span>`;
+        html += `</div>`;
+        
+        if (progress.buildingCapReward) {
+          html += `<div style="color: #4CAF50; font-size: 12px;">+${questDef.buildingCapReward} Building Cap</div>`;
+        }
+        html += `</div>`;
+        
+        html += `</div>`;
+      } else {
+        // Simple quest without progress tracking
+        html += `<div style="margin-bottom: 15px;">`;
+        html += `<p style="color: #aaa; font-size: 13px;">Complete this quest to upgrade your town.</p>`;
+        if (questDef.buildingCapReward) {
+          html += `<div style="color: #4CAF50; font-size: 12px; margin-top: 5px;">Reward: +${questDef.buildingCapReward} Building Cap</div>`;
+        }
+        html += `</div>`;
+      }
+      
+      // Status badge and upgrade button container
+      html += `<div style="display: flex; gap: 10px; align-items: stretch;">`;
+      
+      // Status badge
+      html += `<div class="quest-status-badge" style="flex: 1; padding: 12px; border-radius: 8px; text-align: center; `;
+      if (isCompleted || canComplete) {
+        html += `background: rgba(76, 175, 80, 0.2); border: 2px solid #4CAF50;`;
+      } else {
+        html += `background: rgba(255, 193, 7, 0.2); border: 2px solid #FFC107;`;
+      }
+      html += `">`;
+      
+      if (isCompleted || canComplete) {
+        html += `<div style="color: #4CAF50; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">`;
+        html += `<span style="font-size: 20px;">✅</span>`;
+        html += `<span>Ready to Upgrade!</span>`;
+        html += `</div>`;
+      } else {
+        html += `<div style="color: #FFC107; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">`;
+        html += `<span style="font-size: 20px;">⏳</span>`;
+        html += `<span>Quest in Progress</span>`;
+        html += `</div>`;
+      }
+      
+      html += `</div>`;
+      
+      // Upgrade button next to status badge
+      const canUpgrade = isCompleted || canComplete;
+      html += `<button class="shop-buy-btn" onclick="upgradeTownFromModal()" `;
+      if (!canUpgrade) {
+        html += `disabled `;
+      }
+      html += `style="flex: 1; padding: 12px; font-size: 14px; white-space: nowrap;`;
+      if (canUpgrade) {
+        html += `background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);`;
+      }
+      html += `">`;
+      if (canUpgrade) {
+        html += `⬆️ Upgrade Town`;
+      } else {
+        html += `Complete Quest First`;
+      }
+      html += `</button>`;
+      
+      html += `</div>`;
+      
+      questSectionEl.innerHTML = html;
+    }
+  }
+  
+  // Update merchants section
+  const merchantsEl = document.getElementById('town-merchants-content');
+  if (merchantsEl) {
+    const availableMerchants = getAvailableMerchants(townId);
+    if (availableMerchants.length === 0) {
+      merchantsEl.innerHTML = '<p style="color: #aaa;">No merchants available yet. Complete quests to unlock merchants.</p>';
+    } else {
+      // Preserve slider values before regenerating HTML
+      const preservedSliderValues = {};
+      ['wood', 'stone', 'clay'].forEach(resource => {
+        const sliderId = `merchant-${resource}-slider`;
+        const existingSlider = document.getElementById(sliderId);
+        if (existingSlider) {
+          preservedSliderValues[resource] = parseInt(existingSlider.value) || 0;
+        }
+      });
+      
+      let html = '';
+      availableMerchants.forEach(merchant => {
+        html += `<div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">`;
+        html += `<h4 style="color: #FFD700; margin-bottom: 10px;">${merchant.name}</h4>`;
+        merchant.trades.forEach(trade => {
+          // Check if this is a slider-based resource trade (wood, stone, clay)
+          if (trade.type === 'resource_trade' && trade.resource && ['wood', 'stone', 'clay'].includes(trade.resource)) {
+            const resource = trade.resource;
+            const exchangeRate = trade.exchangeRate || 10;
+            const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+            const resourceImage = resource === 'wood' ? 'wood-log.png' : resource === 'stone' ? 'rock.png' : 'clay.png';
+            
+            // Use preserved value if available, otherwise 0
+            const initialValue = preservedSliderValues[resource] || 0;
+            
+            html += `<div style="margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 5px;">`;
+            html += `<strong style="color: #FFD700;">Sell ${resourceName}</strong><br>`;
+            html += `<span style="display: inline-flex; align-items: center; gap: 5px; margin: 5px 0; font-size: 12px; color: #aaa;">`;
+            html += `<span style="display: inline-flex; align-items: center; gap: 3px;"><span style="font-weight: bold;">${exchangeRate}</span> <img src="images/${resourceImage}" alt="${resourceName}" style="width: 16px; height: 16px; vertical-align: middle;"></span>`;
+            html += `<span>:</span>`;
+            html += `<span style="display: inline-flex; align-items: center; gap: 3px;"><span style="font-weight: bold;">1</span> <img src="images/gold.png" alt="Gold" style="width: 16px; height: 16px; vertical-align: middle;"></span>`;
+            html += `</span>`;
+            
+            html += `<div style="margin: 10px 0;">`;
+            html += `<label for="merchant-${resource}-slider" style="display: block; margin-bottom: 8px; color: #fff; font-size: 13px;">`;
+            html += `Amount: <span id="merchant-${resource}-amount">0</span> ${resource}`;
+            html += `</label>`;
+            html += `<div class="brick-slider-wrapper">`;
+            html += `<div class="brick-slider-fill" id="merchant-${resource}-slider-fill"></div>`;
+            html += `<input type="range" id="merchant-${resource}-slider" min="0" max="100" step="${exchangeRate}" value="${initialValue}" `;
+            html += `oninput="updateMerchantResourceTrade('${resource}', ${exchangeRate}, this.value)">`;
+            html += `</div>`;
+            html += `</div>`;
+            
+            html += `<div class="shop-item-cost" style="margin: 10px 0;">`;
+            html += `<span class="shop-cost-item">`;
+            html += `<img src="images/${resourceImage}" alt="${resourceName}" style="width: 24px; height: 24px; vertical-align: middle;">`;
+            html += `<span id="merchant-${resource}-cost-display">0</span>`;
+            html += `</span>`;
+            html += `<span style="margin: 0 10px;">→</span>`;
+            html += `<span class="shop-cost-item">`;
+            html += `<img src="images/gold.png" alt="Gold" style="width: 24px; height: 24px; vertical-align: middle;">`;
+            html += `<span id="merchant-${resource}-gold-reward-display">0</span>`;
+            html += `</span>`;
+            html += `</div>`;
+            
+            html += `<div id="merchant-${resource}-cooldown-status" style="margin-top: 5px;"></div>`;
+            html += `<button id="merchant-sell-${resource}-btn" class="shop-buy-btn" style="width: 100%; margin-top: 5px;" onclick="executeMerchantResourceTrade('${townId}', '${resource}', ${exchangeRate})">Sell</button>`;
+            html += `</div>`;
+          } else {
+            // Regular trade button for non-slider trades
+            html += `<div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">`;
+            html += `<strong>${trade.name}</strong><br>`;
+            html += `<span style="font-size: 12px; color: #aaa;">${trade.description}</span>`;
+            html += `<button class="shop-buy-btn" style="margin-top: 5px; width: 100%;" onclick="executeMerchantTrade('${townId}', '${trade.id}')">Trade</button>`;
+            html += `</div>`;
+          }
+        });
+        html += `</div>`;
+      });
+      merchantsEl.innerHTML = html;
+      
+      // Initialize merchant sliders after HTML is inserted, using preserved values
+      requestAnimationFrame(() => {
+        availableMerchants.forEach(merchant => {
+          merchant.trades.forEach(trade => {
+            if (trade.type === 'resource_trade' && trade.resource && ['wood', 'stone', 'clay'].includes(trade.resource)) {
+              const preservedValue = preservedSliderValues[trade.resource];
+              updateMerchantResourceTrade(trade.resource, trade.exchangeRate || 10, preservedValue);
+            }
+          });
+        });
+      });
+    }
+  }
+  
+  // Upgrade button is now part of the quest section HTML, no need to update separately
+  
+  // Show modal (don't toggle if already open)
+  const modal = document.getElementById('town-center-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+  
+  // Start cooldown update timer if not already running
+  if (merchantCooldownUpdateInterval) {
+    clearInterval(merchantCooldownUpdateInterval);
+  }
+  merchantCooldownUpdateInterval = setInterval(() => {
+    // Update all merchant sliders to refresh cooldown displays
+    if (currentTownId !== null) {
+      const availableMerchants = getAvailableMerchants(currentTownId);
+      availableMerchants.forEach(merchant => {
+        merchant.trades.forEach(trade => {
+          if (trade.type === 'resource_trade' && trade.resource && ['wood', 'stone', 'clay'].includes(trade.resource)) {
+            const slider = document.getElementById(`merchant-${trade.resource}-slider`);
+            if (slider) {
+              updateMerchantResourceTrade(trade.resource, trade.exchangeRate || 10, slider.value);
+            }
+          }
+        });
+      });
+    }
+  }, 1000); // Update every second
+}
+
+function closeTownCenterModal() {
+  toggleModal('town-center-modal');
+  currentTownId = null;
+  currentTownRow = null;
+  currentTownCol = null;
+  
+  // Clear cooldown update timer
+  if (merchantCooldownUpdateInterval) {
+    clearInterval(merchantCooldownUpdateInterval);
+    merchantCooldownUpdateInterval = null;
+  }
+}
+
+// Refresh town center modal if it's currently open (for real-time updates)
+function refreshTownCenterModalIfOpen() {
+  if (currentTownId !== null && currentTownRow !== null && currentTownCol !== null) {
+    const modal = document.getElementById('town-center-modal');
+    if (modal && modal.style.display === 'flex') {
+      openTownCenterModal(currentTownId, currentTownRow, currentTownCol);
+    }
+  }
+}
+
+function upgradeTownFromModal() {
+  if (currentTownId) {
+    if (levelUpTown(currentTownId)) {
+      // Refresh modal
+      openTownCenterModal(currentTownId, currentTownRow, currentTownCol);
+    }
+  }
+}
+
+function executeMerchantTrade(townId, tradeId) {
+  const town = gameState.towns[townId];
+  if (!town) return;
+  
+  // Find the merchant and trade
+  let trade = null;
+  let merchant = null;
+  
+  for (const merchantId of town.merchantUnlocks) {
+    const m = merchantDefinitions[merchantId];
+    if (m) {
+      const t = m.trades.find(tr => tr.id === tradeId);
+      if (t) {
+        trade = t;
+        merchant = m;
+        break;
+      }
+    }
+  }
+  
+  if (!trade) {
+    showMessage("Trade not found!");
+    return;
+  }
+  
+  // Check if player can afford
+  if (!canAfford(trade.cost)) {
+    showMessage("Cannot afford this trade!");
+    return;
+  }
+  
+  // Execute trade
+  deductCost(trade.cost);
+  
+  // Apply reward
+  if (trade.type === 'resource_trade') {
+    for (const [resource, amount] of Object.entries(trade.reward)) {
+      if (!gameState.resources.hasOwnProperty(resource)) {
+        gameState.resources[resource] = 0;
+      }
+      gameState.resources[resource] += amount;
+    }
+    showMessage(`Trade completed! Received ${Object.entries(trade.reward).map(([r, a]) => `${a} ${r}`).join(', ')}.`);
+  } else if (trade.type === 'boost') {
+    // TODO: Implement boost system if needed
+    showMessage(`Boost activated: ${trade.name}`);
+  } else if (trade.type === 'upgrade') {
+    // TODO: Implement discount system if needed
+    showMessage(`Upgrade applied: ${trade.name}`);
+  } else if (trade.type === 'permanent_upgrade') {
+    if (trade.reward.permanentUpgrade) {
+      // Apply permanent upgrade
+      showMessage(`Permanent upgrade applied: ${trade.name}`);
+    } else if (trade.reward.extraBuildingCap) {
+      gameState.globalBuildingCap += trade.reward.extraBuildingCap;
+      showMessage(`Building capacity increased by ${trade.reward.extraBuildingCap}!`);
+    }
+  }
+  
+  updateUI();
+  
+  // Refresh modal
+  if (currentTownId === townId) {
+    openTownCenterModal(townId, currentTownRow, currentTownCol);
+  }
+}
+
 // Show quest completion popup
 function showQuestCompletionPopup(questDef) {
   const popup = document.getElementById('quest-completion-popup');
@@ -4070,107 +5594,131 @@ function closeQuestCompletionPopup() {
 }
 
 // Update brick trade display
-function updateBrickTrade(amount) {
-  const slider = document.getElementById('brick-slider');
+// Generic resource trade update function
+function updateResourceTrade(resourceName, exchangeRate, step, amount) {
+  // Handle brick/bricks naming inconsistency
+  const sliderId = resourceName === 'bricks' ? 'brick-slider' : `${resourceName}-slider`;
+  const amountId = resourceName === 'bricks' ? 'brick-amount' : `${resourceName}-amount`;
+  const costDisplayId = resourceName === 'bricks' ? 'brick-cost-display' : `${resourceName}-cost-display`;
+  // For bricks, use 'gold-reward-display' for backward compatibility, otherwise use resource-specific ID
+  const rewardDisplayId = resourceName === 'bricks' ? 'gold-reward-display' : `${resourceName}-gold-reward-display`;
+  const fillBarId = resourceName === 'bricks' ? 'brick-slider-fill' : `${resourceName}-slider-fill`;
+  const sellBtnId = resourceName === 'bricks' ? 'sell-bricks-btn' : `sell-${resourceName}-btn`;
+  
+  const slider = document.getElementById(sliderId);
   if (!slider) return;
   
-  // Always update slider max based on available bricks (rounded down to nearest 5)
-  const maxBricks = Math.floor(gameState.resources.bricks);
+  const maxResource = Math.floor(gameState.resources[resourceName] || 0);
   
-  // If player has less than 5 bricks, set everything to 0 and disable slider
-  if (maxBricks < 5) {
+  // If player has less than exchange rate, disable slider
+  if (maxResource < exchangeRate) {
     slider.disabled = true;
-    slider.min = 0; // Allow 0 value
-    slider.max = 5; // Keep max at minimum valid range
+    slider.min = 0;
+    slider.max = exchangeRate;
     slider.value = 0;
     
-    // Update slider filled portion (green trail) to 0%
-    const fillBar = document.getElementById('brick-slider-fill');
+    const fillBar = document.getElementById(fillBarId);
     if (fillBar) {
       fillBar.style.width = '0%';
     }
     
-    // Set all displays to 0
-    document.getElementById('brick-amount').textContent = '0';
-    document.getElementById('brick-cost-display').textContent = '0';
-    document.getElementById('gold-reward-display').textContent = '0';
+    const amountEl = document.getElementById(amountId);
+    const costEl = document.getElementById(costDisplayId);
+    const rewardEl = document.getElementById(rewardDisplayId);
+    if (amountEl) amountEl.textContent = '0';
+    if (costEl) costEl.textContent = '0';
+    if (rewardEl) rewardEl.textContent = '0';
     
-    // Disable sell button
-    const sellBricksBtn = document.getElementById('sell-bricks-btn');
-    if (sellBricksBtn) {
-      sellBricksBtn.disabled = true;
-      sellBricksBtn.title = `Not enough bricks (need 5, have ${maxBricks})`;
+    const sellBtn = document.getElementById(sellBtnId);
+    if (sellBtn) {
+      // Only update disabled state if it actually changed to prevent flashing
+      if (!sellBtn.disabled) {
+        sellBtn.disabled = true;
+      }
+      sellBtn.title = `Not enough ${resourceName} (need ${exchangeRate}, have ${maxResource})`;
     }
     return;
   }
   
-  // Player has at least 5 bricks, enable slider
-  const maxSliderValue = Math.floor(maxBricks / 5) * 5; // Round down to nearest 5
+  // Player has enough, enable slider
+  const maxSliderValue = Math.floor(maxResource / step) * step;
   
-  // Get the current or provided amount and ensure it's within valid range and a multiple of 5
-  // Allow 0 as a valid value
   const currentValue = parseInt(amount || slider.value || 0);
-  // Round to nearest multiple of 5 to match step (0 is valid)
-  const roundedValue = Math.round(currentValue / 5) * 5;
-  const brickAmount = Math.max(0, Math.min(roundedValue, maxSliderValue));
+  const roundedValue = Math.round(currentValue / step) * step;
+  const resourceAmount = Math.max(0, Math.min(roundedValue, maxSliderValue));
   
-  // Update max first, then value (order matters for browser compatibility)
-  // Set min to 0 to allow user to choose 0 bricks
   slider.disabled = false;
   slider.min = 0;
   slider.max = maxSliderValue;
   
-  // Calculate progress percentage (this determines both green fill and thumb position)
-  // When maxSliderValue is 0 (shouldn't happen here, but handle it), progress is 0
-  const progress = maxSliderValue > 0 ? (brickAmount / maxSliderValue) * 100 : 0;
+  const progress = maxSliderValue > 0 ? (resourceAmount / maxSliderValue) * 100 : 0;
   
-  // Set the slider value immediately
-  slider.value = brickAmount;
+  slider.value = resourceAmount;
   
-  // Use requestAnimationFrame to ensure browser updates thumb position after max change
-  // This ensures the thumb follows the green fill correctly
   requestAnimationFrame(() => {
-    slider.value = brickAmount;
-    // Update slider filled portion (green trail) - matches thumb position
-    const fillBar = document.getElementById('brick-slider-fill');
+    slider.value = resourceAmount;
+    const fillBar = document.getElementById(fillBarId);
     if (fillBar) {
       fillBar.style.width = `${progress}%`;
     }
   });
   
-  // Update slider filled portion (green trail) immediately for visual feedback
-  const fillBar = document.getElementById('brick-slider-fill');
+  const fillBar = document.getElementById(fillBarId);
   if (fillBar) {
     fillBar.style.width = `${progress}%`;
   }
   
-  const goldReward = Math.floor(brickAmount / 5);
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
   
-  document.getElementById('brick-amount').textContent = brickAmount;
-  document.getElementById('brick-cost-display').textContent = brickAmount;
-  document.getElementById('gold-reward-display').textContent = goldReward;
+  const amountEl = document.getElementById(amountId);
+  const costEl = document.getElementById(costDisplayId);
+  const rewardEl = document.getElementById(rewardDisplayId);
+  if (amountEl) amountEl.textContent = resourceAmount;
+  if (costEl) costEl.textContent = resourceAmount;
+  if (rewardEl) rewardEl.textContent = goldReward;
   
-  // Update button state - disable if 0 bricks or not enough bricks
-  const sellBricksBtn = document.getElementById('sell-bricks-btn');
-  if (sellBricksBtn) {
-    const canAfford = brickAmount > 0 && gameState.resources.bricks >= brickAmount;
-    sellBricksBtn.disabled = !canAfford;
-    if (brickAmount === 0) {
-      sellBricksBtn.title = 'Select an amount of bricks to sell';
+  const sellBtn = document.getElementById(sellBtnId);
+  if (sellBtn) {
+    const canAfford = resourceAmount > 0 && gameState.resources[resourceName] >= resourceAmount;
+    const shouldBeDisabled = !canAfford;
+    
+    // Only update disabled state if it actually changed to prevent flashing
+    if (sellBtn.disabled !== shouldBeDisabled) {
+      sellBtn.disabled = shouldBeDisabled;
+    }
+    
+    if (resourceAmount === 0) {
+      sellBtn.title = `Select an amount of ${resourceName} to sell`;
     } else if (!canAfford) {
-      sellBricksBtn.title = `Not enough bricks (need ${brickAmount}, have ${Math.floor(gameState.resources.bricks)})`;
+      sellBtn.title = `Not enough ${resourceName} (need ${resourceAmount}, have ${maxResource})`;
     } else {
-      sellBricksBtn.title = `Sell ${brickAmount} Clay Bricks for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}`;
+      sellBtn.title = `Sell ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}`;
     }
   }
 }
 
+function updateBrickTrade(amount) {
+  updateResourceTrade('bricks', 5, 5, amount);
+}
+
+function updateWoodTrade(amount) {
+  updateResourceTrade('wood', 10, 10, amount);
+}
+
+function updateStoneTrade(amount) {
+  updateResourceTrade('stone', 10, 10, amount);
+}
+
+function updateClayTrade(amount) {
+  updateResourceTrade('clay', 10, 10, amount);
+}
+
 // Update shop UI to reflect current resources
 function updateShopUI() {
-  const slider = document.getElementById('brick-slider');
-  if (slider) {
-    // Update the slider max first, then update the trade display
-    updateBrickTrade(slider.value);
+  // Update brick slider (wood, stone, and clay moved to merchant menu)
+  const brickSlider = document.getElementById('brick-slider');
+  if (brickSlider) {
+    updateBrickTrade(brickSlider.value);
   }
   
   // Update upgrade buttons
@@ -4205,27 +5753,355 @@ function updateShopUI() {
   });
 }
 
-// Sell bricks for gold
-function sellBricksForGold() {
-  const slider = document.getElementById('brick-slider');
-  const brickAmount = slider ? parseInt(slider.value) : 0;
+// Generic resource sell function
+function sellResourceForGold(resourceName, exchangeRate, displayName) {
+  const sliderId = `${resourceName}-slider`;
+  const slider = document.getElementById(sliderId);
+  const resourceAmount = slider ? parseInt(slider.value) : 0;
   
-  // Don't allow selling 0 bricks
-  if (brickAmount <= 0) {
-    showMessage(`Please select an amount of bricks to sell.`);
+  if (resourceAmount <= 0) {
+    if (typeof showMessage === 'function') {
+      showMessage(`Please select an amount of ${displayName.toLowerCase()} to sell.`);
+    }
     return;
   }
   
-  const goldReward = Math.floor(brickAmount / 5);
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
   
-  if (gameState.resources.bricks >= brickAmount) {
-    gameState.resources.bricks -= brickAmount;
+  if (gameState.resources[resourceName] >= resourceAmount) {
+    gameState.resources[resourceName] -= resourceAmount;
     gameState.resources.gold += goldReward;
-    updateUI();
-    updateShopUI();
-    showMessage(`Sold ${brickAmount} Clay Bricks for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}!`);
+    if (typeof updateUI === 'function') {
+      updateUI();
+    }
+    if (typeof updateShopUI === 'function') {
+      updateShopUI();
+    }
+    if (typeof showMessage === 'function') {
+      showMessage(`Sold ${resourceAmount} ${displayName} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}!`);
+    }
   } else {
-    showMessage(`Not enough bricks! Need ${brickAmount} bricks, have ${Math.floor(gameState.resources.bricks)}.`);
+    if (typeof showMessage === 'function') {
+      showMessage(`Not enough ${displayName.toLowerCase()}! Need ${resourceAmount} ${displayName.toLowerCase()}, have ${Math.floor(gameState.resources[resourceName])}.`);
+    }
+  }
+}
+
+// Sell bricks for gold
+function sellBricksForGold() {
+  sellResourceForGold('bricks', 5, 'Clay Bricks');
+}
+
+// Sell wood for gold
+function sellWoodForGold() {
+  sellResourceForGold('wood', 10, 'Wood');
+}
+
+// Sell stone for gold
+function sellStoneForGold() {
+  sellResourceForGold('stone', 10, 'Stone');
+}
+
+// Sell clay for gold
+function sellClayForGold() {
+  sellResourceForGold('clay', 10, 'Clay');
+}
+
+// Merchant-specific resource trade update function
+function updateMerchantResourceTrade(resourceName, exchangeRate, amount) {
+  const sliderId = `merchant-${resourceName}-slider`;
+  const amountId = `merchant-${resourceName}-amount`;
+  const costDisplayId = `merchant-${resourceName}-cost-display`;
+  const rewardDisplayId = `merchant-${resourceName}-gold-reward-display`;
+  const fillBarId = `merchant-${resourceName}-slider-fill`;
+  const sellBtnId = `merchant-sell-${resourceName}-btn`;
+  
+  const slider = document.getElementById(sliderId);
+  if (!slider) return;
+  
+  // Ensure gameState and resources exist
+  if (!gameState || !gameState.resources) {
+    console.error('updateMerchantResourceTrade: gameState.resources is not available');
+    return;
+  }
+  
+  // Get resource value - access it directly using bracket notation
+  // resourceName should be 'wood', 'stone', or 'clay'
+  // Access resources object property directly to ensure we get the correct value
+  let resourceValue = gameState.resources[resourceName];
+  
+  // If accessing via bracket notation fails, try direct property access as fallback
+  if (resourceValue === undefined && resourceName === 'stone' && 'stone' in gameState.resources) {
+    resourceValue = gameState.resources.stone;
+  } else if (resourceValue === undefined && resourceName === 'wood' && 'wood' in gameState.resources) {
+    resourceValue = gameState.resources.wood;
+  } else if (resourceValue === undefined && resourceName === 'clay' && 'clay' in gameState.resources) {
+    resourceValue = gameState.resources.clay;
+  }
+  
+  // Convert to number and ensure it's valid (handle undefined, null, or NaN)
+  const maxResource = Math.floor((resourceValue !== undefined && resourceValue !== null && !isNaN(resourceValue)) 
+    ? Number(resourceValue) 
+    : 0);
+  
+  // If player has less than exchange rate, disable slider
+  if (maxResource < exchangeRate) {
+    slider.disabled = true;
+    slider.min = 0;
+    slider.max = exchangeRate;
+    slider.value = 0;
+    
+    const fillBar = document.getElementById(fillBarId);
+    if (fillBar) {
+      fillBar.style.width = '0%';
+    }
+    
+    const amountEl = document.getElementById(amountId);
+    const costEl = document.getElementById(costDisplayId);
+    const rewardEl = document.getElementById(rewardDisplayId);
+    if (amountEl) amountEl.textContent = '0';
+    if (costEl) costEl.textContent = '0';
+    if (rewardEl) rewardEl.textContent = '0';
+    
+    const sellBtn = document.getElementById(sellBtnId);
+    if (sellBtn) {
+      // Only update disabled state if it actually changed to prevent flashing
+      if (!sellBtn.disabled) {
+        sellBtn.disabled = true;
+      }
+      sellBtn.title = `Not enough ${resourceName} (need ${exchangeRate}, have ${maxResource})`;
+    }
+    return;
+  }
+  
+  // Check cooldown status
+  const cooldownStatus = getMerchantCooldownStatus(resourceName);
+  
+  // Calculate max slider value based on available resources AND cooldown limit
+  // Cooldown limits to 100 units total, so we need to round down the remaining amount to the nearest exchange rate multiple
+  const maxResourceByCooldown = cooldownStatus.canTrade 
+    ? Math.floor(cooldownStatus.remainingTradeAmount / exchangeRate) * exchangeRate 
+    : 0;
+  const maxResourceByAvailable = Math.floor(maxResource / exchangeRate) * exchangeRate;
+  
+  // Player has enough, but check cooldown status
+  let maxSliderValue;
+  if (!cooldownStatus.canTrade) {
+    // On cooldown - disable slider
+    maxSliderValue = 0;
+    slider.disabled = true;
+  } else {
+    // Not on cooldown - limit by both available resources and remaining trade amount
+    // Take the minimum of what's available and what the cooldown allows
+    maxSliderValue = Math.min(maxResourceByAvailable, maxResourceByCooldown);
+    slider.disabled = maxSliderValue < exchangeRate;
+  }
+  
+  // Preserve current slider value if amount is not provided or is undefined
+  // Only use the provided amount if it's explicitly passed (not undefined)
+  let currentValue;
+  if (amount !== undefined && amount !== null) {
+    currentValue = parseInt(amount);
+  } else {
+    // Preserve existing slider value
+    currentValue = parseInt(slider.value) || 0;
+  }
+  
+  const roundedValue = Math.round(currentValue / exchangeRate) * exchangeRate;
+  // Clamp to both maxSliderValue and remaining trade amount (already rounded in maxSliderValue, but double-check)
+  const maxByRemainingTrade = cooldownStatus.canTrade 
+    ? Math.floor(cooldownStatus.remainingTradeAmount / exchangeRate) * exchangeRate 
+    : 0;
+  const resourceAmount = Math.max(0, Math.min(roundedValue, maxSliderValue, maxByRemainingTrade));
+  
+  slider.min = 0;
+  slider.max = maxSliderValue;
+  
+  const progress = maxSliderValue > 0 ? (resourceAmount / maxSliderValue) * 100 : 0;
+  
+  slider.value = resourceAmount;
+  
+  requestAnimationFrame(() => {
+    slider.value = resourceAmount;
+    const fillBar = document.getElementById(fillBarId);
+    if (fillBar) {
+      fillBar.style.width = `${progress}%`;
+    }
+  });
+  
+  const fillBar = document.getElementById(fillBarId);
+  if (fillBar) {
+    fillBar.style.width = `${progress}%`;
+  }
+  
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
+  
+  const amountEl = document.getElementById(amountId);
+  const costEl = document.getElementById(costDisplayId);
+  const rewardEl = document.getElementById(rewardDisplayId);
+  if (amountEl) amountEl.textContent = resourceAmount;
+  if (costEl) costEl.textContent = resourceAmount;
+  if (rewardEl) rewardEl.textContent = goldReward;
+  
+  const sellBtn = document.getElementById(sellBtnId);
+  if (sellBtn) {
+    const canAfford = resourceAmount > 0 && gameState.resources[resourceName] >= resourceAmount;
+    const canTrade = cooldownStatus.canTrade && resourceAmount > 0;
+    const shouldBeDisabled = !canAfford || !canTrade;
+    
+    // Only update disabled state if it actually changed to prevent flashing
+    if (sellBtn.disabled !== shouldBeDisabled) {
+      sellBtn.disabled = shouldBeDisabled;
+    }
+    
+    // Update button title with cooldown info
+    if (!cooldownStatus.canTrade) {
+      if (cooldownStatus.isOnCooldown) {
+        const totalSeconds = Math.floor(cooldownStatus.remainingCooldown / 1000);
+        const minutesRemaining = Math.floor(totalSeconds / 60);
+        const secondsRemaining = totalSeconds % 60;
+        sellBtn.title = `This trader is on cooldown! Wait ${minutesRemaining}:${secondsRemaining.toString().padStart(2, '0')} before trading ${resourceName} again.`;
+      } else {
+        sellBtn.title = `This trader has reached the 100 unit limit and is on cooldown. Wait 5 minutes.`;
+      }
+    } else if (resourceAmount === 0) {
+      sellBtn.title = `Select an amount of ${resourceName} to sell (${cooldownStatus.remainingTradeAmount}/100 remaining before cooldown)`;
+    } else if (!canAfford) {
+      sellBtn.title = `Not enough ${resourceName} (need ${resourceAmount}, have ${maxResource})`;
+    } else {
+      sellBtn.title = `Sell ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''} (${cooldownStatus.remainingTradeAmount - resourceAmount}/100 remaining)`;
+    }
+  }
+  
+  // Update cooldown status display
+  const cooldownStatusId = `merchant-${resourceName}-cooldown-status`;
+  const cooldownStatusEl = document.getElementById(cooldownStatusId);
+  if (cooldownStatusEl) {
+    if (!cooldownStatus.canTrade) {
+      if (cooldownStatus.isOnCooldown) {
+        const totalSeconds = Math.floor(cooldownStatus.remainingCooldown / 1000);
+        const minutesRemaining = Math.floor(totalSeconds / 60);
+        const secondsRemaining = totalSeconds % 60;
+        cooldownStatusEl.innerHTML = `<div style="color: #FF9800; font-size: 12px; margin-top: 5px;">⏱️ Cooldown: ${minutesRemaining}:${secondsRemaining.toString().padStart(2, '0')} remaining</div>`;
+      } else {
+        cooldownStatusEl.innerHTML = `<div style="color: #FF9800; font-size: 12px; margin-top: 5px;">⏱️ Cooldown: 5:00 remaining</div>`;
+      }
+    } else {
+      cooldownStatusEl.innerHTML = `<div style="color: #4CAF50; font-size: 12px; margin-top: 5px;">✓ ${cooldownStatus.remainingTradeAmount}/100 units available before cooldown</div>`;
+    }
+  }
+}
+
+// Check merchant cooldown status for a resource
+function getMerchantCooldownStatus(resourceName) {
+  if (!gameState.merchantCooldowns || !gameState.merchantCooldowns[resourceName]) {
+    // Initialize if missing
+    if (!gameState.merchantCooldowns) gameState.merchantCooldowns = {};
+    if (!gameState.merchantCooldowns[resourceName]) {
+      gameState.merchantCooldowns[resourceName] = { totalTraded: 0, cooldownStart: null };
+    }
+  }
+  
+  const cooldown = gameState.merchantCooldowns[resourceName];
+  const COOLDOWN_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const MAX_TRADE_AMOUNT = 100;
+  
+  // Reset cooldown if it has expired
+  if (cooldown.cooldownStart !== null) {
+    const timeSinceCooldown = Date.now() - cooldown.cooldownStart;
+    if (timeSinceCooldown >= COOLDOWN_DURATION) {
+      cooldown.totalTraded = 0;
+      cooldown.cooldownStart = null;
+    }
+  }
+  
+  const remainingCooldown = cooldown.cooldownStart ? Math.max(0, COOLDOWN_DURATION - (Date.now() - cooldown.cooldownStart)) : 0;
+  const remainingTradeAmount = Math.max(0, MAX_TRADE_AMOUNT - cooldown.totalTraded);
+  const isOnCooldown = remainingCooldown > 0;
+  
+  return {
+    totalTraded: cooldown.totalTraded,
+    remainingTradeAmount: remainingTradeAmount,
+    isOnCooldown: isOnCooldown,
+    remainingCooldown: remainingCooldown,
+    canTrade: !isOnCooldown && remainingTradeAmount > 0
+  };
+}
+
+// Execute merchant resource trade (with slider)
+function executeMerchantResourceTrade(townId, resourceName, exchangeRate) {
+  const sliderId = `merchant-${resourceName}-slider`;
+  const slider = document.getElementById(sliderId);
+  const resourceAmount = slider ? parseInt(slider.value) : 0;
+  
+  if (resourceAmount <= 0) {
+    if (typeof showMessage === 'function') {
+      showMessage(`Please select an amount of ${resourceName} to sell.`);
+    }
+    return;
+  }
+  
+  // Check cooldown status
+  const cooldownStatus = getMerchantCooldownStatus(resourceName);
+  
+  if (!cooldownStatus.canTrade) {
+    if (cooldownStatus.isOnCooldown) {
+      const totalSeconds = Math.floor(cooldownStatus.remainingCooldown / 1000);
+      const minutesRemaining = Math.floor(totalSeconds / 60);
+      const secondsRemaining = totalSeconds % 60;
+      if (typeof showMessage === 'function') {
+        showMessage(`This trader is on cooldown! Please wait ${minutesRemaining}:${secondsRemaining.toString().padStart(2, '0')} before trading ${resourceName} again.`);
+      }
+    } else {
+      if (typeof showMessage === 'function') {
+        showMessage(`This trader has already accepted 100 ${resourceName} and is on cooldown. Please wait 5 minutes.`);
+      }
+    }
+    return;
+  }
+  
+  // Check if this trade would exceed the 100 unit limit
+  if (resourceAmount > cooldownStatus.remainingTradeAmount) {
+    if (typeof showMessage === 'function') {
+      showMessage(`You can only trade ${cooldownStatus.remainingTradeAmount} more ${resourceName} before the 5-minute cooldown.`);
+    }
+    return;
+  }
+  
+  const goldReward = Math.floor(resourceAmount / exchangeRate);
+  
+  if (gameState.resources[resourceName] >= resourceAmount) {
+    // Execute trade
+    gameState.resources[resourceName] -= resourceAmount;
+    gameState.resources.gold += goldReward;
+    
+    // Update cooldown tracking
+    const cooldown = gameState.merchantCooldowns[resourceName];
+    cooldown.totalTraded += resourceAmount;
+    
+    // Start cooldown if we've reached 100 units
+    if (cooldown.totalTraded >= 100) {
+      cooldown.cooldownStart = Date.now();
+      if (typeof showMessage === 'function') {
+        showMessage(`Sold ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}! This trader has reached the 100 unit limit and is now on a 5-minute cooldown.`);
+      }
+    } else {
+      if (typeof showMessage === 'function') {
+        showMessage(`Sold ${resourceAmount} ${resourceName.charAt(0).toUpperCase() + resourceName.slice(1)} for ${goldReward} Gold Coin${goldReward !== 1 ? 's' : ''}! (${cooldown.totalTraded}/100 traded before cooldown)`);
+      }
+    }
+    
+    if (typeof updateUI === 'function') {
+      updateUI();
+    }
+    if (typeof refreshTownCenterModalIfOpen === 'function') {
+      refreshTownCenterModalIfOpen();
+    }
+  } else {
+    if (typeof showMessage === 'function') {
+      const resourceDisplayName = resourceName.charAt(0).toUpperCase() + resourceName.slice(1);
+      showMessage(`Not enough ${resourceDisplayName.toLowerCase()}! Need ${resourceAmount} ${resourceDisplayName.toLowerCase()}, have ${Math.floor(gameState.resources[resourceName])}.`);
+    }
   }
 }
 
@@ -4260,12 +6136,18 @@ function purchaseUpgrade(upgradeKey, cost) {
   showMessage(`${upgradeNames[upgradeKey]} purchased!`);
 }
 
-// Close shop when clicking outside
+// Close modals when clicking outside
 window.addEventListener('click', (event) => {
   const shopModal = document.getElementById('shop-modal');
+  const townCenterModal = document.getElementById('town-center-modal');
   const shopContent = document.querySelector('.shop-content');
   if (shopModal && event.target === shopModal) {
     shopModal.style.display = 'none';
+  }
+  
+  // Close town center modal when clicking outside
+  if (townCenterModal && event.target === townCenterModal) {
+    closeTownCenterModal();
   }
   
   // Close quests modal when clicking outside
@@ -4290,10 +6172,18 @@ window.addEventListener('keydown', (e) => {
   
   // Close menus and exit edit mode when Escape is pressed
   if (e.key === 'Escape') {
+    const questCompletionPopup = document.getElementById('quest-completion-popup');
     const shopModal = document.getElementById('shop-modal');
     const questsModal = document.getElementById('quests-modal');
     const loadModal = document.getElementById('load-modal');
     const settingsModal = document.getElementById('settings-modal');
+    const townCenterModal = document.getElementById('town-center-modal');
+    
+    // Close quest completion popup first (highest priority)
+    if (questCompletionPopup && questCompletionPopup.style.display === 'flex') {
+      closeQuestCompletionPopup();
+      return;
+    }
     
     // Close shop if it's open
     if (shopModal && shopModal.style.display === 'flex') {
@@ -4304,6 +6194,12 @@ window.addEventListener('keydown', (e) => {
     // Close quests if it's open
     if (questsModal && questsModal.style.display === 'flex') {
       questsModal.style.display = 'none';
+      return;
+    }
+    
+    // Close town center modal if it's open
+    if (townCenterModal && townCenterModal.style.display === 'flex') {
+      closeTownCenterModal();
       return;
     }
     
@@ -4563,4 +6459,5 @@ function runTests() {
 }
 
 // Make it easy to call from the console
+window.runTests = runTests;
 window.runTests = runTests;

@@ -870,6 +870,7 @@ h4 {
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
+  transition: none;
 }
 
 /* Brick slider wrapper for green trail */
@@ -963,6 +964,125 @@ h4 {
 }
 
 #brick-slider::-moz-range-thumb:hover {
+  background: #FFC700;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+/* Generic resource slider styling - applies to wood, stone, clay sliders */
+#wood-slider,
+#stone-slider,
+#clay-slider,
+#merchant-wood-slider,
+#merchant-stone-slider,
+#merchant-clay-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: transparent;
+  outline: none;
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+}
+
+#wood-slider::-webkit-slider-runnable-track,
+#stone-slider::-webkit-slider-runnable-track,
+#clay-slider::-webkit-slider-runnable-track,
+#merchant-wood-slider::-webkit-slider-runnable-track,
+#merchant-stone-slider::-webkit-slider-runnable-track,
+#merchant-clay-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+}
+
+#wood-slider::-moz-range-track,
+#stone-slider::-moz-range-track,
+#clay-slider::-moz-range-track,
+#merchant-wood-slider::-moz-range-track,
+#merchant-stone-slider::-moz-range-track,
+#merchant-clay-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+}
+
+#wood-slider:hover::-webkit-slider-runnable-track,
+#stone-slider:hover::-webkit-slider-runnable-track,
+#clay-slider:hover::-webkit-slider-runnable-track,
+#merchant-wood-slider:hover::-webkit-slider-runnable-track,
+#merchant-stone-slider:hover::-webkit-slider-runnable-track,
+#merchant-clay-slider:hover::-webkit-slider-runnable-track {
+  background: rgba(255,255,255,0.3);
+}
+
+#wood-slider:hover::-moz-range-track,
+#stone-slider:hover::-moz-range-track,
+#clay-slider:hover::-moz-range-track,
+#merchant-wood-slider:hover::-moz-range-track,
+#merchant-stone-slider:hover::-moz-range-track,
+#merchant-clay-slider:hover::-moz-range-track {
+  background: rgba(255,255,255,0.3);
+}
+
+#wood-slider::-webkit-slider-thumb,
+#stone-slider::-webkit-slider-thumb,
+#clay-slider::-webkit-slider-thumb,
+#merchant-wood-slider::-webkit-slider-thumb,
+#merchant-stone-slider::-webkit-slider-thumb,
+#merchant-clay-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFD700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+  margin-top: -6px;
+  position: relative;
+}
+
+#wood-slider::-webkit-slider-thumb:hover,
+#stone-slider::-webkit-slider-thumb:hover,
+#clay-slider::-webkit-slider-thumb:hover,
+#merchant-wood-slider::-webkit-slider-thumb:hover,
+#merchant-stone-slider::-webkit-slider-thumb:hover,
+#merchant-clay-slider::-webkit-slider-thumb:hover {
+  background: #FFC700;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+#wood-slider::-moz-range-thumb,
+#stone-slider::-moz-range-thumb,
+#clay-slider::-moz-range-thumb,
+#merchant-wood-slider::-moz-range-thumb,
+#merchant-stone-slider::-moz-range-thumb,
+#merchant-clay-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFD700;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+}
+
+#wood-slider::-moz-range-thumb:hover,
+#stone-slider::-moz-range-thumb:hover,
+#clay-slider::-moz-range-thumb:hover,
+#merchant-wood-slider::-moz-range-thumb:hover,
+#merchant-stone-slider::-moz-range-thumb:hover,
+#merchant-clay-slider::-moz-range-thumb:hover {
   background: #FFC700;
   transform: scale(1.1);
   box-shadow: 0 3px 6px rgba(0,0,0,0.4);
@@ -1501,4 +1621,141 @@ h4 {
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   border-color: rgba(255,255,255,0.6);
+}
+
+/* Town Center Styles - Different colors for each level */
+.cell-town-locked {
+  position: relative;
+}
+
+.town-center-level-1 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #CD853F;
+}
+
+.town-center-level-2 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #A0522D 0%, #BC8F8F 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #D2B48C;
+}
+
+.town-center-level-3 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #CD853F 0%, #DEB887 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #F4A460;
+}
+
+.town-center-level-4 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #D2691E 0%, #FF8C00 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #FFA500;
+}
+
+.town-center-level-5 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #FF8C00 0%, #FFA500 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #FFB347;
+}
+
+.town-center-level-6 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #FFA500 0%, #FFD700 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #FFD700;
+}
+
+.town-center-level-7 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #FFD700 0%, #FFFF00 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #FFFF00;
+}
+
+.town-center-level-8 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #FFFF00 0%, #FFE135 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #FFE135;
+}
+
+.town-center-level-9 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #FFE135 0%, #FFF8DC 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #FFF8DC;
+}
+
+.town-center-level-10 {
+  background: 
+    url('images/cabin.png'),
+    linear-gradient(135deg, #FFF8DC 0%, #FFFFFF 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #FFFFFF;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+}
+
+/* Town Quest Progress Styles */
+.quest-progress-bar-container {
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.quest-progress-bar-fill {
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.quest-status-badge {
+  transition: all 0.3s ease;
+}
+
+.quest-status-badge:hover {
+  transform: scale(1.02);
+}
+
+.quest-completed-badge {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }

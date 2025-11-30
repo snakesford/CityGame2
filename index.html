@@ -17,7 +17,24 @@
   <!-- Character Selection Screen -->
   <div id="character-selection" class="character-selection-screen">
     <h1>Choose Your Character</h1>
-    <p class="selection-subtitle">Select a character to begin your city building journey</p>
+    <p class="selection-subtitle">Select a character and color to begin your city building journey</p>
+    
+    <!-- Color Selection -->
+    <div class="color-selection-section" style="margin: 30px 0;">
+      <h2 style="color: white; margin-bottom: 15px;">Choose Your Color</h2>
+      <div class="color-options" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; max-width: 600px; margin: 0 auto;">
+        <div class="color-option" data-color="red" style="width: 60px; height: 60px; border-radius: 50%; background: #FF0000; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('red')" title="Red"></div>
+        <div class="color-option" data-color="darkblue" style="width: 60px; height: 60px; border-radius: 50%; background: #00008B; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('darkblue')" title="Dark Blue"></div>
+        <div class="color-option" data-color="cyan" style="width: 60px; height: 60px; border-radius: 50%; background: #00FFFF; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('cyan')" title="Cyan"></div>
+        <div class="color-option" data-color="yellow" style="width: 60px; height: 60px; border-radius: 50%; background: #FFFF00; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('yellow')" title="Yellow"></div>
+        <div class="color-option" data-color="purple" style="width: 60px; height: 60px; border-radius: 50%; background: #800080; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('purple')" title="Purple"></div>
+        <div class="color-option" data-color="green" style="width: 60px; height: 60px; border-radius: 50%; background: #008000; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('green')" title="Green"></div>
+        <div class="color-option" data-color="orange" style="width: 60px; height: 60px; border-radius: 50%; background: #FFA500; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('orange')" title="Orange"></div>
+        <div class="color-option" data-color="pink" style="width: 60px; height: 60px; border-radius: 50%; background: #FFC0CB; border: 3px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onclick="selectColor('pink')" title="Pink"></div>
+      </div>
+      <p id="selected-color-text" style="color: white; margin-top: 15px; font-size: 14px; opacity: 0.7;">No color selected</p>
+    </div>
+    
     <div class="character-cards">
       <div class="character-card" data-character="miner">
         <div class="character-icon"><img src="images/pickaxe.png" alt="Miner" style="width: 80px; height: 80px;"></div>
@@ -59,6 +76,12 @@
   <button id="settings-btn" class="settings-btn" onclick="toggleSettings()" style="position: fixed; top: 10px; left: 10px; z-index: 1000; padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
     ⚙️ Settings
   </button>
+
+  <!-- Player Indicator (Upper Right) -->
+  <div id="player-indicator" class="player-indicator" style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: none; align-items: center; gap: 10px; padding: 8px 15px; background: rgba(0,0,0,0.6); border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+    <div class="player-color-dot" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5);"></div>
+    <span class="player-character-text" style="color: white; font-weight: bold; font-size: 14px;"></span>
+  </div>
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="shop-modal" style="display: none;">
@@ -186,6 +209,10 @@
       <div class="building-category">
         <h4>Production</h4>
         <button class="building-btn" data-building-type="smelter"><br>Smelter</button>
+      </div>
+      <div class="building-category">
+        <h4>Special</h4>
+        <button class="building-btn" data-building-type="baseMarker"><br>Base Marker</button>
       </div>
     </div>
 

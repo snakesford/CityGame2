@@ -28,6 +28,7 @@ let gameState = {
   },
   map: [],
   character: null, // "miner" | "farmer" | null
+  playerColor: null, // Player's chosen color
   timestamp: Date.now(),
   upgrades: {
     woodProduction: false, // +20% wood production
@@ -38,6 +39,21 @@ let gameState = {
   },
   quests: [] // Array of quest progress: [{id, completed, claimed}]
 };
+
+// Player color definitions
+const playerColors = {
+  red: '#FF0000',
+  darkblue: '#00008B',
+  cyan: '#00FFFF',
+  yellow: '#FFFF00',
+  purple: '#800080',
+  green: '#008000',
+  orange: '#FFA500',
+  pink: '#FFC0CB'
+};
+
+// Selected color for character selection
+let selectedColor = null;
 
 // Character types with bonuses
 const characterTypes = {
@@ -165,6 +181,9 @@ function migrateSaveData() {
   // Ensure character field exists
   if (!gameState.character) gameState.character = null;
   
+  // Ensure playerColor field exists
+  if (!gameState.playerColor) gameState.playerColor = null;
+  
   // Ensure resource fields exist
   if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
   if (!gameState.resources.coal) gameState.resources.coal = 0;
@@ -206,15 +225,23 @@ function migrateSaveData() {
     initializeGrid();
   }
   
-  // Migrate old building types
+  // Migrate old building types and ensure owned property exists
   if (gameState.map && gameState.map.length > 0) {
     for (let row = 0; row < gameState.map.length; row++) {
       for (let col = 0; col < gameState.map[row].length; col++) {
-        if (gameState.map[row][col].type === "house") {
-          gameState.map[row][col].type = "tepee";
+        const tile = gameState.map[row][col];
+        if (!tile) continue;
+        
+        if (tile.type === "house") {
+          tile.type = "tepee";
         }
-        if (gameState.map[row][col].type === "brickKiln") {
-          gameState.map[row][col].type = "smelter";
+        if (tile.type === "brickKiln") {
+          tile.type = "smelter";
+        }
+        
+        // Ensure owned property exists (for old saves)
+        if (tile.owned === undefined) {
+          tile.owned = false;
         }
       }
     }
@@ -643,6 +670,16 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false
+  },
+  baseMarker: {
+    displayName: "Base Marker",
+    category: "special",
+    baseCost: { wood: 150, gold: 50, iron: 20 },
+    costGrowthFactor: 1.3,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.2,
+    maxLevel: null,
+    unlocked: true
   }
 };
 
@@ -661,7 +698,8 @@ const buildingIcons = {
   ironMine: 'images/iron.png',
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
-  smelter: 'images/kiln.png'
+  smelter: 'images/kiln.png',
+  baseMarker: 'images/baseMarker.png'
 };
 
 // Resource icons for requirements
@@ -753,6 +791,11 @@ function getCategoryColors(category, buildingType) {
         gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
         border: '#BCAAA4'
       };
+    case 'baseMarker':
+      return {
+        gradient: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+        border: '#AB47BC'
+      };
     default:
       // Fallback to category-based colors for any new buildings
       switch (category) {
@@ -781,6 +824,11 @@ function getCategoryColors(category, buildingType) {
             gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
             border: '#BCAAA4'
           };
+        case 'special':
+          return {
+            gradient: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+            border: '#AB47BC'
+          };
         default:
           return {
             gradient: 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)',
@@ -798,7 +846,8 @@ function initializeGrid() {
     for (let col = 0; col < GRID_SIZE; col++) {
       gameState.map[row][col] = {
         type: "empty",
-        level: 0
+        level: 0,
+        owned: false
       };
     }
   }
@@ -1308,7 +1357,8 @@ function resetBuildingUnlocks() {
     oreRefinery: false,
     orchard: false,
     smelter: false,
-    brickHouse: false
+    brickHouse: false,
+    baseMarker: true
   };
   
   for (const [key, building] of Object.entries(buildingTypes)) {
@@ -1327,6 +1377,22 @@ function checkUnlocks() {
       building.unlocked = false;
     }
   }
+}
+
+// Purchase a tile to own it (protects from random events)
+function purchaseTile(row, col) {
+  if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
+  
+  const tile = gameState.map[row][col];
+  if (tile.owned) return false; // Already owned
+  
+  const tileCost = 50; // Cost in gold
+  if (gameState.resources.gold < tileCost) return false;
+  
+  gameState.resources.gold -= tileCost;
+  tile.owned = true;
+  
+  return true;
 }
 
 // Place building on grid
@@ -1360,6 +1426,22 @@ function placeBuilding(row, col, buildingType) {
   // Initialize smelter storage if it's a smelter
   if (buildingType === "smelter") {
     getSmelter(row, col); // This creates and initializes the smelter
+  }
+  
+  // Claim surrounding tiles if it's a base marker (5x5 area)
+  if (buildingType === "baseMarker") {
+    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    for (let r = row - claimRadius; r <= row + claimRadius; r++) {
+      for (let c = col - claimRadius; c <= col + claimRadius; c++) {
+        // Check bounds
+        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+          const targetTile = gameState.map[r][c];
+          if (targetTile && !targetTile.owned) {
+            targetTile.owned = true;
+          }
+        }
+      }
+    }
   }
   
   calculateProduction();
@@ -1417,7 +1499,8 @@ function removeBuilding(row, col) {
     stone: Math.floor((totalCost.stone || 0) * 0.5),
     clay: Math.floor((totalCost.clay || 0) * 0.5),
     iron: Math.floor((totalCost.iron || 0) * 0.5),
-    bricks: Math.floor((totalCost.bricks || 0) * 0.5)
+    bricks: Math.floor((totalCost.bricks || 0) * 0.5),
+    gold: Math.floor((totalCost.gold || 0) * 0.5)
   };
   
   gameState.resources.wood += refund.wood;
@@ -1425,10 +1508,27 @@ function removeBuilding(row, col) {
   gameState.resources.clay += refund.clay;
   gameState.resources.iron += refund.iron;
   gameState.resources.bricks += refund.bricks;
+  gameState.resources.gold += refund.gold;
   
   // Remove smelter storage if it's a smelter
   if (tile.type === "smelter" && gameState.smelters) {
     delete gameState.smelters[smelterKey(row, col)];
+  }
+  
+  // Unclaim surrounding tiles if it's a base marker (5x5 area)
+  if (tile.type === "baseMarker") {
+    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    for (let r = row - claimRadius; r <= row + claimRadius; r++) {
+      for (let c = col - claimRadius; c <= col + claimRadius; c++) {
+        // Check bounds
+        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+          const targetTile = gameState.map[r][c];
+          if (targetTile) {
+            targetTile.owned = false;
+          }
+        }
+      }
+    }
   }
   
   // Remove building
@@ -1451,6 +1551,17 @@ function renderGrid() {
   gridContainer.innerHTML = '';
   gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
   
+  // Get player color for backgrounds
+  const playerColor = gameState.playerColor ? playerColors[gameState.playerColor] : '#4CAF50';
+  
+  // Helper function to convert hex to rgba
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  
   for (let row = 0; row < GRID_SIZE; row++) {
     for (let col = 0; col < GRID_SIZE; col++) {
       const cell = document.createElement('div');
@@ -1462,6 +1573,17 @@ function renderGrid() {
         cell.setAttribute('data-level', tile.level);
     } else {
         cell.classList.add('cell-empty');
+      }
+      
+      // Show ownership indicator with player color background
+      if (tile.owned) {
+        cell.classList.add('cell-owned');
+        cell.title = 'Owned tile - protected from random events';
+        
+        // Apply semi-transparent background using player color
+        const bgColor = hexToRgba(playerColor, 0.3);
+        cell.style.backgroundColor = bgColor;
+        cell.style.boxShadow = `inset 0 0 10px ${hexToRgba(playerColor, 0.5)}`;
       }
       
       // Highlight selected cell
@@ -1659,8 +1781,8 @@ function handleCellClick(row, col) {
     renderGrid();
     updateTileInfo();
   } else if (!selectedBuildingType && tile.type === "empty") {
-    // Clear tile selection if clicking empty with no building selected
-    selectedTile = null;
+    // Select empty tile to show purchase option
+    selectedTile = { row, col };
     renderGrid();
     updateTileInfo();
   }
@@ -1717,7 +1839,41 @@ function updateTileInfo() {
   const tile = gameState.map[selectedTile.row][selectedTile.col];
   
   if (tile.type === "empty") {
-    infoPanel.innerHTML = '<p>Empty tile. Select a building type to place here.</p>';
+    const tileCost = 50; // Cost in gold to purchase a tile
+    const canAffordTile = gameState.resources.gold >= tileCost;
+    
+    let html = '<div style="padding: 10px;">';
+    html += `<h3>Empty Tile</h3>`;
+    
+    if (tile.owned) {
+      html += `<p style="color: #4CAF50; font-weight: bold;">✓ This tile is owned and protected from random events.</p>`;
+    } else {
+      html += `<p>This tile is not owned. Random events can affect unowned tiles.</p>`;
+      html += `<button id="purchase-tile-btn" style="margin: 15px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: ${canAffordTile ? '#FFD700' : '#666'}; border: 3px solid ${canAffordTile ? 'rgba(255,255,255,0.4)' : '#888'}; border-radius: 8px; cursor: ${canAffordTile ? 'pointer' : 'not-allowed'}; opacity: ${canAffordTile ? '1' : '0.5'}; transition: all 0.2s; font-weight: bold; font-size: 16px;" ${!canAffordTile ? 'disabled' : ''} onmouseover="if(this.style.opacity!=='0.5')this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">`;
+      html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 18px; color: ${canAffordTile ? '#000000' : '#ffffff'};">${formatNumber(tileCost)}</span>`;
+      html += `</button>`;
+    }
+    
+    html += `<p style="margin-top: 15px; font-size: 12px; color: #aaa;">Select a building type from the menu to place here.</p>`;
+    html += `</div>`;
+    
+    infoPanel.innerHTML = html;
+    
+    // Add event listener for purchase button
+    const purchaseBtn = document.getElementById('purchase-tile-btn');
+    if (purchaseBtn) {
+      purchaseBtn.addEventListener('click', () => {
+        if (selectedTile && purchaseTile(selectedTile.row, selectedTile.col)) {
+          updateTileInfo();
+          updateUI();
+          renderGrid();
+          showMessage("Tile purchased! This tile is now protected from random events.");
+        } else {
+          showMessage("Cannot purchase tile: insufficient gold.");
+        }
+      });
+    }
     return;
   }
   
@@ -1739,6 +1895,9 @@ function updateTileInfo() {
   };
   
   let html = `<h3>${building.displayName} (Level ${tile.level})</h3>`;
+  if (tile.owned) {
+    html += `<p style="color: #4CAF50; font-weight: bold; margin: 5px 0;">✓ Owned - Protected from random events</p>`;
+  }
   if (production.wood > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.wood)}/s</p>`;
   if (production.stone > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/rock.png" alt="Stone" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.stone)}/s</p>`;
   if (production.clay > 0) html += `<p style="display: flex; align-items: center; gap: 8px;"><img src="images/clay.png" alt="Clay" style="width: 30px; height: 30px; vertical-align: middle;"> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumberWithDecimals(production.clay)}/s</p>`;
@@ -2250,6 +2409,9 @@ function updateUI() {
     charIndicator.style.display = 'none';
   }
   
+  // Update player indicator (upper right)
+  updatePlayerIndicator();
+  
   // Update resources
   const woodEl = document.getElementById('wood');
   const stoneEl = document.getElementById('stone');
@@ -2536,6 +2698,7 @@ function loadGameSlot(slot) {
     try {
       gameState = JSON.parse(saved);
       migrateSaveData();
+      applyPlayerColor();
       initializeQuests();
       calculateProduction();
       checkUnlocks();
@@ -2618,6 +2781,7 @@ function resetGame() {
       population: { current: 0, capacity: 0 },
       map: [],
       character: null, // Reset character selection
+      playerColor: null, // Reset player color
       timestamp: Date.now(),
       upgrades: {
         woodProduction: false,
@@ -2750,6 +2914,7 @@ function importSave(event) {
       if (confirm('Import this save? Current progress will be lost.')) {
         gameState = loaded;
         migrateSaveData();
+        applyPlayerColor();
         initializeQuests();
         calculateProduction();
         checkUnlocks();
@@ -2828,6 +2993,10 @@ function showBuildingTooltip(event, buildingType) {
       if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0) html += ` `;
       html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.iron)}</span> <img src="images/iron.png" alt="Iron" style="width: 50px; height: 50px; vertical-align: middle;">`;
     }
+    if (cost.gold > 0) {
+      if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0 || cost.iron > 0) html += ` `;
+      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.gold)}</span> <img src="images/gold.png" alt="Gold" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    }
   html += `</span></p>`;
   
   // Production/Benefits
@@ -2878,6 +3047,14 @@ function showBuildingTooltip(event, buildingType) {
     html += `<strong style="color: #8B4513;">🔥 Fuel Required:</strong> `;
     html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">Clay: ${building.smeltClayWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> wood or 1 <img src="images/coal.png" alt="Coal" style="width: 30px; height: 30px; vertical-align: middle;"> coal (3 batches) | Iron: ${building.smeltIronWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> wood or ${building.smeltIronCoalAmount} <img src="images/coal.png" alt="Coal" style="width: 30px; height: 30px; vertical-align: middle;"> coal per batch</span>`;
     html += `<br><span style="font-size: 12px; color: #aaa;">Converts ${building.smeltClayAmount} clay + ${building.smeltClayWoodAmount} wood (or 1 coal for 3 batches) → ${building.smeltBrickOutput} brick (${building.smeltClayTime/1000}s) | ${building.smeltIronAmount} iron + ${building.smeltIronWoodAmount} wood (or ${building.smeltIronCoalAmount} coal) → ${building.smeltIronBarOutput} iron bar (${building.smeltIronTime/1000}s)</span>`;
+    html += `</p>`;
+  }
+  
+  // Special info for base marker - claims surrounding tiles
+  if (buildingType === "baseMarker") {
+    html += `<p style="margin: 3px 0; padding: 5px; background: rgba(156, 39, 176, 0.2); border-left: 3px solid #9C27B0; border-radius: 3px;">`;
+    html += `<strong style="color: #9C27B0;">📍 Special Ability:</strong> `;
+    html += `<span style="color: #9C27B0; font-size: 18px; font-weight: bold;">Claims all surrounding tiles in a 5x5 area, protecting them from random events</span>`;
     html += `</p>`;
   }
   
@@ -3149,6 +3326,19 @@ function showCharacterSelection() {
   const selectionScreen = document.getElementById('character-selection');
   const mainGame = document.getElementById('main-game');
   
+  // Reset color selection
+  selectedColor = null;
+  document.querySelectorAll('.color-option').forEach(option => {
+    option.style.border = '3px solid rgba(255,255,255,0.3)';
+    option.style.transform = 'scale(1)';
+    option.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+  });
+  const colorText = document.getElementById('selected-color-text');
+  if (colorText) {
+    colorText.textContent = 'No color selected';
+    colorText.style.opacity = '0.7';
+  }
+  
   if (selectionScreen) {
     selectionScreen.style.display = 'flex';
   }
@@ -3170,6 +3360,46 @@ function hideCharacterSelection() {
   }
 }
 
+// Select color
+function selectColor(color) {
+  if (!playerColors[color]) {
+    console.error('Invalid color:', color);
+    return;
+  }
+  
+  selectedColor = color;
+  
+  // Update visual selection
+  document.querySelectorAll('.color-option').forEach(option => {
+    option.style.border = '3px solid rgba(255,255,255,0.3)';
+    option.style.transform = 'scale(1)';
+  });
+  
+  const selectedOption = document.querySelector(`[data-color="${color}"]`);
+  if (selectedOption) {
+    selectedOption.style.border = '4px solid #FFD700';
+    selectedOption.style.transform = 'scale(1.15)';
+    selectedOption.style.boxShadow = '0 0 20px rgba(255,215,0,0.8)';
+  }
+  
+  // Update text
+  const colorText = document.getElementById('selected-color-text');
+  if (colorText) {
+    const colorNames = {
+      red: 'Red',
+      darkblue: 'Dark Blue',
+      cyan: 'Cyan',
+      yellow: 'Yellow',
+      purple: 'Purple',
+      green: 'Green',
+      orange: 'Orange',
+      pink: 'Pink'
+    };
+    colorText.textContent = `Selected: ${colorNames[color]}`;
+    colorText.style.opacity = '1';
+  }
+}
+
 // Select character
 function selectCharacter(characterType) {
   if (!characterTypes[characterType]) {
@@ -3177,7 +3407,13 @@ function selectCharacter(characterType) {
     return;
   }
   
+  if (!selectedColor) {
+    showMessage("Please select a color first!");
+    return;
+  }
+  
   gameState.character = characterType;
+  gameState.playerColor = selectedColor;
   
   // Highlight selected character card
   const cards = document.querySelectorAll('.character-card');
@@ -3202,6 +3438,12 @@ function selectCharacter(characterType) {
     cycleToNextSaveSlot();
   }
   
+  // Apply player color to UI
+  applyPlayerColor();
+  
+  // Update player indicator
+  updatePlayerIndicator();
+  
   // Update UI to reflect character bonuses
   calculateProduction();
   checkUnlocks();
@@ -3219,6 +3461,65 @@ function selectCharacter(characterType) {
   
   // Save the character selection
   saveGame();
+}
+
+// Update player indicator in upper right
+function updatePlayerIndicator() {
+  const playerIndicator = document.getElementById('player-indicator');
+  if (!playerIndicator) return;
+  
+  if (gameState.character && gameState.playerColor) {
+    const character = characterTypes[gameState.character];
+    const color = playerColors[gameState.playerColor];
+    
+    // Update color dot
+    const colorDot = playerIndicator.querySelector('.player-color-dot');
+    if (colorDot) {
+      colorDot.style.background = color;
+    }
+    
+    // Update character text
+    const characterText = playerIndicator.querySelector('.player-character-text');
+    if (characterText) {
+      characterText.textContent = `${character.icon} ${character.name}`;
+    }
+    
+    // Show indicator
+    playerIndicator.style.display = 'flex';
+  } else {
+    // Hide indicator if no character/color selected
+    playerIndicator.style.display = 'none';
+  }
+}
+
+// Apply player color to UI elements
+function applyPlayerColor() {
+  if (!gameState.playerColor || !playerColors[gameState.playerColor]) {
+    return; // No color selected or invalid color
+  }
+  
+  const color = playerColors[gameState.playerColor];
+  const root = document.documentElement;
+  
+  // Apply as CSS custom property for use throughout the UI
+  root.style.setProperty('--player-color', color);
+  
+  // Apply to specific elements that should use player color
+  // Character card selection only (tile selection stays gold)
+  const style = document.createElement('style');
+  style.id = 'player-color-styles';
+  style.textContent = `
+    .character-card.selected {
+      border-color: ${color} !important;
+      box-shadow: 0 0 20px ${color}80 !important;
+    }
+  `;
+  
+  // Remove old style if exists
+  const oldStyle = document.getElementById('player-color-styles');
+  if (oldStyle) oldStyle.remove();
+  
+  document.head.appendChild(style);
 }
 
 // Toggle edit mode
@@ -4030,6 +4331,7 @@ window.addEventListener('DOMContentLoaded', () => {
       showCharacterSelection();
     } else {
       hideCharacterSelection();
+      applyPlayerColor();
       // Calculate production and unlocks on initialization
       calculateProduction();
       checkUnlocks();
@@ -4049,3 +4351,169 @@ window.addEventListener('DOMContentLoaded', () => {
     alert('Error loading game. Please refresh the page.');
   }
 });
+
+
+
+
+// ======================================================
+// SIMPLE IN-BROWSER TEST HARNESS
+// ======================================================
+
+function runTests() {
+  const results = [];
+
+  function logResult(name, pass, actual, expected) {
+    const status = pass ? "✅ PASS" : "❌ FAIL";
+    const message = `${status} | ${name} | actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`;
+    results.push({ name, pass, actual, expected });
+    console[pass ? "log" : "error"](message);
+  }
+
+  function assertEqual(name, actual, expected) {
+    const pass = JSON.stringify(actual) === JSON.stringify(expected);
+    logResult(name, pass, actual, expected);
+  }
+
+  function assertClose(name, actual, expected, epsilon = 1e-6) {
+    const pass = Math.abs(actual - expected) <= epsilon;
+    logResult(name, pass, actual, expected);
+  }
+
+  function resetStateForTests() {
+    // Reset the parts of gameState that matter for logic tests
+    gameState.character = null;
+    gameState.upgrades = {
+      woodProduction: false,
+      stoneProduction: false,
+      clayProduction: false,
+      housingCapacity: false,
+      smeltingSpeed: false
+    };
+    gameState.resources = {
+      wood: 50,
+      stone: 0,
+      clay: 0,
+      iron: 0,
+      gold: 0,
+      bricks: 0,
+      ironBars: 0,
+      coal: 0
+    };
+    gameState.population.current = 0;
+    gameState.population.capacity = 0;
+    initializeGrid();
+  }
+
+  console.log("====== RUNNING TESTS ======");
+
+  // ---------------------------
+  // 1) formatNumber tests
+  // ---------------------------
+  assertEqual("formatNumber(999, 0)", formatNumber(999, 0), "999");
+  assertEqual("formatNumber(1500, 1)", formatNumber(1500, 1), "1.5k");
+  assertEqual("formatNumber(1500000, 2)", formatNumber(1500000, 2), "1.50M");
+  assertEqual("formatNumber(2000000000, 1)", formatNumber(2000000000, 1), "2.0B");
+
+  // ---------------------------
+  // 2) getBuildingProduction base values
+  // ---------------------------
+  resetStateForTests();
+  let prod = getBuildingProduction("lumberMill", 1);
+  assertClose("lumberMill lvl1 wood", prod.wood, 0.6);
+  assertClose("lumberMill lvl1 stone", prod.stone, 0);
+
+  prod = getBuildingProduction("quarry", 1);
+  assertClose("quarry lvl1 stone", prod.stone, 0.3);
+
+  // Level-scaling check (productionGrowthFactor)
+  const lvl2Factor = Math.pow(buildingTypes.lumberMill.productionGrowthFactor, 1); // level - 1
+  prod = getBuildingProduction("lumberMill", 2);
+  assertClose("lumberMill lvl2 wood scaling",
+    prod.wood,
+    0.6 * lvl2Factor
+  );
+
+  // ---------------------------
+  // 3) Character bonuses in getBuildingProduction
+  // ---------------------------
+  resetStateForTests();
+  gameState.character = "miner";
+  prod = getBuildingProduction("quarry", 1);
+  // base stone 0.3 * 1.5 miningProductionMultiplier
+  assertClose("miner stone bonus (quarry)",
+    prod.stone,
+    0.3 * characterTypes.miner.miningProductionMultiplier
+  );
+
+  resetStateForTests();
+  gameState.character = "farmer";
+  prod = getBuildingProduction("advancedFarm", 1);
+  // base pop 1.0 * 1.5 farmingProductionMultiplier * 1.3 populationMultiplier
+  const expectedFarmerPop =
+    buildingTypes.advancedFarm.baseProduction.population *
+    characterTypes.farmer.farmingProductionMultiplier *
+    characterTypes.farmer.populationMultiplier;
+  assertClose("farmer population bonus (advancedFarm)", prod.population, expectedFarmerPop);
+
+  // ---------------------------
+  // 4) getBuildingCost + character discounts
+  // ---------------------------
+  resetStateForTests();
+  let cost = getBuildingCost("tepee", 1);
+  assertEqual("tepee lvl1 cost wood", cost.wood, buildingTypes.tepee.baseCost.wood);
+  assertEqual("tepee lvl1 cost stone", cost.stone, buildingTypes.tepee.baseCost.stone || 0);
+
+  // Farmer discount on farming buildings (level 1 only)
+  resetStateForTests();
+  gameState.character = "farmer";
+  cost = getBuildingCost("farm", 1);
+  const baseFarmCostWood = buildingTypes.farm.baseCost.wood;
+  const farmerDiscount = characterTypes.farmer.buildDiscount;
+  assertEqual("farmer farm lvl1 wood cost",
+    cost.wood,
+    Math.floor(baseFarmCostWood * farmerDiscount)
+  );
+
+  // Miner discount on stone buildings (all levels)
+  resetStateForTests();
+  gameState.character = "miner";
+  const quarryBaseWood = buildingTypes.quarry.baseCost.wood || 0;
+  const quarryFactorLvl2 = Math.pow(buildingTypes.quarry.costGrowthFactor, 2 - 1);
+  const expectedQuarryLvl2Wood = Math.floor(quarryBaseWood * quarryFactorLvl2 * characterTypes.miner.upgradeDiscount);
+
+  cost = getBuildingCost("quarry", 2);
+  assertEqual("miner quarry lvl2 wood cost", cost.wood, expectedQuarryLvl2Wood);
+
+  // ---------------------------
+  // 5) calculateProduction integration test
+  // ---------------------------
+  resetStateForTests();
+
+  // Place a few simple buildings
+  gameState.map[0][0] = { type: "lumberMill", level: 1 }; // +0.6 wood
+  gameState.map[0][1] = { type: "quarry", level: 1 };     // +0.3 stone
+  gameState.map[0][2] = { type: "tepee", level: 1 };      // +3 capacity
+
+  calculateProduction();
+
+  assertClose("calculateProduction wps (base 1 + lumberMill)",
+    gameState.rates.wps,
+    1 + 0.6
+  );
+  assertClose("calculateProduction sps (quarry only)",
+    gameState.rates.sps,
+    0.3
+  );
+  assertClose("calculateProduction capacity (tepee)",
+    gameState.population.capacity,
+    buildingTypes.tepee.baseProduction.capacity
+  );
+
+  console.log("====== TESTS FINISHED ======");
+  const failed = results.filter(r => !r.pass).length;
+  console.log(`Summary: ${results.length - failed} passed, ${failed} failed.`);
+  return results;
+}
+
+// Make it easy to call from the console
+window.runTests = runTests;

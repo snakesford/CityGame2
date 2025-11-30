@@ -1291,6 +1291,33 @@ function harvestSmelter(row, col) {
   return { bricks: 0, ironBars: 0 };
 }
 
+// Reset all building unlocks to their default state
+function resetBuildingUnlocks() {
+  const defaultUnlocks = {
+    tepee: true,
+    farm: true,
+    lumberMill: true,
+    quarry: true,
+    ironMine: true,
+    coalMine: true,
+    clayPool: false,
+    cabin: false,
+    advancedFarm: false,
+    advancedLumberMill: false,
+    deepMine: false,
+    oreRefinery: false,
+    orchard: false,
+    smelter: false,
+    brickHouse: false
+  };
+  
+  for (const [key, building] of Object.entries(buildingTypes)) {
+    if (defaultUnlocks.hasOwnProperty(key)) {
+      building.unlocked = defaultUnlocks[key];
+    }
+  }
+}
+
 // Check unlock conditions
 function checkUnlocks() {
   // Only check character requirements - building unlocks are now handled by quests
@@ -2601,6 +2628,7 @@ function resetGame() {
       },
       quests: []
     };
+    resetBuildingUnlocks();
     initializeQuests();
     initializeGrid();
     calculateProduction();
@@ -3167,6 +3195,7 @@ function selectCharacter(characterType) {
   // Initialize game if not already initialized
   const isNewGame = !gameState.map || gameState.map.length === 0;
   if (isNewGame) {
+    resetBuildingUnlocks();
     initializeQuests();
     initializeGrid();
     // Cycle to next save slot for new game

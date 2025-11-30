@@ -1487,49 +1487,6 @@ function removeBuilding(row, col) {
   return true;
 }
 
-// Find connected groups of owned tiles using flood-fill
-function findOwnedTileGroups() {
-  const groups = [];
-  const visited = new Set();
-  
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      const key = `${row}_${col}`;
-      if (visited.has(key)) continue;
-      
-      const tile = gameState.map[row][col];
-      if (!tile || !tile.owned) continue;
-      
-      // Flood-fill to find all connected owned tiles
-      const group = [];
-      const stack = [[row, col]];
-      
-      while (stack.length > 0) {
-        const [r, c] = stack.pop();
-        const k = `${r}_${c}`;
-        
-        if (visited.has(k)) continue;
-        if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) continue;
-        
-        const t = gameState.map[r][c];
-        if (!t || !t.owned) continue;
-        
-        visited.add(k);
-        group.push({ row: r, col: c });
-        
-        // Check neighbors (up, down, left, right)
-        stack.push([r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]);
-      }
-      
-      if (group.length > 0) {
-        groups.push(group);
-      }
-    }
-  }
-  
-  return groups;
-}
-
 // Render grid
 function renderGrid() {
   const gridContainer = document.getElementById('grid-container');
@@ -1538,17 +1495,16 @@ function renderGrid() {
   gridContainer.innerHTML = '';
   gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
   
-  // Find owned tile groups
-  const ownedGroups = findOwnedTileGroups();
-  const tileToGroup = new Map();
-  ownedGroups.forEach((group, groupIndex) => {
-    group.forEach(tile => {
-      tileToGroup.set(`${tile.row}_${tile.col}`, groupIndex);
-    });
-  });
-  
-  // Get player color for borders
+  // Get player color for backgrounds
   const playerColor = gameState.playerColor ? playerColors[gameState.playerColor] : '#4CAF50';
+  
+  // Helper function to convert hex to rgba
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
   
   for (let row = 0; row < GRID_SIZE; row++) {
     for (let col = 0; col < GRID_SIZE; col++) {
@@ -1563,40 +1519,15 @@ function renderGrid() {
         cell.classList.add('cell-empty');
       }
       
-      // Show ownership indicator with grouped borders
+      // Show ownership indicator with player color background
       if (tile.owned) {
         cell.classList.add('cell-owned');
         cell.title = 'Owned tile - protected from random events';
         
-        const groupIndex = tileToGroup.get(`${row}_${col}`);
-        if (groupIndex !== undefined) {
-          // Initialize all borders to default (will be overridden for outer edges)
-          cell.style.borderTop = '1px solid rgba(255,255,255,0.2)';
-          cell.style.borderBottom = '1px solid rgba(255,255,255,0.2)';
-          cell.style.borderLeft = '1px solid rgba(255,255,255,0.2)';
-          cell.style.borderRight = '1px solid rgba(255,255,255,0.2)';
-          
-          // Check neighbors to determine which borders to show (only outer edges)
-          const neighbors = [
-            { r: row - 1, c: col, side: 'Top' },    // top
-            { r: row + 1, c: col, side: 'Bottom' }, // bottom
-            { r: row, c: col - 1, side: 'Left' },  // left
-            { r: row, c: col + 1, side: 'Right' }   // right
-          ];
-          
-          neighbors.forEach(neighbor => {
-            const neighborKey = `${neighbor.r}_${neighbor.c}`;
-            const neighborGroup = tileToGroup.get(neighborKey);
-            const neighborTile = (neighbor.r >= 0 && neighbor.r < GRID_SIZE && neighbor.c >= 0 && neighbor.c < GRID_SIZE) 
-              ? gameState.map[neighbor.r][neighbor.c] 
-              : null;
-            
-            // Show player color border if this is an outer edge (neighbor is not in the same group or isn't owned)
-            if (neighborGroup !== groupIndex || !neighborTile || !neighborTile.owned) {
-              cell.style[`border${neighbor.side}`] = `3px solid ${playerColor}`;
-            }
-          });
-        }
+        // Apply semi-transparent background using player color
+        const bgColor = hexToRgba(playerColor, 0.3);
+        cell.style.backgroundColor = bgColor;
+        cell.style.boxShadow = `inset 0 0 10px ${hexToRgba(playerColor, 0.5)}`;
       }
       
       // Highlight selected cell

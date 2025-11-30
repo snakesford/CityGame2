@@ -1785,9 +1785,9 @@ function placeBuilding(row, col, buildingType) {
     getSmelter(row, col); // This creates and initializes the smelter
   }
   
-  // Claim surrounding tiles if it's a base marker (5x5 area)
+  // Claim surrounding tiles if it's a base marker (3x3 area)
   if (buildingType === "baseMarker") {
-    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    const claimRadius = 1; // 1 tile in each direction = 3x3 total
     for (let r = row - claimRadius; r <= row + claimRadius; r++) {
       for (let c = col - claimRadius; c <= col + claimRadius; c++) {
         // Check bounds
@@ -2299,9 +2299,9 @@ function removeBuilding(row, col) {
     delete gameState.smelters[smelterKey(row, col)];
   }
   
-  // Unclaim surrounding tiles if it's a base marker (5x5 area)
+  // Unclaim surrounding tiles if it's a base marker (3x3 area)
   if (tile.type === "baseMarker") {
-    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    const claimRadius = 1; // 1 tile in each direction = 3x3 total
     for (let r = row - claimRadius; r <= row + claimRadius; r++) {
       for (let c = col - claimRadius; c <= col + claimRadius; c++) {
         // Check bounds
@@ -3859,11 +3859,11 @@ function showBuildingTooltip(event, buildingType) {
     html += `</p>`;
   }
   
-  // Special info for base marker - claims surrounding tiles
+    // Special info for base marker - claims surrounding tiles in 3x3 area
   if (buildingType === "baseMarker") {
     html += `<p style="margin: 3px 0; padding: 5px; background: rgba(156, 39, 176, 0.2); border-left: 3px solid #9C27B0; border-radius: 3px;">`;
     html += `<strong style="color: #9C27B0;">📍 Special Ability:</strong> `;
-    html += `<span style="color: #9C27B0; font-size: 18px; font-weight: bold;">Claims all surrounding tiles in a 5x5 area, protecting them from random events</span>`;
+    html += `<span style="color: #9C27B0; font-size: 18px; font-weight: bold;">Claims all surrounding tiles in a 3x3 area, protecting them from random events</span>`;
     html += `</p>`;
   }
   

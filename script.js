@@ -5151,6 +5151,15 @@ function openTownCenterModal(townId, row, col) {
           <p style="color: #4CAF50; font-size: 18px; font-weight: bold;">Maximum Level Reached!</p>
           <p style="color: #aaa; margin-top: 5px;">Your town has reached its full potential.</p>
         </div>
+        <div style="display: flex; gap: 10px; align-items: stretch; margin-top: 15px;">
+          <div class="quest-status-badge" style="flex: 1; padding: 12px; border-radius: 8px; text-align: center; background: rgba(76, 175, 80, 0.2); border: 2px solid #4CAF50;">
+            <div style="color: #4CAF50; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <span style="font-size: 20px;">✅</span>
+              <span>Maximum Level</span>
+            </div>
+          </div>
+          <button class="shop-buy-btn" disabled style="flex: 1; padding: 12px; font-size: 14px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;">Maximum Level</button>
+        </div>
       `;
     }
   } else {
@@ -5208,8 +5217,11 @@ function openTownCenterModal(townId, row, col) {
         html += `</div>`;
       }
       
+      // Status badge and upgrade button container
+      html += `<div style="display: flex; gap: 10px; align-items: stretch;">`;
+      
       // Status badge
-      html += `<div class="quest-status-badge" style="padding: 12px; border-radius: 8px; text-align: center; `;
+      html += `<div class="quest-status-badge" style="flex: 1; padding: 12px; border-radius: 8px; text-align: center; `;
       if (isCompleted || canComplete) {
         html += `background: rgba(76, 175, 80, 0.2); border: 2px solid #4CAF50;`;
       } else {
@@ -5228,6 +5240,26 @@ function openTownCenterModal(townId, row, col) {
         html += `<span>Quest in Progress</span>`;
         html += `</div>`;
       }
+      
+      html += `</div>`;
+      
+      // Upgrade button next to status badge
+      const canUpgrade = isCompleted || canComplete;
+      html += `<button class="shop-buy-btn" onclick="upgradeTownFromModal()" `;
+      if (!canUpgrade) {
+        html += `disabled `;
+      }
+      html += `style="flex: 1; padding: 12px; font-size: 14px; white-space: nowrap;`;
+      if (canUpgrade) {
+        html += `background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);`;
+      }
+      html += `">`;
+      if (canUpgrade) {
+        html += `⬆️ Upgrade Town`;
+      } else {
+        html += `Complete Quest First`;
+      }
+      html += `</button>`;
       
       html += `</div>`;
       
@@ -5259,19 +5291,7 @@ function openTownCenterModal(townId, row, col) {
     }
   }
   
-  // Update upgrade button
-  const upgradeBtn = document.getElementById('upgrade-town-btn');
-  if (upgradeBtn) {
-    if (town.level >= 10) {
-      upgradeBtn.disabled = true;
-      upgradeBtn.textContent = "Maximum Level";
-    } else {
-      const questDef = townQuestDefinitions.find(q => q.level === town.level);
-      const canUpgrade = questDef && (town.questsCompleted.includes(questDef.id) || questDef.checkCondition());
-      upgradeBtn.disabled = !canUpgrade;
-      upgradeBtn.textContent = canUpgrade ? "Upgrade Town" : "Complete Quest First";
-    }
-  }
+  // Upgrade button is now part of the quest section HTML, no need to update separately
   
   // Show modal (don't toggle if already open)
   const modal = document.getElementById('town-center-modal');

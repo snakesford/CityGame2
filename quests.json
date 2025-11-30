@@ -146,5 +146,87 @@
         "requirement": { "type": "townLevel", "level": 2 },
         "reward": { "buildingCap": 5 }
       }
+    ],
+    "townQuests": [
+      {
+        "id": "town_quest_L1",
+        "level": 1,
+        "description": "Build 5 buildings (any type)",
+        "requirement": { "type": "totalBuildings", "count": 5 },
+        "buildingCapReward": 5,
+        "merchantUnlock": "merchant_tier1"
+      },
+      {
+        "id": "town_quest_L2",
+        "level": 2,
+        "description": "Gather 100 wood",
+        "requirement": { "type": "resource", "resource": "wood", "count": 100 },
+        "buildingCapReward": 5,
+        "merchantUnlock": null
+      },
+      {
+        "id": "town_quest_L3",
+        "level": 3,
+        "description": "Build 3 Farms",
+        "requirement": { "type": "build", "building": "farm", "count": 3 },
+        "buildingCapReward": 5,
+        "merchantUnlock": "merchant_tier2"
+      },
+      {
+        "id": "town_quest_L4",
+        "level": 4,
+        "description": "Reach 20 population",
+        "requirement": { "type": "population", "count": 20 },
+        "buildingCapReward": 5,
+        "merchantUnlock": null
+      },
+      {
+        "id": "town_quest_L5",
+        "level": 5,
+        "description": "Store 50 gold",
+        "requirement": { "type": "resource", "resource": "gold", "count": 50 },
+        "buildingCapReward": 5,
+        "merchantUnlock": null
+      },
+      {
+        "id": "town_quest_L6",
+        "level": 6,
+        "description": "Build 2 Quarries",
+        "requirement": { "type": "build", "building": "quarry", "count": 2 },
+        "buildingCapReward": 5,
+        "merchantUnlock": "merchant_tier3"
+      },
+      {
+        "id": "town_quest_L7",
+        "level": 7,
+        "description": "Produce 30 bricks",
+        "requirement": { "type": "resource", "resource": "bricks", "count": 30 },
+        "buildingCapReward": 5,
+        "merchantUnlock": null
+      },
+      {
+        "id": "town_quest_L8",
+        "level": 8,
+        "description": "Build 10 total buildings",
+        "requirement": { "type": "totalBuildings", "count": 10 },
+        "buildingCapReward": 5,
+        "merchantUnlock": null
+      },
+      {
+        "id": "town_quest_L9",
+        "level": 9,
+        "description": "Reach 50 population",
+        "requirement": { "type": "population", "count": 50 },
+        "buildingCapReward": 5,
+        "merchantUnlock": null
+      },
+      {
+        "id": "town_quest_L10",
+        "level": 10,
+        "description": "Store 200 gold",
+        "requirement": { "type": "resource", "resource": "gold", "count": 200 },
+        "buildingCapReward": 5,
+        "merchantUnlock": "merchant_tier4"
+      }
     ]
   }

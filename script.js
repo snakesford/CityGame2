@@ -28,6 +28,7 @@ let gameState = {
   },
   map: [],
   character: null, // "miner" | "farmer" | null
+  playerColor: null, // Player's chosen color
   timestamp: Date.now(),
   upgrades: {
     woodProduction: false, // +20% wood production
@@ -38,6 +39,21 @@ let gameState = {
   },
   quests: [] // Array of quest progress: [{id, completed, claimed}]
 };
+
+// Player color definitions
+const playerColors = {
+  red: '#FF0000',
+  darkblue: '#00008B',
+  cyan: '#00FFFF',
+  yellow: '#FFFF00',
+  purple: '#800080',
+  green: '#008000',
+  orange: '#FFA500',
+  pink: '#FFC0CB'
+};
+
+// Selected color for character selection
+let selectedColor = null;
 
 // Character types with bonuses
 const characterTypes = {
@@ -164,6 +180,9 @@ function smelterKey(row, col) {
 function migrateSaveData() {
   // Ensure character field exists
   if (!gameState.character) gameState.character = null;
+  
+  // Ensure playerColor field exists
+  if (!gameState.playerColor) gameState.playerColor = null;
   
   // Ensure resource fields exist
   if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
@@ -2609,6 +2628,7 @@ function loadGameSlot(slot) {
     try {
       gameState = JSON.parse(saved);
       migrateSaveData();
+      applyPlayerColor();
       initializeQuests();
       calculateProduction();
       checkUnlocks();
@@ -2691,6 +2711,7 @@ function resetGame() {
       population: { current: 0, capacity: 0 },
       map: [],
       character: null, // Reset character selection
+      playerColor: null, // Reset player color
       timestamp: Date.now(),
       upgrades: {
         woodProduction: false,
@@ -2823,6 +2844,7 @@ function importSave(event) {
       if (confirm('Import this save? Current progress will be lost.')) {
         gameState = loaded;
         migrateSaveData();
+        applyPlayerColor();
         initializeQuests();
         calculateProduction();
         checkUnlocks();
@@ -3222,6 +3244,19 @@ function showCharacterSelection() {
   const selectionScreen = document.getElementById('character-selection');
   const mainGame = document.getElementById('main-game');
   
+  // Reset color selection
+  selectedColor = null;
+  document.querySelectorAll('.color-option').forEach(option => {
+    option.style.border = '3px solid rgba(255,255,255,0.3)';
+    option.style.transform = 'scale(1)';
+    option.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+  });
+  const colorText = document.getElementById('selected-color-text');
+  if (colorText) {
+    colorText.textContent = 'No color selected';
+    colorText.style.opacity = '0.7';
+  }
+  
   if (selectionScreen) {
     selectionScreen.style.display = 'flex';
   }
@@ -3243,6 +3278,46 @@ function hideCharacterSelection() {
   }
 }
 
+// Select color
+function selectColor(color) {
+  if (!playerColors[color]) {
+    console.error('Invalid color:', color);
+    return;
+  }
+  
+  selectedColor = color;
+  
+  // Update visual selection
+  document.querySelectorAll('.color-option').forEach(option => {
+    option.style.border = '3px solid rgba(255,255,255,0.3)';
+    option.style.transform = 'scale(1)';
+  });
+  
+  const selectedOption = document.querySelector(`[data-color="${color}"]`);
+  if (selectedOption) {
+    selectedOption.style.border = '4px solid #FFD700';
+    selectedOption.style.transform = 'scale(1.15)';
+    selectedOption.style.boxShadow = '0 0 20px rgba(255,215,0,0.8)';
+  }
+  
+  // Update text
+  const colorText = document.getElementById('selected-color-text');
+  if (colorText) {
+    const colorNames = {
+      red: 'Red',
+      darkblue: 'Dark Blue',
+      cyan: 'Cyan',
+      yellow: 'Yellow',
+      purple: 'Purple',
+      green: 'Green',
+      orange: 'Orange',
+      pink: 'Pink'
+    };
+    colorText.textContent = `Selected: ${colorNames[color]}`;
+    colorText.style.opacity = '1';
+  }
+}
+
 // Select character
 function selectCharacter(characterType) {
   if (!characterTypes[characterType]) {
@@ -3250,7 +3325,13 @@ function selectCharacter(characterType) {
     return;
   }
   
+  if (!selectedColor) {
+    showMessage("Please select a color first!");
+    return;
+  }
+  
   gameState.character = characterType;
+  gameState.playerColor = selectedColor;
   
   // Highlight selected character card
   const cards = document.querySelectorAll('.character-card');
@@ -3275,6 +3356,9 @@ function selectCharacter(characterType) {
     cycleToNextSaveSlot();
   }
   
+  // Apply player color to UI
+  applyPlayerColor();
+  
   // Update UI to reflect character bonuses
   calculateProduction();
   checkUnlocks();
@@ -3292,6 +3376,40 @@ function selectCharacter(characterType) {
   
   // Save the character selection
   saveGame();
+}
+
+// Apply player color to UI elements
+function applyPlayerColor() {
+  if (!gameState.playerColor || !playerColors[gameState.playerColor]) {
+    return; // No color selected or invalid color
+  }
+  
+  const color = playerColors[gameState.playerColor];
+  const root = document.documentElement;
+  
+  // Apply as CSS custom property for use throughout the UI
+  root.style.setProperty('--player-color', color);
+  
+  // Apply to specific elements that should use player color
+  // Selected tile border
+  const style = document.createElement('style');
+  style.id = 'player-color-styles';
+  style.textContent = `
+    .cell-selected {
+      border-color: ${color} !important;
+      box-shadow: 0 0 10px ${color}80 !important;
+    }
+    .character-card.selected {
+      border-color: ${color} !important;
+      box-shadow: 0 0 20px ${color}80 !important;
+    }
+  `;
+  
+  // Remove old style if exists
+  const oldStyle = document.getElementById('player-color-styles');
+  if (oldStyle) oldStyle.remove();
+  
+  document.head.appendChild(style);
 }
 
 // Toggle edit mode
@@ -4103,6 +4221,7 @@ window.addEventListener('DOMContentLoaded', () => {
       showCharacterSelection();
     } else {
       hideCharacterSelection();
+      applyPlayerColor();
       // Calculate production and unlocks on initialization
       calculateProduction();
       checkUnlocks();

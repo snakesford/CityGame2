@@ -654,12 +654,12 @@ const merchantDefinitions = {
       {
         id: 'sell_stone',
         name: 'Sell Stone',
-        description: 'Sell 8 stone for 1 gold',
-        cost: { stone: 8 },
+        description: 'Sell 10 stone for 1 gold',
+        cost: { stone: 10 },
         reward: { gold: 1 },
         type: 'resource_trade',
         resource: 'stone',
-        exchangeRate: 8
+        exchangeRate: 10
       },
       {
         id: 'sell_clay',
@@ -5699,7 +5699,7 @@ function updateWoodTrade(amount) {
 }
 
 function updateStoneTrade(amount) {
-  updateResourceTrade('stone', 8, 8, amount);
+  updateResourceTrade('stone', 10, 10, amount);
 }
 
 function updateClayTrade(amount) {
@@ -5792,7 +5792,7 @@ function sellWoodForGold() {
 
 // Sell stone for gold
 function sellStoneForGold() {
-  sellResourceForGold('stone', 8, 'Stone');
+  sellResourceForGold('stone', 10, 'Stone');
 }
 
 // Sell clay for gold
@@ -5812,7 +5812,30 @@ function updateMerchantResourceTrade(resourceName, exchangeRate, amount) {
   const slider = document.getElementById(sliderId);
   if (!slider) return;
   
-  const maxResource = Math.floor(gameState.resources[resourceName] || 0);
+  // Ensure gameState and resources exist
+  if (!gameState || !gameState.resources) {
+    console.error('updateMerchantResourceTrade: gameState.resources is not available');
+    return;
+  }
+  
+  // Get resource value - access it directly using bracket notation
+  // resourceName should be 'wood', 'stone', or 'clay'
+  // Access resources object property directly to ensure we get the correct value
+  let resourceValue = gameState.resources[resourceName];
+  
+  // If accessing via bracket notation fails, try direct property access as fallback
+  if (resourceValue === undefined && resourceName === 'stone' && 'stone' in gameState.resources) {
+    resourceValue = gameState.resources.stone;
+  } else if (resourceValue === undefined && resourceName === 'wood' && 'wood' in gameState.resources) {
+    resourceValue = gameState.resources.wood;
+  } else if (resourceValue === undefined && resourceName === 'clay' && 'clay' in gameState.resources) {
+    resourceValue = gameState.resources.clay;
+  }
+  
+  // Convert to number and ensure it's valid (handle undefined, null, or NaN)
+  const maxResource = Math.floor((resourceValue !== undefined && resourceValue !== null && !isNaN(resourceValue)) 
+    ? Number(resourceValue) 
+    : 0);
   
   // If player has less than exchange rate, disable slider
   if (maxResource < exchangeRate) {
@@ -5848,7 +5871,10 @@ function updateMerchantResourceTrade(resourceName, exchangeRate, amount) {
   const cooldownStatus = getMerchantCooldownStatus(resourceName);
   
   // Calculate max slider value based on available resources AND cooldown limit
-  const maxResourceByCooldown = cooldownStatus.canTrade ? cooldownStatus.remainingTradeAmount : 0;
+  // Cooldown limits to 100 units total, so we need to round down the remaining amount to the nearest exchange rate multiple
+  const maxResourceByCooldown = cooldownStatus.canTrade 
+    ? Math.floor(cooldownStatus.remainingTradeAmount / exchangeRate) * exchangeRate 
+    : 0;
   const maxResourceByAvailable = Math.floor(maxResource / exchangeRate) * exchangeRate;
   
   // Player has enough, but check cooldown status
@@ -5859,6 +5885,7 @@ function updateMerchantResourceTrade(resourceName, exchangeRate, amount) {
     slider.disabled = true;
   } else {
     // Not on cooldown - limit by both available resources and remaining trade amount
+    // Take the minimum of what's available and what the cooldown allows
     maxSliderValue = Math.min(maxResourceByAvailable, maxResourceByCooldown);
     slider.disabled = maxSliderValue < exchangeRate;
   }
@@ -5874,8 +5901,10 @@ function updateMerchantResourceTrade(resourceName, exchangeRate, amount) {
   }
   
   const roundedValue = Math.round(currentValue / exchangeRate) * exchangeRate;
-  // Clamp to both maxSliderValue and remaining trade amount
-  const maxByRemainingTrade = cooldownStatus.canTrade ? cooldownStatus.remainingTradeAmount : 0;
+  // Clamp to both maxSliderValue and remaining trade amount (already rounded in maxSliderValue, but double-check)
+  const maxByRemainingTrade = cooldownStatus.canTrade 
+    ? Math.floor(cooldownStatus.remainingTradeAmount / exchangeRate) * exchangeRate 
+    : 0;
   const resourceAmount = Math.max(0, Math.min(roundedValue, maxSliderValue, maxByRemainingTrade));
   
   slider.min = 0;
@@ -6136,11 +6165,18 @@ window.addEventListener('keydown', (e) => {
   
   // Close menus and exit edit mode when Escape is pressed
   if (e.key === 'Escape') {
+    const questCompletionPopup = document.getElementById('quest-completion-popup');
     const shopModal = document.getElementById('shop-modal');
     const questsModal = document.getElementById('quests-modal');
     const loadModal = document.getElementById('load-modal');
     const settingsModal = document.getElementById('settings-modal');
     const townCenterModal = document.getElementById('town-center-modal');
+    
+    // Close quest completion popup first (highest priority)
+    if (questCompletionPopup && questCompletionPopup.style.display === 'flex') {
+      closeQuestCompletionPopup();
+      return;
+    }
     
     // Close shop if it's open
     if (shopModal && shopModal.style.display === 'flex') {

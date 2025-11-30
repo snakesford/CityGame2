@@ -5084,8 +5084,11 @@ function openTownCenterModal(townId, row, col) {
     }
   }
   
-  // Show modal
-  toggleModal('town-center-modal');
+  // Show modal (don't toggle if already open)
+  const modal = document.getElementById('town-center-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
 }
 
 function closeTownCenterModal() {

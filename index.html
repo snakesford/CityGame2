@@ -35,6 +35,13 @@
       <p id="selected-color-text" style="color: white; margin-top: 15px; font-size: 14px; opacity: 0.7;">No color selected</p>
     </div>
     
+    <!-- Player Name Input -->
+    <div class="name-selection-section" style="margin: 30px 0;">
+      <h2 style="color: white; margin-bottom: 15px;">Enter Your Name</h2>
+      <input type="text" id="player-name-input" placeholder="Enter your name..." maxlength="20" style="padding: 10px 15px; font-size: 16px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; width: 300px; max-width: 90%; text-align: center;" oninput="updatePlayerNamePreview()">
+      <p id="name-preview-text" style="color: white; margin-top: 10px; font-size: 14px; opacity: 0.7;">Name will appear next to your character icon</p>
+    </div>
+    
     <div class="character-cards">
       <div class="character-card" data-character="miner">
         <div class="character-icon"><img src="images/pickaxe.png" alt="Miner" style="width: 80px; height: 80px;"></div>

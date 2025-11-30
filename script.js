@@ -29,6 +29,7 @@ let gameState = {
   map: [],
   character: null, // "miner" | "farmer" | null
   playerColor: null, // Player's chosen color
+  playerName: null, // Player's name
   timestamp: Date.now(),
   upgrades: {
     woodProduction: false, // +20% wood production
@@ -183,6 +184,9 @@ function migrateSaveData() {
   
   // Ensure playerColor field exists
   if (!gameState.playerColor) gameState.playerColor = null;
+  
+  // Ensure playerName field exists
+  if (!gameState.playerName) gameState.playerName = null;
   
   // Ensure resource fields exist
   if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
@@ -2699,6 +2703,7 @@ function loadGameSlot(slot) {
       gameState = JSON.parse(saved);
       migrateSaveData();
       applyPlayerColor();
+      updatePlayerIndicator();
       initializeQuests();
       calculateProduction();
       checkUnlocks();
@@ -2745,6 +2750,8 @@ function loadGame() {
       }
       
       migrateSaveData();
+      applyPlayerColor();
+      updatePlayerIndicator();
       initializeQuests();
       calculateProduction();
       checkUnlocks();
@@ -2782,6 +2789,7 @@ function resetGame() {
       map: [],
       character: null, // Reset character selection
       playerColor: null, // Reset player color
+      playerName: null, // Reset player name
       timestamp: Date.now(),
       upgrades: {
         woodProduction: false,
@@ -2915,6 +2923,7 @@ function importSave(event) {
         gameState = loaded;
         migrateSaveData();
         applyPlayerColor();
+        updatePlayerIndicator();
         initializeQuests();
         calculateProduction();
         checkUnlocks();
@@ -3339,6 +3348,13 @@ function showCharacterSelection() {
     colorText.style.opacity = '0.7';
   }
   
+  // Reset name input
+  const nameInput = document.getElementById('player-name-input');
+  if (nameInput) {
+    nameInput.value = '';
+  }
+  updatePlayerNamePreview();
+  
   if (selectionScreen) {
     selectionScreen.style.display = 'flex';
   }
@@ -3400,6 +3416,23 @@ function selectColor(color) {
   }
 }
 
+// Update player name preview
+function updatePlayerNamePreview() {
+  const nameInput = document.getElementById('player-name-input');
+  const previewText = document.getElementById('name-preview-text');
+  
+  if (!nameInput || !previewText) return;
+  
+  const name = nameInput.value.trim();
+  if (name) {
+    previewText.textContent = `Your name: ${name}`;
+    previewText.style.opacity = '1';
+  } else {
+    previewText.textContent = 'Name will appear next to your character icon';
+    previewText.style.opacity = '0.7';
+  }
+}
+
 // Select character
 function selectCharacter(characterType) {
   if (!characterTypes[characterType]) {
@@ -3411,6 +3444,13 @@ function selectCharacter(characterType) {
     showMessage("Please select a color first!");
     return;
   }
+  
+  // Get player name from input field
+  const nameInput = document.getElementById('player-name-input');
+  const playerName = nameInput ? nameInput.value.trim() : '';
+  
+  // Use entered name or default to "Player"
+  gameState.playerName = playerName || 'Player';
   
   gameState.character = characterType;
   gameState.playerColor = selectedColor;
@@ -3471,6 +3511,7 @@ function updatePlayerIndicator() {
   if (gameState.character && gameState.playerColor) {
     const character = characterTypes[gameState.character];
     const color = playerColors[gameState.playerColor];
+    const playerName = gameState.playerName || 'Player';
     
     // Update color dot
     const colorDot = playerIndicator.querySelector('.player-color-dot');
@@ -3478,10 +3519,10 @@ function updatePlayerIndicator() {
       colorDot.style.background = color;
     }
     
-    // Update character text
+    // Update character text with player name
     const characterText = playerIndicator.querySelector('.player-character-text');
     if (characterText) {
-      characterText.textContent = `${character.icon} ${character.name}`;
+      characterText.textContent = `${character.icon} ${playerName}`;
     }
     
     // Show indicator
@@ -4332,6 +4373,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
       hideCharacterSelection();
       applyPlayerColor();
+      updatePlayerIndicator();
       // Calculate production and unlocks on initialization
       calculateProduction();
       checkUnlocks();

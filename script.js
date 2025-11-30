@@ -3214,8 +3214,20 @@ function showCellTooltip(event, row, col) {
   
   const tile = gameState.map[row][col];
   
+  // Show ownership info for empty owned tiles
   if (tile.type === "empty") {
-    tooltip.style.display = 'none';
+    if (tile.owned) {
+      const playerName = gameState.playerName || 'Player';
+      let html = `<strong>Empty Tile</strong><br>`;
+      html += `<span style="color: #4CAF50; font-weight: bold;">✓ Owned by ${playerName}</span><br>`;
+      html += `<span style="color: #4CAF50; font-size: 11px;">Protected from random events</span><br>`;
+      html += `<span style="color: #FFD700; font-size: 11px;">⚡ +5% Production Boost (when building is placed)</span>`;
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      positionTooltip(event, tooltip);
+    } else {
+      tooltip.style.display = 'none';
+    }
     return;
   }
   

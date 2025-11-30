@@ -2263,6 +2263,27 @@ function checkRequirement(requirement) {
   return false;
 }
 
+// Get progress percentage for a single requirement (0-100)
+function getRequirementProgress(requirement) {
+  if (requirement.type === 'buildingCount') {
+    let count = 0;
+    for (let row = 0; row < GRID_SIZE; row++) {
+      for (let col = 0; col < GRID_SIZE; col++) {
+        if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === requirement.buildingType) {
+          count++;
+        }
+      }
+    }
+    return Math.min(100, (count / requirement.amount) * 100);
+  } else if (requirement.type === 'resource') {
+    const current = gameState.resources[requirement.resource] || 0;
+    return Math.min(100, (current / requirement.amount) * 100);
+  } else if (requirement.type === 'population') {
+    return Math.min(100, (gameState.population.current / requirement.amount) * 100);
+  }
+  return 0;
+}
+
 function updateBuildMenu() {
   for (const [key, building] of Object.entries(buildingTypes)) {
     const btn = document.querySelector(`[data-building-type="${key}"]`);
@@ -2322,45 +2343,69 @@ function updateBuildMenu() {
         if (unlockQuest.requirements && unlockQuest.requirements.length > 0) {
           const reqContainer = document.createElement('div');
           reqContainer.className = 'building-requirements';
-          reqContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center; margin-top: 4px; padding: 4px;';
+          reqContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding: 4px; width: 100%;';
           
+          // Filter out completed requirements
+          const incompleteRequirements = unlockQuest.requirements.filter(req => !checkRequirement(req));
+          
+          // Calculate overall progress (only count incomplete requirements for display)
+          let totalProgress = 0;
           unlockQuest.requirements.forEach(req => {
-            const reqItem = document.createElement('div');
-            reqItem.style.cssText = 'display: flex; align-items: center; gap: 2px; position: relative; padding: 2px;';
-            
-            // Create icon
-            const icon = document.createElement('img');
-            if (req.type === 'buildingCount') {
-              icon.src = buildingIcons[req.buildingType] || '';
-              icon.alt = buildingTypes[req.buildingType]?.displayName || '';
-            } else if (req.type === 'resource') {
-              icon.src = resourceIcons[req.resource] || '';
-              icon.alt = req.resource;
-            } else if (req.type === 'population') {
-              icon.src = resourceIcons.population || '';
-              icon.alt = 'Population';
-            }
-            icon.style.cssText = 'width: 20px; height: 20px; vertical-align: middle;';
-            
-            // Create amount text
-            const amountText = document.createElement('span');
-            amountText.textContent = req.amount;
-            amountText.style.cssText = 'font-size: 11px; color: white; font-weight: bold;';
-            
-            reqItem.appendChild(icon);
-            reqItem.appendChild(amountText);
-            
-            // Check if requirement is met and add save.png
-            if (checkRequirement(req)) {
-              const checkIcon = document.createElement('img');
-              checkIcon.src = 'images/save.png';
-              checkIcon.alt = 'Complete';
-              checkIcon.style.cssText = 'width: 14px; height: 14px; position: absolute; top: -4px; right: -4px; z-index: 5;';
-              reqItem.appendChild(checkIcon);
-            }
-            
-            reqContainer.appendChild(reqItem);
+            totalProgress += getRequirementProgress(req);
           });
+          const overallProgress = totalProgress / unlockQuest.requirements.length;
+          
+          // Add overall progress bar
+          const progressBarContainer = document.createElement('div');
+          progressBarContainer.style.cssText = 'width: 100%; position: relative; background: rgba(0,0,0,0.3); border-radius: 4px; height: 12px; overflow: hidden;';
+          
+          const progressBarFill = document.createElement('div');
+          progressBarFill.style.cssText = `position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); width: ${overallProgress}%; transition: width 0.3s ease; border-radius: 4px;`;
+          
+          const progressBarText = document.createElement('div');
+          progressBarText.style.cssText = 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: white; font-weight: bold; z-index: 2; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);';
+          progressBarText.textContent = `${Math.round(overallProgress)}%`;
+          
+          progressBarContainer.appendChild(progressBarFill);
+          progressBarContainer.appendChild(progressBarText);
+          reqContainer.appendChild(progressBarContainer);
+          
+          // Add individual requirement items (only show incomplete requirements)
+          if (incompleteRequirements.length > 0) {
+            const reqItemsContainer = document.createElement('div');
+            reqItemsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center;';
+            
+            incompleteRequirements.forEach(req => {
+              const reqItem = document.createElement('div');
+              reqItem.style.cssText = 'display: flex; align-items: center; gap: 2px; position: relative; padding: 2px;';
+              
+              // Create icon
+              const icon = document.createElement('img');
+              if (req.type === 'buildingCount') {
+                icon.src = buildingIcons[req.buildingType] || '';
+                icon.alt = buildingTypes[req.buildingType]?.displayName || '';
+              } else if (req.type === 'resource') {
+                icon.src = resourceIcons[req.resource] || '';
+                icon.alt = req.resource;
+              } else if (req.type === 'population') {
+                icon.src = resourceIcons.population || '';
+                icon.alt = 'Population';
+              }
+              icon.style.cssText = 'width: 20px; height: 20px; vertical-align: middle;';
+              
+              // Create amount text
+              const amountText = document.createElement('span');
+              amountText.textContent = req.amount;
+              amountText.style.cssText = 'font-size: 11px; color: white; font-weight: bold;';
+              
+              reqItem.appendChild(icon);
+              reqItem.appendChild(amountText);
+              
+              reqItemsContainer.appendChild(reqItem);
+            });
+            
+            reqContainer.appendChild(reqItemsContainer);
+          }
           
           // Append requirements at the end (after icon and name)
           btn.appendChild(reqContainer);

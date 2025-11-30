@@ -150,10 +150,11 @@ h4 {
 }
 
 .building-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.75;
   cursor: not-allowed;
-  background: #555 !important;
+  background: #666 !important;
   transform: none !important;
+  filter: brightness(1.1);
 }
 
 /* Grid */

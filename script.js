@@ -2317,11 +2317,19 @@ function levelUpTown(townId) {
     console.warn(`Could not find center tile for town ${townId}`);
   }
   
-  showMessage(`Town leveled up to Level ${town.level}! Building cap increased.`);
+  // Show message
+  if (typeof showMessage === 'function') {
+    showMessage(`Town leveled up to Level ${town.level}! Building cap increased.`);
+  }
   
   // Re-render
-  renderGrid();
-  updateUI();
+  if (typeof renderGrid === 'function') {
+    renderGrid();
+  }
+  
+  if (typeof updateUI === 'function') {
+    updateUI();
+  }
   
   return true;
 }

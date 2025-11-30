@@ -5128,18 +5128,6 @@ function openTownCenterModal(townId, row, col) {
     titleEl.textContent = `Town Center (Level ${town.level})`;
   }
   
-  // Update level display
-  const levelEl = document.getElementById('town-level-display');
-  if (levelEl) {
-    levelEl.textContent = `Level ${town.level}`;
-  }
-  
-  // Update cap contribution
-  const capEl = document.getElementById('town-cap-contribution');
-  if (capEl) {
-    capEl.textContent = `Building Cap Contribution: +${town.level * 5}`;
-  }
-  
   // Update quest section with enhanced UI
   const questSectionEl = document.getElementById('town-quest-content');
   

@@ -907,41 +907,28 @@ function runTests() {
     
     const linkedPositions = [];
     
-    // Lock all 9 tiles
-    for (let i = 0; i < pattern0.length; i++) {
-      const pos = pattern0[i];
-      const relRow = pos.row - centerRow;
-      const relCol = pos.col - centerCol;
-      
-      let rotatedRow, rotatedCol;
-      switch (rotation) {
-        case 0:
-          rotatedRow = centerRow + relRow;
-          rotatedCol = centerCol + relCol;
-          break;
-        case 1:
-          rotatedRow = centerRow - relCol;
-          rotatedCol = centerCol + relRow;
-          break;
-        case 2:
-          rotatedRow = centerRow - relRow;
-          rotatedCol = centerCol - relCol;
-          break;
-        case 3:
-          rotatedRow = centerRow + relCol;
-          rotatedCol = centerCol - relRow;
-          break;
+    // Claim surrounding tiles in a 5x5 area (same as base marker/gold purchase)
+    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    for (let r = centerRow - claimRadius; r <= centerRow + claimRadius; r++) {
+      for (let c = centerCol - claimRadius; c <= centerCol + claimRadius; c++) {
+        // Check bounds
+        if (r >= 0 && r < TOWN_TEST_GRID_SIZE && c >= 0 && c < TOWN_TEST_GRID_SIZE) {
+          const targetTile = state.map[r][c];
+          if (targetTile) {
+            // Claim the tile (same as gold purchase)
+            if (!targetTile.owned) {
+              targetTile.owned = true;
+            }
+            // Also set townId for town-specific locking
+            targetTile.townId = townId;
+            linkedPositions.push({ row: r, col: c });
+          }
+        }
       }
-      
-      const tile = state.map[rotatedRow][rotatedCol];
-      tile.townId = townId;
-      linkedPositions.push({ row: rotatedRow, col: rotatedCol });
     }
     
+    // Replace center Cabin with Town Center L1
     const centerTile = state.map[centerRow][centerCol];
-    centerTile.townId = townId;
-    linkedPositions.push({ row: centerRow, col: centerCol });
-    
     centerTile.type = "townCenter_L1";
     centerTile.level = 1;
     
@@ -1164,7 +1151,7 @@ function runTests() {
     assert.strictEqual(result, -1, 'Pattern without cabin center should not be detected');
   });
   
-  test('createTown locks all 9 tiles', () => {
+  test('createTown locks all 25 tiles in 5x5 area', () => {
     const state = createTownTestState();
     const centerRow = 7;
     const centerCol = 7;
@@ -1185,18 +1172,23 @@ function runTests() {
     
     assert.ok(state.towns[originalNextTownId] !== undefined, 'Town should be created');
     assert.strictEqual(state.towns[originalNextTownId].level, 1);
-    assert.strictEqual(state.towns[originalNextTownId].linkedPositions.length, 9);
     
-    // Check that all tiles are locked
+    // Check that all tiles in 5x5 area are claimed (25 tiles)
     let lockedCount = 0;
-    for (let row = centerRow - 1; row <= centerRow + 1; row++) {
-      for (let col = centerCol - 1; col <= centerCol + 1; col++) {
+    let ownedCount = 0;
+    for (let row = Math.max(0, centerRow - 2); row <= Math.min(TOWN_TEST_GRID_SIZE - 1, centerRow + 2); row++) {
+      for (let col = Math.max(0, centerCol - 2); col <= Math.min(TOWN_TEST_GRID_SIZE - 1, centerCol + 2); col++) {
         if (state.map[row][col].townId === originalNextTownId) {
           lockedCount++;
         }
+        if (state.map[row][col].owned === true) {
+          ownedCount++;
+        }
       }
     }
-    assert.strictEqual(lockedCount, 9, 'All 9 tiles should be locked');
+    assert.strictEqual(lockedCount, 25, 'All 25 tiles in 5x5 area should have townId');
+    assert.strictEqual(ownedCount, 25, 'All 25 tiles in 5x5 area should be owned (claimed)');
+    assert.strictEqual(state.towns[originalNextTownId].linkedPositions.length, 25, 'Should have 25 linked positions');
     assert.strictEqual(state.map[centerRow][centerCol].type, 'townCenter_L1');
   });
   

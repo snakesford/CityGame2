@@ -2011,57 +2011,31 @@ function checkAllCabinsForPatterns() {
 function createTown(centerRow, centerCol, rotation) {
   const townId = gameState.nextTownId++;
   
-  // Define pattern positions (same as in checkTownPattern)
-  const pattern0 = [
-    { row: centerRow - 1, col: centerCol - 1 },
-    { row: centerRow - 1, col: centerCol },
-    { row: centerRow - 1, col: centerCol + 1 },
-    { row: centerRow, col: centerCol + 1 },
-    { row: centerRow + 1, col: centerCol + 1 },
-    { row: centerRow + 1, col: centerCol },
-    { row: centerRow + 1, col: centerCol - 1 },
-    { row: centerRow, col: centerCol - 1 }
-  ];
-  
   const linkedPositions = [];
   
-  // Lock all 9 tiles (8 outer + 1 center)
-  for (let i = 0; i < pattern0.length; i++) {
-    const pos = pattern0[i];
-    let rotatedRow, rotatedCol;
-    const relRow = pos.row - centerRow;
-    const relCol = pos.col - centerCol;
-    
-    switch (rotation) {
-      case 0:
-        rotatedRow = centerRow + relRow;
-        rotatedCol = centerCol + relCol;
-        break;
-      case 1:
-        rotatedRow = centerRow - relCol;
-        rotatedCol = centerCol + relRow;
-        break;
-      case 2:
-        rotatedRow = centerRow - relRow;
-        rotatedCol = centerCol - relCol;
-        break;
-      case 3:
-        rotatedRow = centerRow + relCol;
-        rotatedCol = centerCol - relRow;
-        break;
+  // Claim surrounding tiles in a 5x5 area (same as base marker)
+  // This uses the same code as when a player purchases tiles with gold
+  const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+  for (let r = centerRow - claimRadius; r <= centerRow + claimRadius; r++) {
+    for (let c = centerCol - claimRadius; c <= centerCol + claimRadius; c++) {
+      // Check bounds
+      if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+        const targetTile = gameState.map[r][c];
+        if (targetTile) {
+          // Claim the tile (same as gold purchase)
+          if (!targetTile.owned) {
+            targetTile.owned = true;
+          }
+          // Also set townId for town-specific locking
+          targetTile.townId = townId;
+          linkedPositions.push({ row: r, col: c });
+        }
+      }
     }
-    
-    const tile = gameState.map[rotatedRow][rotatedCol];
-    tile.townId = townId;
-    linkedPositions.push({ row: rotatedRow, col: rotatedCol });
   }
   
-  // Lock center tile
-  const centerTile = gameState.map[centerRow][centerCol];
-  centerTile.townId = townId;
-  linkedPositions.push({ row: centerRow, col: centerCol });
-  
   // Replace center Cabin with Town Center L1
+  const centerTile = gameState.map[centerRow][centerCol];
   centerTile.type = "townCenter_L1";
   centerTile.level = 1;
   
@@ -2082,7 +2056,7 @@ function createTown(centerRow, centerCol, rotation) {
   console.log(`   Location: (${centerRow}, ${centerCol})`);
   console.log(`   Rotation: ${rotation * 90}°`);
   console.log(`   Level: 1`);
-  console.log(`   Locked Tiles: ${linkedPositions.length} tiles`);
+  console.log(`   Locked Tiles: ${linkedPositions.length} tiles (5x5 area)`);
   console.log(`   New Building Cap: ${gameState.globalBuildingCap}`);
   console.log(`   Linked Positions:`, linkedPositions);
   

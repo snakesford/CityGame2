@@ -431,6 +431,39 @@
     </div>
   </div>
 
+  <!-- Town Center Modal -->
+  <div id="town-center-modal" class="shop-modal" style="display: none;">
+    <div class="shop-content">
+      <div class="shop-header">
+        <h2 id="town-center-title">Town Center</h2>
+        <button class="shop-close" onclick="closeTownCenterModal()">&times;</button>
+      </div>
+      <div class="shop-body">
+        <div id="town-center-info" style="margin-bottom: 20px;">
+          <h3 id="town-level-display">Level 1</h3>
+          <p id="town-cap-contribution">Building Cap Contribution: +5</p>
+        </div>
+        
+        <div id="town-quest-section" style="margin-bottom: 20px;">
+          <h3 style="color: #FFD700; margin-bottom: 10px;">Current Quest</h3>
+          <div id="town-quest-content">
+            <p id="town-quest-description"></p>
+            <p id="town-quest-status" style="margin-top: 10px;"></p>
+          </div>
+        </div>
+        
+        <div id="town-merchants-section" style="margin-bottom: 20px;">
+          <h3 style="color: #FFD700; margin-bottom: 10px;">Available Merchants</h3>
+          <div id="town-merchants-content">
+            <p style="color: #aaa;">No merchants available yet. Complete quests to unlock merchants.</p>
+          </div>
+        </div>
+        
+        <button id="upgrade-town-btn" class="shop-buy-btn" onclick="upgradeTownFromModal()" disabled>Upgrade Town</button>
+      </div>
+    </div>
+  </div>
+
   <script type="text/javascript" src="script.js"></script>
 </body>
 </html>

@@ -38,7 +38,10 @@ let gameState = {
     housingCapacity: false, // +20% housing capacity
     smeltingSpeed: false // +20% smelting speed
   },
-  quests: [] // Array of quest progress: [{id, completed, claimed}]
+  quests: [], // Array of quest progress: [{id, completed, claimed}]
+  towns: {}, // {townId: {level, questsCompleted, linkedPositions: [{row, col}], merchantUnlocks: []}}
+  globalBuildingCap: 20, // Starting cap
+  nextTownId: 1 // Auto-incrementing town ID
 };
 
 // Player color definitions
@@ -227,6 +230,16 @@ function migrateSaveData() {
   // Ensure map is initialized
   if (!gameState.map || gameState.map.length === 0) {
     initializeGrid();
+  }
+  
+  // Ensure town system fields exist
+  if (!gameState.towns) gameState.towns = {};
+  if (typeof gameState.globalBuildingCap !== 'number') gameState.globalBuildingCap = 20;
+  if (typeof gameState.nextTownId !== 'number') gameState.nextTownId = 1;
+  
+  // Recalculate building cap from existing towns (safety check)
+  if (Object.keys(gameState.towns).length > 0) {
+    updateBuildingCap();
   }
   
   // Migrate old building types and ensure owned property exists
@@ -508,6 +521,218 @@ const questDefinitions = [
   }
 ];
 
+// Town quest definitions (one per level)
+const townQuestDefinitions = [
+  {
+    id: 'town_quest_L1',
+    level: 1,
+    description: 'Build 5 buildings (any type)',
+    checkCondition: () => getBuildingCount() >= 5,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier1'
+  },
+  {
+    id: 'town_quest_L2',
+    level: 2,
+    description: 'Gather 100 wood',
+    checkCondition: () => gameState.resources.wood >= 100,
+    buildingCapReward: 5,
+    merchantUnlock: null // Tier 1 already unlocked
+  },
+  {
+    id: 'town_quest_L3',
+    level: 3,
+    description: 'Build 3 Farms',
+    checkCondition: () => countBuildings('farm') >= 3,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier2'
+  },
+  {
+    id: 'town_quest_L4',
+    level: 4,
+    description: 'Reach 20 population',
+    checkCondition: () => gameState.population.current >= 20,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L5',
+    level: 5,
+    description: 'Store 50 gold',
+    checkCondition: () => gameState.resources.gold >= 50,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L6',
+    level: 6,
+    description: 'Build 2 Quarries',
+    checkCondition: () => countBuildings('quarry') >= 2,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier3'
+  },
+  {
+    id: 'town_quest_L7',
+    level: 7,
+    description: 'Produce 30 bricks',
+    checkCondition: () => gameState.resources.bricks >= 30,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L8',
+    level: 8,
+    description: 'Build 10 total buildings',
+    checkCondition: () => getBuildingCount() >= 10,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L9',
+    level: 9,
+    description: 'Reach 50 population',
+    checkCondition: () => gameState.population.current >= 50,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  {
+    id: 'town_quest_L10',
+    level: 10,
+    description: 'Store 200 gold',
+    checkCondition: () => gameState.resources.gold >= 200,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier4'
+  }
+];
+
+// Merchant definitions
+const merchantDefinitions = {
+  merchant_tier1: {
+    id: 'merchant_tier1',
+    name: 'Basic Trader',
+    unlockLevel: 1,
+    trades: [
+      {
+        id: 'sell_wood',
+        name: 'Sell Wood',
+        description: 'Sell 10 wood for 1 gold',
+        cost: { wood: 10 },
+        reward: { gold: 1 },
+        type: 'resource_trade'
+      },
+      {
+        id: 'sell_stone',
+        name: 'Sell Stone',
+        description: 'Sell 10 stone for 1 gold',
+        cost: { stone: 10 },
+        reward: { gold: 1 },
+        type: 'resource_trade'
+      },
+      {
+        id: 'sell_clay',
+        name: 'Sell Clay',
+        description: 'Sell 8 clay for 1 gold',
+        cost: { clay: 8 },
+        reward: { gold: 1 },
+        type: 'resource_trade'
+      }
+    ]
+  },
+  merchant_tier2: {
+    id: 'merchant_tier2',
+    name: 'Rare Goods Trader',
+    unlockLevel: 3,
+    trades: [
+      {
+        id: 'sell_iron',
+        name: 'Sell Iron',
+        description: 'Sell 5 iron for 2 gold',
+        cost: { iron: 5 },
+        reward: { gold: 2 },
+        type: 'resource_trade'
+      },
+      {
+        id: 'sell_coal',
+        name: 'Sell Coal',
+        description: 'Sell 5 coal for 2 gold',
+        cost: { coal: 5 },
+        reward: { gold: 2 },
+        type: 'resource_trade'
+      },
+      {
+        id: 'buy_wood',
+        name: 'Buy Wood',
+        description: 'Buy 8 wood for 1 gold',
+        cost: { gold: 1 },
+        reward: { wood: 8 },
+        type: 'resource_trade'
+      }
+    ]
+  },
+  merchant_tier3: {
+    id: 'merchant_tier3',
+    name: 'Boost Merchant',
+    unlockLevel: 6,
+    trades: [
+      {
+        id: 'production_boost_wood',
+        name: 'Wood Production Boost',
+        description: '+50% wood production for 5 minutes (50 gold)',
+        cost: { gold: 50 },
+        reward: { boost: 'woodProduction', duration: 300000 }, // 5 minutes in ms
+        type: 'boost'
+      },
+      {
+        id: 'production_boost_stone',
+        name: 'Stone Production Boost',
+        description: '+50% stone production for 5 minutes (50 gold)',
+        cost: { gold: 50 },
+        reward: { boost: 'stoneProduction', duration: 300000 },
+        type: 'boost'
+      },
+      {
+        id: 'building_discount',
+        name: 'Building Discount',
+        description: '20% discount on next 3 buildings (75 gold)',
+        cost: { gold: 75 },
+        reward: { discount: 0.8, uses: 3 },
+        type: 'upgrade'
+      }
+    ]
+  },
+  merchant_tier4: {
+    id: 'merchant_tier4',
+    name: 'Master Merchant',
+    unlockLevel: 10,
+    trades: [
+      {
+        id: 'permanent_wood_boost',
+        name: 'Permanent Wood Boost',
+        description: 'Permanent +10% wood production (200 gold)',
+        cost: { gold: 200 },
+        reward: { permanentUpgrade: 'woodProduction' },
+        type: 'permanent_upgrade'
+      },
+      {
+        id: 'permanent_stone_boost',
+        name: 'Permanent Stone Boost',
+        description: 'Permanent +10% stone production (200 gold)',
+        cost: { gold: 200 },
+        reward: { permanentUpgrade: 'stoneProduction' },
+        type: 'permanent_upgrade'
+      },
+      {
+        id: 'extra_building_cap',
+        name: 'Extra Building Capacity',
+        description: '+10 permanent building capacity (300 gold)',
+        cost: { gold: 300 },
+        reward: { extraBuildingCap: 10 },
+        type: 'permanent_upgrade'
+      }
+    ]
+  }
+};
+
 // Building type definitions
 const buildingTypes = {
   tepee: {
@@ -684,6 +909,106 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: true
+  },
+  townCenter_L1: {
+    displayName: "Town Center (Level 1)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false // Cannot be built directly
+  },
+  townCenter_L2: {
+    displayName: "Town Center (Level 2)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L3: {
+    displayName: "Town Center (Level 3)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L4: {
+    displayName: "Town Center (Level 4)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L5: {
+    displayName: "Town Center (Level 5)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L6: {
+    displayName: "Town Center (Level 6)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L7: {
+    displayName: "Town Center (Level 7)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L8: {
+    displayName: "Town Center (Level 8)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L9: {
+    displayName: "Town Center (Level 9)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
+  },
+  townCenter_L10: {
+    displayName: "Town Center (Level 10)",
+    category: "special",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false
   }
 };
 
@@ -703,7 +1028,17 @@ const buildingIcons = {
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
   smelter: 'images/kiln.png',
-  baseMarker: 'images/baseMarker.png'
+  baseMarker: 'images/baseMarker.png',
+  townCenter_L1: 'images/cabin.png',
+  townCenter_L2: 'images/cabin.png',
+  townCenter_L3: 'images/cabin.png',
+  townCenter_L4: 'images/cabin.png',
+  townCenter_L5: 'images/cabin.png',
+  townCenter_L6: 'images/cabin.png',
+  townCenter_L7: 'images/cabin.png',
+  townCenter_L8: 'images/cabin.png',
+  townCenter_L9: 'images/cabin.png',
+  townCenter_L10: 'images/cabin.png'
 };
 
 // Resource icons for requirements
@@ -908,6 +1243,12 @@ function getBuildingProduction(buildingType, level) {
   }
   
   return production;
+}
+
+async function loadExternalQuests() {
+  const res = await fetch("quests.json");
+  const data = await res.json();
+  return data.quests;
 }
 
 // Calculate cost for a building at a given level
@@ -1411,11 +1752,23 @@ function placeBuilding(row, col, buildingType) {
   const tile = gameState.map[row][col];
   if (tile.type !== "empty") return false;
   
+  // Check if tile is locked by a town
+  if (tile.townId) {
+    showMessage("Cannot place building on town-locked tile!");
+    return false;
+  }
+  
   const building = buildingTypes[buildingType];
   if (!building || !building.unlocked) return false;
   
   // Check character requirement
   if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
+    return false;
+  }
+  
+  // Check building cap (don't count town centers as they're not placed directly)
+  if (getBuildingCount() >= gameState.globalBuildingCap) {
+    showMessage(`Building cap reached (${gameState.globalBuildingCap}). Level up towns to increase capacity.`);
     return false;
   }
   
@@ -1455,7 +1808,437 @@ function placeBuilding(row, col, buildingType) {
   renderGrid();
   updateUI();
   
+  // Check for town pattern whenever any building is placed
+  // Strategy: Check all possible cabin center positions that could form a 3x3 pattern
+  // with the newly placed building. This works regardless of placement order.
+  
+  let patternFound = false;
+  
+  // The placed building could be part of a 3x3 pattern where the cabin center is
+  // anywhere from 2 tiles away (if placed at corner) to 0 tiles away (if cabin itself)
+  // Check all positions within 2 tiles that could be valid cabin centers (need 1 tile margin)
+  const minRow = Math.max(1, row - 2);
+  const maxRow = Math.min(GRID_SIZE - 2, row + 2);
+  const minCol = Math.max(1, col - 2);
+  const maxCol = Math.min(GRID_SIZE - 2, col + 2);
+  
+  console.log(`🔍 Checking for town patterns after placing ${buildingType} at (${row}, ${col})`);
+  console.log(`   Scanning cabin centers from (${minRow}, ${minCol}) to (${maxRow}, ${maxCol})`);
+  
+  // Check all possible cabin center positions
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      const tile = gameState.map[r][c];
+      
+      // Check if this position is a cabin (either existing or just placed)
+      const isCabin = (r === row && c === col && buildingType === "cabin") || 
+                      (tile && tile.type === "cabin");
+      
+      if (isCabin && tile && !tile.townId) {
+        console.log(`   Checking pattern with cabin center at (${r}, ${c})...`);
+        const result = checkTownPattern(r, c);
+        if (result >= 0) {
+          console.log(`   ✅ Town pattern detected at (${r}, ${c}) with rotation ${result * 90}°`);
+          patternFound = true;
+          break; // Pattern found, no need to check other positions
+        } else {
+          console.log(`   ❌ No pattern match at (${r}, ${c})`);
+        }
+      }
+    }
+    if (patternFound) break; // Pattern found, no need to check other positions
+  }
+  
+  // As a final comprehensive check, scan ALL cabins on the entire map
+  // This is a safety net to catch any patterns we might have missed
+  if (!patternFound) {
+    console.log(`   Performing comprehensive scan of all cabins on map...`);
+    const patternsFound = checkAllCabinsForPatterns();
+    if (patternsFound > 0) {
+      console.log(`   ✅ Found ${patternsFound} town pattern(s) by comprehensive scan`);
+      patternFound = true;
+    } else {
+      console.log(`   ❌ No patterns found in comprehensive scan`);
+    }
+  }
+  
   return true;
+}
+
+// Check if a building type is a mine (any mine type)
+function isMineType(buildingType) {
+  return buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
+}
+
+// Check if a 3x3 pattern matches the town pattern at the given center position
+// Pattern: Outer ring (8 tiles): Mine, Tepee, Farm, Tepee, Mine, Tepee, Farm, Tepee
+// Center: Cabin
+// Returns rotation (0, 90, 180, 270) if pattern matches, -1 otherwise
+function checkTownPattern(centerRow, centerCol) {
+  // Check bounds - need 1 tile in each direction
+  if (centerRow < 1 || centerRow >= GRID_SIZE - 1 || centerCol < 1 || centerCol >= GRID_SIZE - 1) {
+    return -1;
+  }
+  
+  // Check if center is a Cabin
+  const centerTile = gameState.map[centerRow][centerCol];
+  if (centerTile.type !== "cabin") {
+    return -1;
+  }
+  
+  // Check if center is already part of a town
+  if (centerTile.townId) {
+    return -1;
+  }
+  
+  // Define the pattern positions relative to center (0° rotation)
+  // Pattern order: Top-left, Top, Top-right, Right, Bottom-right, Bottom, Bottom-left, Left
+  // Expected: Mine, Tepee, Farm, Tepee, Mine, Tepee, Farm, Tepee
+  const pattern0 = [
+    { row: centerRow - 1, col: centerCol - 1, expected: "mine" },
+    { row: centerRow - 1, col: centerCol, expected: "tepee" },
+    { row: centerRow - 1, col: centerCol + 1, expected: "farm" },
+    { row: centerRow, col: centerCol + 1, expected: "tepee" },
+    { row: centerRow + 1, col: centerCol + 1, expected: "mine" },
+    { row: centerRow + 1, col: centerCol, expected: "tepee" },
+    { row: centerRow + 1, col: centerCol - 1, expected: "farm" },
+    { row: centerRow, col: centerCol - 1, expected: "tepee" }
+  ];
+  
+  // Check all 4 rotations
+  for (let rotation = 0; rotation < 4; rotation++) {
+    let matches = true;
+    
+    for (let i = 0; i < pattern0.length; i++) {
+      const pos = pattern0[i];
+      
+      // Calculate rotated position
+      let rotatedRow, rotatedCol;
+      const relRow = pos.row - centerRow;
+      const relCol = pos.col - centerCol;
+      
+      switch (rotation) {
+        case 0: // 0°
+          rotatedRow = centerRow + relRow;
+          rotatedCol = centerCol + relCol;
+          break;
+        case 1: // 90° clockwise
+          rotatedRow = centerRow - relCol;
+          rotatedCol = centerCol + relRow;
+          break;
+        case 2: // 180°
+          rotatedRow = centerRow - relRow;
+          rotatedCol = centerCol - relCol;
+          break;
+        case 3: // 270° clockwise (90° counter-clockwise)
+          rotatedRow = centerRow + relCol;
+          rotatedCol = centerCol - relRow;
+          break;
+      }
+      
+      // Check bounds
+      if (rotatedRow < 0 || rotatedRow >= GRID_SIZE || rotatedCol < 0 || rotatedCol >= GRID_SIZE) {
+        matches = false;
+        break;
+      }
+      
+      const rotatedTile = gameState.map[rotatedRow][rotatedCol];
+      
+      // Check if tile is empty (pattern requires all tiles to have buildings)
+      if (!rotatedTile || rotatedTile.type === "empty") {
+        matches = false;
+        break;
+      }
+      
+      // Check if tile is already part of a town
+      if (rotatedTile.townId) {
+        matches = false;
+        break;
+      }
+      
+      const expectedType = pattern0[i].expected;
+      
+      // Check if building matches expected type
+      if (expectedType === "mine") {
+        if (!isMineType(rotatedTile.type)) {
+          matches = false;
+          break;
+        }
+      } else if (rotatedTile.type !== expectedType) {
+        matches = false;
+        break;
+      }
+    }
+    
+    if (matches) {
+      // Pattern found! Create town
+      console.log(`✅ Town pattern detected at (${centerRow}, ${centerCol}) with rotation ${rotation * 90}°`);
+      createTown(centerRow, centerCol, rotation);
+      return rotation;
+    }
+  }
+  
+  return -1;
+}
+
+// Check all cabins on the map for town patterns
+// This is a comprehensive check that ensures no patterns are missed
+function checkAllCabinsForPatterns() {
+  let patternsFound = 0;
+  
+  for (let row = 1; row < GRID_SIZE - 1; row++) {
+    for (let col = 1; col < GRID_SIZE - 1; col++) {
+      const tile = gameState.map[row][col];
+      if (tile && tile.type === "cabin" && !tile.townId) {
+        const result = checkTownPattern(row, col);
+        if (result >= 0) {
+          patternsFound++;
+          // Pattern found and town created, continue checking other cabins
+        }
+      }
+    }
+  }
+  
+  return patternsFound;
+}
+
+// Create a town at the given center position with the specified rotation
+function createTown(centerRow, centerCol, rotation) {
+  const townId = gameState.nextTownId++;
+  
+  // Define pattern positions (same as in checkTownPattern)
+  const pattern0 = [
+    { row: centerRow - 1, col: centerCol - 1 },
+    { row: centerRow - 1, col: centerCol },
+    { row: centerRow - 1, col: centerCol + 1 },
+    { row: centerRow, col: centerCol + 1 },
+    { row: centerRow + 1, col: centerCol + 1 },
+    { row: centerRow + 1, col: centerCol },
+    { row: centerRow + 1, col: centerCol - 1 },
+    { row: centerRow, col: centerCol - 1 }
+  ];
+  
+  const linkedPositions = [];
+  
+  // Lock all 9 tiles (8 outer + 1 center)
+  for (let i = 0; i < pattern0.length; i++) {
+    const pos = pattern0[i];
+    let rotatedRow, rotatedCol;
+    const relRow = pos.row - centerRow;
+    const relCol = pos.col - centerCol;
+    
+    switch (rotation) {
+      case 0:
+        rotatedRow = centerRow + relRow;
+        rotatedCol = centerCol + relCol;
+        break;
+      case 1:
+        rotatedRow = centerRow - relCol;
+        rotatedCol = centerCol + relRow;
+        break;
+      case 2:
+        rotatedRow = centerRow - relRow;
+        rotatedCol = centerCol - relCol;
+        break;
+      case 3:
+        rotatedRow = centerRow + relCol;
+        rotatedCol = centerCol - relRow;
+        break;
+    }
+    
+    const tile = gameState.map[rotatedRow][rotatedCol];
+    tile.townId = townId;
+    linkedPositions.push({ row: rotatedRow, col: rotatedCol });
+  }
+  
+  // Lock center tile
+  const centerTile = gameState.map[centerRow][centerCol];
+  centerTile.townId = townId;
+  linkedPositions.push({ row: centerRow, col: centerCol });
+  
+  // Replace center Cabin with Town Center L1
+  centerTile.type = "townCenter_L1";
+  centerTile.level = 1;
+  
+  // Create town data
+  gameState.towns[townId] = {
+    level: 1,
+    questsCompleted: [],
+    linkedPositions: linkedPositions,
+    merchantUnlocks: []
+  };
+  
+  // Update building cap
+  updateBuildingCap();
+  
+  // Console log town center creation
+  console.log(`🏛️ TOWN CENTER CREATED!`);
+  console.log(`   Town ID: ${townId}`);
+  console.log(`   Location: (${centerRow}, ${centerCol})`);
+  console.log(`   Rotation: ${rotation * 90}°`);
+  console.log(`   Level: 1`);
+  console.log(`   Locked Tiles: ${linkedPositions.length} tiles`);
+  console.log(`   New Building Cap: ${gameState.globalBuildingCap}`);
+  console.log(`   Linked Positions:`, linkedPositions);
+  
+  // Show message
+  if (typeof showMessage === 'function') {
+    showMessage("Town Center created! The area is now locked.");
+  }
+  
+  // Re-render grid to show changes
+  if (typeof renderGrid === 'function') {
+    renderGrid();
+  }
+  if (typeof updateUI === 'function') {
+    updateUI();
+  }
+}
+
+// Get town at a given position
+function getTownAtPosition(row, col) {
+  const tile = gameState.map[row][col];
+  if (!tile || !tile.townId) return null;
+  return gameState.towns[tile.townId] || null;
+}
+
+// Get building count (total non-empty buildings, excluding town centers)
+function getBuildingCount() {
+  let count = 0;
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      const tile = gameState.map[row][col];
+      if (tile && tile.type !== "empty" && !tile.type.startsWith('townCenter_')) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+// Update global building cap based on all towns
+function updateBuildingCap() {
+  let totalLevels = 0;
+  for (const townId in gameState.towns) {
+    totalLevels += gameState.towns[townId].level;
+  }
+  gameState.globalBuildingCap = 20 + (totalLevels * 5);
+}
+
+// Check town quests for a specific town
+function checkTownQuests(townId) {
+  const town = gameState.towns[townId];
+  if (!town) return false;
+  
+  const currentLevel = town.level;
+  if (currentLevel >= 10) return false; // Already max level
+  
+  const questDef = townQuestDefinitions.find(q => q.level === currentLevel);
+  if (!questDef) return false;
+  
+  // Check if quest is already completed
+  if (town.questsCompleted.includes(questDef.id)) {
+    return true; // Quest already completed
+  }
+  
+  // Check if quest condition is met
+  if (questDef.checkCondition()) {
+    // Quest completed - mark it
+    town.questsCompleted.push(questDef.id);
+    return true;
+  }
+  
+  return false;
+}
+
+// Level up a town
+function levelUpTown(townId) {
+  const town = gameState.towns[townId];
+  if (!town) return false;
+  
+  const currentLevel = town.level;
+  if (currentLevel >= 10) {
+    if (typeof showMessage === 'function') {
+      showMessage("Town is already at maximum level!");
+    }
+    return false;
+  }
+  
+  // Check if quest is completed
+  const questDef = townQuestDefinitions.find(q => q.level === currentLevel);
+  if (!questDef) return false;
+  
+  if (!town.questsCompleted.includes(questDef.id)) {
+    // Check if quest can be completed now
+    if (!questDef.checkCondition()) {
+      if (typeof showMessage === 'function') {
+        showMessage("Quest not completed yet!");
+      }
+      return false;
+    }
+    town.questsCompleted.push(questDef.id);
+  }
+  
+  // Level up
+  town.level = currentLevel + 1;
+  
+  // Unlock merchant if applicable
+  if (questDef.merchantUnlock && !town.merchantUnlocks.includes(questDef.merchantUnlock)) {
+    town.merchantUnlocks.push(questDef.merchantUnlock);
+  }
+  
+  // Update building cap
+  updateBuildingCap();
+  
+  // Find center tile and update building type
+  // The center is the last position added in createTown, or we can find it by checking townId
+  let centerPos = null;
+  for (const pos of town.linkedPositions) {
+    const tile = gameState.map[pos.row][pos.col];
+    if (tile && tile.townId === townId && tile.type && tile.type.startsWith('townCenter_')) {
+      centerPos = pos;
+      break;
+    }
+  }
+  
+  if (centerPos) {
+    const centerTile = gameState.map[centerPos.row][centerPos.col];
+    centerTile.type = `townCenter_L${town.level}`;
+    centerTile.level = town.level;
+  } else {
+    console.warn(`Could not find center tile for town ${townId}`);
+  }
+  
+  showMessage(`Town leveled up to Level ${town.level}! Building cap increased.`);
+  
+  // Re-render
+  renderGrid();
+  updateUI();
+  
+  return true;
+}
+
+// Get available merchants for a town
+function getAvailableMerchants(townId) {
+  const town = gameState.towns[townId];
+  if (!town) return [];
+  
+  const available = [];
+  for (const merchantId of town.merchantUnlocks) {
+    const merchant = merchantDefinitions[merchantId];
+    if (merchant) {
+      available.push(merchant);
+    }
+  }
+  
+  return available;
+}
+
+// Check all town quests (called periodically)
+function checkAllTownQuests() {
+  for (const townId in gameState.towns) {
+    checkTownQuests(townId);
+  }
 }
 
 // Upgrade building
@@ -1467,6 +2250,12 @@ function upgradeBuilding(row, col) {
   
   const building = buildingTypes[tile.type];
   if (!building) return false;
+  
+  // Cannot upgrade town centers through normal upgrade (must use town leveling)
+  if (tile.type && tile.type.startsWith('townCenter_')) {
+    showMessage("Use the Town Center panel to level up towns!");
+    return false;
+  }
   
   // Check max level
   if (building.maxLevel && tile.level >= building.maxLevel) return false;
@@ -1495,6 +2284,18 @@ function removeBuilding(row, col) {
   
   const tile = gameState.map[row][col];
   if (tile.type === "empty") return false;
+  
+  // Cannot remove town centers
+  if (tile.type && tile.type.startsWith('townCenter_')) {
+    showMessage("Cannot remove Town Center!");
+    return false;
+  }
+  
+  // Cannot remove buildings on town-locked tiles
+  if (tile.townId) {
+    showMessage("Cannot remove buildings from town-locked tiles!");
+    return false;
+  }
   
   // Refund 50% of total cost
   const totalCost = getTotalBuildingCost(tile.type, tile.level);
@@ -1575,8 +2376,28 @@ function renderGrid() {
       if (tile.type !== "empty") {
         cell.classList.add(`cell-${tile.type}`);
         cell.setAttribute('data-level', tile.level);
+        
+        // Add town center level class for styling
+        if (tile.type && tile.type.startsWith('townCenter_')) {
+          const level = tile.type.replace('townCenter_L', '');
+          cell.classList.add(`town-center-level-${level}`);
+        }
     } else {
         cell.classList.add('cell-empty');
+      }
+      
+      // Show town-locked indicator
+      if (tile.townId) {
+        cell.classList.add('cell-town-locked');
+        const town = gameState.towns[tile.townId];
+        if (town) {
+          cell.title = `Town Center (Level ${town.level}) - Locked tile`;
+        } else {
+          cell.title = 'Town-locked tile';
+        }
+        
+        // Apply subtle border to show it's locked
+        cell.style.border = '2px solid rgba(255, 215, 0, 0.5)';
       }
       
       // Show ownership indicator with player color background
@@ -1773,17 +2594,29 @@ function handleCellClick(row, col) {
       }
     }
   } else if (!selectedBuildingType && tile.type !== "empty") {
-    // Select tile for info panel
-    selectedTile = { row, col };
-    renderGrid();
-    updateTileInfo();
+    // Check if it's a Town Center
+    if (tile.type && tile.type.startsWith('townCenter_') && tile.townId) {
+      openTownCenterModal(tile.townId, row, col);
+    } else {
+      // Select tile for info panel
+      selectedTile = { row, col };
+      renderGrid();
+      updateTileInfo();
+    }
   } else if (selectedBuildingType && tile.type !== "empty") {
-    // Clear selection and show tile info
-    selectedBuildingType = null;
-    updateBuildingSelection();
-    selectedTile = { row, col };
-    renderGrid();
-    updateTileInfo();
+    // Check if it's a Town Center
+    if (tile.type && tile.type.startsWith('townCenter_') && tile.townId) {
+      selectedBuildingType = null;
+      updateBuildingSelection();
+      openTownCenterModal(tile.townId, row, col);
+    } else {
+      // Clear selection and show tile info
+      selectedBuildingType = null;
+      updateBuildingSelection();
+      selectedTile = { row, col };
+      renderGrid();
+      updateTileInfo();
+    }
   } else if (!selectedBuildingType && tile.type === "empty") {
     // Select empty tile to show purchase option
     selectedTile = { row, col };
@@ -2708,6 +3541,7 @@ function loadGameSlot(slot) {
       calculateProduction();
       checkUnlocks();
       checkQuests();
+      checkAllTownQuests(); // Check town quests on load
       renderGrid();
       updateUI();
       updateSaveStatus();
@@ -3155,6 +3989,8 @@ function startGameLoop() {
   }
   
   gameLoopInterval = setInterval(() => {
+    // Check town quests periodically
+    checkAllTownQuests();
     try {
       // Only run if game is initialized
       if (!gameState || !gameState.map || gameState.map.length === 0) {
@@ -3477,6 +4313,7 @@ function selectCharacter(characterType) {
   const isNewGame = !gameState.map || gameState.map.length === 0;
   if (isNewGame) {
     resetBuildingUnlocks();
+    // loadExternalQuests();
     initializeQuests();
     initializeGrid();
     // Cycle to next save slot for new game
@@ -3604,6 +4441,24 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
   const toTile = gameState.map[toRow][toCol];
   
   if (fromTile.type === "empty" || toTile.type !== "empty") return false;
+  
+  // Cannot move town centers
+  if (fromTile.type && fromTile.type.startsWith('townCenter_')) {
+    showMessage("Cannot move Town Center!");
+    return false;
+  }
+  
+  // Cannot move from town-locked tiles
+  if (fromTile.townId) {
+    showMessage("Cannot move buildings from town-locked tiles!");
+    return false;
+  }
+  
+  // Cannot move to town-locked tiles
+  if (toTile.townId) {
+    showMessage("Cannot move buildings to town-locked tiles!");
+    return false;
+  }
   
   // Save building data
   const buildingType = fromTile.type;
@@ -4009,6 +4864,190 @@ function toggleQuests() {
   });
 }
 
+// Open Town Center modal
+let currentTownId = null;
+let currentTownRow = null;
+let currentTownCol = null;
+
+function openTownCenterModal(townId, row, col) {
+  currentTownId = townId;
+  currentTownRow = row;
+  currentTownCol = col;
+  
+  const town = gameState.towns[townId];
+  if (!town) return;
+  
+  // Update modal title
+  const titleEl = document.getElementById('town-center-title');
+  if (titleEl) {
+    titleEl.textContent = `Town Center (Level ${town.level})`;
+  }
+  
+  // Update level display
+  const levelEl = document.getElementById('town-level-display');
+  if (levelEl) {
+    levelEl.textContent = `Level ${town.level}`;
+  }
+  
+  // Update cap contribution
+  const capEl = document.getElementById('town-cap-contribution');
+  if (capEl) {
+    capEl.textContent = `Building Cap Contribution: +${town.level * 5}`;
+  }
+  
+  // Update quest section
+  const questDescEl = document.getElementById('town-quest-description');
+  const questStatusEl = document.getElementById('town-quest-status');
+  
+  if (town.level >= 10) {
+    if (questDescEl) questDescEl.textContent = "Town is at maximum level!";
+    if (questStatusEl) questStatusEl.textContent = "✓ Maximum level reached";
+  } else {
+    const questDef = townQuestDefinitions.find(q => q.level === town.level);
+    if (questDef) {
+      if (questDescEl) questDescEl.textContent = questDef.description;
+      
+      const isCompleted = town.questsCompleted.includes(questDef.id);
+      const canComplete = questDef.checkCondition();
+      
+      if (isCompleted) {
+        if (questStatusEl) questStatusEl.textContent = "✓ Quest completed - Ready to upgrade!";
+        if (questStatusEl) questStatusEl.style.color = "#4CAF50";
+      } else if (canComplete) {
+        if (questStatusEl) questStatusEl.textContent = "✓ Quest condition met - Ready to upgrade!";
+        if (questStatusEl) questStatusEl.style.color = "#4CAF50";
+      } else {
+        if (questStatusEl) questStatusEl.textContent = "Quest not completed yet";
+        if (questStatusEl) questStatusEl.style.color = "#aaa";
+      }
+    }
+  }
+  
+  // Update merchants section
+  const merchantsEl = document.getElementById('town-merchants-content');
+  if (merchantsEl) {
+    const availableMerchants = getAvailableMerchants(townId);
+    if (availableMerchants.length === 0) {
+      merchantsEl.innerHTML = '<p style="color: #aaa;">No merchants available yet. Complete quests to unlock merchants.</p>';
+    } else {
+      let html = '';
+      availableMerchants.forEach(merchant => {
+        html += `<div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">`;
+        html += `<h4 style="color: #FFD700; margin-bottom: 10px;">${merchant.name}</h4>`;
+        merchant.trades.forEach(trade => {
+          html += `<div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px;">`;
+          html += `<strong>${trade.name}</strong><br>`;
+          html += `<span style="font-size: 12px; color: #aaa;">${trade.description}</span>`;
+          html += `<button class="shop-buy-btn" style="margin-top: 5px; width: 100%;" onclick="executeMerchantTrade('${townId}', '${trade.id}')">Trade</button>`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      });
+      merchantsEl.innerHTML = html;
+    }
+  }
+  
+  // Update upgrade button
+  const upgradeBtn = document.getElementById('upgrade-town-btn');
+  if (upgradeBtn) {
+    if (town.level >= 10) {
+      upgradeBtn.disabled = true;
+      upgradeBtn.textContent = "Maximum Level";
+    } else {
+      const questDef = townQuestDefinitions.find(q => q.level === town.level);
+      const canUpgrade = questDef && (town.questsCompleted.includes(questDef.id) || questDef.checkCondition());
+      upgradeBtn.disabled = !canUpgrade;
+      upgradeBtn.textContent = canUpgrade ? "Upgrade Town" : "Complete Quest First";
+    }
+  }
+  
+  // Show modal
+  toggleModal('town-center-modal');
+}
+
+function closeTownCenterModal() {
+  toggleModal('town-center-modal');
+  currentTownId = null;
+  currentTownRow = null;
+  currentTownCol = null;
+}
+
+function upgradeTownFromModal() {
+  if (currentTownId) {
+    if (levelUpTown(currentTownId)) {
+      // Refresh modal
+      openTownCenterModal(currentTownId, currentTownRow, currentTownCol);
+    }
+  }
+}
+
+function executeMerchantTrade(townId, tradeId) {
+  const town = gameState.towns[townId];
+  if (!town) return;
+  
+  // Find the merchant and trade
+  let trade = null;
+  let merchant = null;
+  
+  for (const merchantId of town.merchantUnlocks) {
+    const m = merchantDefinitions[merchantId];
+    if (m) {
+      const t = m.trades.find(tr => tr.id === tradeId);
+      if (t) {
+        trade = t;
+        merchant = m;
+        break;
+      }
+    }
+  }
+  
+  if (!trade) {
+    showMessage("Trade not found!");
+    return;
+  }
+  
+  // Check if player can afford
+  if (!canAfford(trade.cost)) {
+    showMessage("Cannot afford this trade!");
+    return;
+  }
+  
+  // Execute trade
+  deductCost(trade.cost);
+  
+  // Apply reward
+  if (trade.type === 'resource_trade') {
+    for (const [resource, amount] of Object.entries(trade.reward)) {
+      if (!gameState.resources.hasOwnProperty(resource)) {
+        gameState.resources[resource] = 0;
+      }
+      gameState.resources[resource] += amount;
+    }
+    showMessage(`Trade completed! Received ${Object.entries(trade.reward).map(([r, a]) => `${a} ${r}`).join(', ')}.`);
+  } else if (trade.type === 'boost') {
+    // TODO: Implement boost system if needed
+    showMessage(`Boost activated: ${trade.name}`);
+  } else if (trade.type === 'upgrade') {
+    // TODO: Implement discount system if needed
+    showMessage(`Upgrade applied: ${trade.name}`);
+  } else if (trade.type === 'permanent_upgrade') {
+    if (trade.reward.permanentUpgrade) {
+      // Apply permanent upgrade
+      showMessage(`Permanent upgrade applied: ${trade.name}`);
+    } else if (trade.reward.extraBuildingCap) {
+      gameState.globalBuildingCap += trade.reward.extraBuildingCap;
+      showMessage(`Building capacity increased by ${trade.reward.extraBuildingCap}!`);
+    }
+  }
+  
+  updateUI();
+  
+  // Refresh modal
+  if (currentTownId === townId) {
+    openTownCenterModal(townId, currentTownRow, currentTownCol);
+  }
+}
+
 // Show quest completion popup
 function showQuestCompletionPopup(questDef) {
   const popup = document.getElementById('quest-completion-popup');
@@ -4260,12 +5299,18 @@ function purchaseUpgrade(upgradeKey, cost) {
   showMessage(`${upgradeNames[upgradeKey]} purchased!`);
 }
 
-// Close shop when clicking outside
+// Close modals when clicking outside
 window.addEventListener('click', (event) => {
   const shopModal = document.getElementById('shop-modal');
+  const townCenterModal = document.getElementById('town-center-modal');
   const shopContent = document.querySelector('.shop-content');
   if (shopModal && event.target === shopModal) {
     shopModal.style.display = 'none';
+  }
+  
+  // Close town center modal when clicking outside
+  if (townCenterModal && event.target === townCenterModal) {
+    closeTownCenterModal();
   }
   
   // Close quests modal when clicking outside
@@ -4294,6 +5339,7 @@ window.addEventListener('keydown', (e) => {
     const questsModal = document.getElementById('quests-modal');
     const loadModal = document.getElementById('load-modal');
     const settingsModal = document.getElementById('settings-modal');
+    const townCenterModal = document.getElementById('town-center-modal');
     
     // Close shop if it's open
     if (shopModal && shopModal.style.display === 'flex') {
@@ -4304,6 +5350,12 @@ window.addEventListener('keydown', (e) => {
     // Close quests if it's open
     if (questsModal && questsModal.style.display === 'flex') {
       questsModal.style.display = 'none';
+      return;
+    }
+    
+    // Close town center modal if it's open
+    if (townCenterModal && townCenterModal.style.display === 'flex') {
+      closeTownCenterModal();
       return;
     }
     

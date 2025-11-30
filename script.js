@@ -2114,6 +2114,125 @@ function updateBuildingCap() {
   gameState.globalBuildingCap = 20 + (totalLevels * 5);
 }
 
+// Get detailed quest progress information
+function getQuestProgress(questDef) {
+  if (!questDef) return null;
+  
+  const description = questDef.description;
+  let progress = { current: 0, target: 0, percentage: 0, type: 'simple', details: {} };
+  
+  // Parse different quest types
+  if (description.includes('Build') && description.includes('buildings') && !description.includes('Farms') && !description.includes('Quarries')) {
+    // Extract number from "Build X buildings" or "Build X total buildings"
+    const match = description.match(/Build (\d+)\s+(?:total\s+)?buildings/i);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = getBuildingCount();
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'buildings',
+        icon: '🏗️',
+        details: { current, target, unit: 'buildings' }
+      };
+    }
+  } else if (description.includes('Gather') && description.includes('wood')) {
+    const match = description.match(/(\d+) wood/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.resources.wood || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'resource',
+        icon: '🪵',
+        resource: 'wood',
+        details: { current, target, unit: 'wood' }
+      };
+    }
+  } else if (description.includes('Farms')) {
+    const match = description.match(/Build (\d+) Farms/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = countBuildings('farm');
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'building',
+        icon: '🌾',
+        buildingType: 'farm',
+        details: { current, target, unit: 'farms' }
+      };
+    }
+  } else if (description.includes('Store') && description.includes('gold')) {
+    const match = description.match(/(\d+) gold/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.resources.gold || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'resource',
+        icon: '💰',
+        resource: 'gold',
+        details: { current, target, unit: 'gold' }
+      };
+    }
+  } else if (description.includes('Quarries')) {
+    const match = description.match(/Build (\d+) Quarries/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = countBuildings('quarry');
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'building',
+        icon: '⛏️',
+        buildingType: 'quarry',
+        details: { current, target, unit: 'quarries' }
+      };
+    }
+  } else if (description.includes('Produce') && description.includes('bricks')) {
+    const match = description.match(/(\d+) bricks/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.resources.bricks || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'resource',
+        icon: '🧱',
+        resource: 'bricks',
+        details: { current, target, unit: 'bricks' }
+      };
+    }
+  } else if (description.includes('Reach') && description.includes('population')) {
+    const match = description.match(/(\d+) population/);
+    if (match) {
+      const target = parseInt(match[1]);
+      const current = gameState.population.current || 0;
+      progress = {
+        current: current,
+        target: target,
+        percentage: Math.min(100, Math.round((current / target) * 100)),
+        type: 'population',
+        icon: '👥',
+        details: { current, target, unit: 'population' }
+      };
+    }
+  }
+  
+  // Default: return progress even if parsing didn't work (will show as simple quest)
+  
+  return progress;
+}
+
 // Check town quests for a specific town
 function checkTownQuests(townId) {
   const town = gameState.towns[townId];
@@ -3340,6 +3459,9 @@ function updateUI() {
   if (clayEl) clayEl.textContent = formatNumber(gameState.resources.clay);
   if (ironEl) ironEl.textContent = formatNumber(gameState.resources.iron);
   if (goldEl) goldEl.textContent = formatNumber(gameState.resources.gold);
+  
+  // Refresh town center modal if open (for real-time quest progress updates)
+  refreshTownCenterModalIfOpen();
   if (bricksEl) bricksEl.textContent = formatNumber(gameState.resources.bricks);
   if (ironBarsEl) ironBarsEl.textContent = formatNumber(gameState.resources.ironBars);
   if (coalEl) coalEl.textContent = formatNumber(gameState.resources.coal || 0);
@@ -5018,31 +5140,98 @@ function openTownCenterModal(townId, row, col) {
     capEl.textContent = `Building Cap Contribution: +${town.level * 5}`;
   }
   
-  // Update quest section
-  const questDescEl = document.getElementById('town-quest-description');
-  const questStatusEl = document.getElementById('town-quest-status');
+  // Update quest section with enhanced UI
+  const questSectionEl = document.getElementById('town-quest-content');
   
   if (town.level >= 10) {
-    if (questDescEl) questDescEl.textContent = "Town is at maximum level!";
-    if (questStatusEl) questStatusEl.textContent = "✓ Maximum level reached";
+    if (questSectionEl) {
+      questSectionEl.innerHTML = `
+        <div class="quest-completed-badge" style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 10px;">🏆</div>
+          <p style="color: #4CAF50; font-size: 18px; font-weight: bold;">Maximum Level Reached!</p>
+          <p style="color: #aaa; margin-top: 5px;">Your town has reached its full potential.</p>
+        </div>
+      `;
+    }
   } else {
     const questDef = townQuestDefinitions.find(q => q.level === town.level);
-    if (questDef) {
-      if (questDescEl) questDescEl.textContent = questDef.description;
-      
+    if (questDef && questSectionEl) {
       const isCompleted = town.questsCompleted.includes(questDef.id);
       const canComplete = questDef.checkCondition();
+      const progress = getQuestProgress(questDef);
       
-      if (isCompleted) {
-        if (questStatusEl) questStatusEl.textContent = "✓ Quest completed - Ready to upgrade!";
-        if (questStatusEl) questStatusEl.style.color = "#4CAF50";
-      } else if (canComplete) {
-        if (questStatusEl) questStatusEl.textContent = "✓ Quest condition met - Ready to upgrade!";
-        if (questStatusEl) questStatusEl.style.color = "#4CAF50";
+      let html = '';
+      
+      // Quest title and description
+      html += `<div class="quest-header" style="margin-bottom: 15px;">`;
+      html += `<h4 style="color: #FFD700; margin-bottom: 5px; font-size: 16px;">Level ${town.level} Quest</h4>`;
+      html += `<p style="color: #fff; font-size: 14px; margin: 0;">${questDef.description}</p>`;
+      html += `</div>`;
+      
+      // Progress display
+      if (progress && progress.type !== 'simple') {
+        html += `<div class="quest-progress-container" style="margin-bottom: 15px;">`;
+        
+        // Progress bar
+        html += `<div class="quest-progress-bar-container" style="background: rgba(0,0,0,0.3); border-radius: 10px; height: 30px; margin-bottom: 10px; overflow: hidden; position: relative;">`;
+        html += `<div class="quest-progress-bar-fill" style="background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); height: 100%; width: ${progress.percentage}%; transition: width 0.3s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px;">`;
+        if (progress.percentage > 50) {
+          html += `<span style="color: white; font-weight: bold; font-size: 12px;">${progress.percentage}%</span>`;
+        }
+        html += `</div>`;
+        if (progress.percentage <= 50) {
+          html += `<span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: white; font-weight: bold; font-size: 12px;">${progress.percentage}%</span>`;
+        }
+        html += `</div>`;
+        
+        // Progress details
+        html += `<div class="quest-progress-details" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">`;
+        html += `<div style="display: flex; align-items: center; gap: 8px;">`;
+        html += `<span style="font-size: 20px;">${progress.icon || '📋'}</span>`;
+        html += `<span style="color: #fff; font-weight: bold;">${progress.current}</span>`;
+        html += `<span style="color: #aaa;">/ ${progress.target} ${progress.details.unit || ''}</span>`;
+        html += `</div>`;
+        
+        if (progress.buildingCapReward) {
+          html += `<div style="color: #4CAF50; font-size: 12px;">+${questDef.buildingCapReward} Building Cap</div>`;
+        }
+        html += `</div>`;
+        
+        html += `</div>`;
       } else {
-        if (questStatusEl) questStatusEl.textContent = "Quest not completed yet";
-        if (questStatusEl) questStatusEl.style.color = "#aaa";
+        // Simple quest without progress tracking
+        html += `<div style="margin-bottom: 15px;">`;
+        html += `<p style="color: #aaa; font-size: 13px;">Complete this quest to upgrade your town.</p>`;
+        if (questDef.buildingCapReward) {
+          html += `<div style="color: #4CAF50; font-size: 12px; margin-top: 5px;">Reward: +${questDef.buildingCapReward} Building Cap</div>`;
+        }
+        html += `</div>`;
       }
+      
+      // Status badge
+      html += `<div class="quest-status-badge" style="padding: 12px; border-radius: 8px; text-align: center; `;
+      if (isCompleted || canComplete) {
+        html += `background: rgba(76, 175, 80, 0.2); border: 2px solid #4CAF50;`;
+      } else {
+        html += `background: rgba(255, 193, 7, 0.2); border: 2px solid #FFC107;`;
+      }
+      html += `">`;
+      
+      if (isCompleted || canComplete) {
+        html += `<div style="color: #4CAF50; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">`;
+        html += `<span style="font-size: 20px;">✅</span>`;
+        html += `<span>Ready to Upgrade!</span>`;
+        html += `</div>`;
+      } else {
+        html += `<div style="color: #FFC107; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">`;
+        html += `<span style="font-size: 20px;">⏳</span>`;
+        html += `<span>Quest in Progress</span>`;
+        html += `</div>`;
+      }
+      
+      html += `</div>`;
+      
+      questSectionEl.innerHTML = html;
     }
   }
   
@@ -5096,6 +5285,16 @@ function closeTownCenterModal() {
   currentTownId = null;
   currentTownRow = null;
   currentTownCol = null;
+}
+
+// Refresh town center modal if it's currently open (for real-time updates)
+function refreshTownCenterModalIfOpen() {
+  if (currentTownId !== null && currentTownRow !== null && currentTownCol !== null) {
+    const modal = document.getElementById('town-center-modal');
+    if (modal && modal.style.display === 'flex') {
+      openTownCenterModal(currentTownId, currentTownRow, currentTownCol);
+    }
+  }
 }
 
 function upgradeTownFromModal() {

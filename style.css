@@ -388,6 +388,17 @@ h4 {
   border-color: #D84315;
 }
 
+/* Special - Purple */
+.cell-baseMarker {
+  background: 
+    url('images/baseMarker.png'),
+    linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #AB47BC;
+}
+
 .cell-orchard {
   background: 
     url('images/orchard.png'),

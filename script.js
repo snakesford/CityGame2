@@ -670,6 +670,16 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false
+  },
+  baseMarker: {
+    displayName: "Base Marker",
+    category: "special",
+    baseCost: { wood: 150, gold: 50, iron: 20 },
+    costGrowthFactor: 1.3,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.2,
+    maxLevel: null,
+    unlocked: true
   }
 };
 
@@ -688,7 +698,8 @@ const buildingIcons = {
   ironMine: 'images/iron.png',
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
-  smelter: 'images/kiln.png'
+  smelter: 'images/kiln.png',
+  baseMarker: 'images/baseMarker.png'
 };
 
 // Resource icons for requirements
@@ -780,6 +791,11 @@ function getCategoryColors(category, buildingType) {
         gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
         border: '#BCAAA4'
       };
+    case 'baseMarker':
+      return {
+        gradient: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+        border: '#AB47BC'
+      };
     default:
       // Fallback to category-based colors for any new buildings
       switch (category) {
@@ -807,6 +823,11 @@ function getCategoryColors(category, buildingType) {
           return {
             gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
             border: '#BCAAA4'
+          };
+        case 'special':
+          return {
+            gradient: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+            border: '#AB47BC'
           };
         default:
           return {
@@ -1336,7 +1357,8 @@ function resetBuildingUnlocks() {
     oreRefinery: false,
     orchard: false,
     smelter: false,
-    brickHouse: false
+    brickHouse: false,
+    baseMarker: true
   };
   
   for (const [key, building] of Object.entries(buildingTypes)) {
@@ -1406,6 +1428,22 @@ function placeBuilding(row, col, buildingType) {
     getSmelter(row, col); // This creates and initializes the smelter
   }
   
+  // Claim surrounding tiles if it's a base marker (5x5 area)
+  if (buildingType === "baseMarker") {
+    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    for (let r = row - claimRadius; r <= row + claimRadius; r++) {
+      for (let c = col - claimRadius; c <= col + claimRadius; c++) {
+        // Check bounds
+        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+          const targetTile = gameState.map[r][c];
+          if (targetTile && !targetTile.owned) {
+            targetTile.owned = true;
+          }
+        }
+      }
+    }
+  }
+  
   calculateProduction();
   checkUnlocks();
   checkQuests();
@@ -1461,7 +1499,8 @@ function removeBuilding(row, col) {
     stone: Math.floor((totalCost.stone || 0) * 0.5),
     clay: Math.floor((totalCost.clay || 0) * 0.5),
     iron: Math.floor((totalCost.iron || 0) * 0.5),
-    bricks: Math.floor((totalCost.bricks || 0) * 0.5)
+    bricks: Math.floor((totalCost.bricks || 0) * 0.5),
+    gold: Math.floor((totalCost.gold || 0) * 0.5)
   };
   
   gameState.resources.wood += refund.wood;
@@ -1469,10 +1508,27 @@ function removeBuilding(row, col) {
   gameState.resources.clay += refund.clay;
   gameState.resources.iron += refund.iron;
   gameState.resources.bricks += refund.bricks;
+  gameState.resources.gold += refund.gold;
   
   // Remove smelter storage if it's a smelter
   if (tile.type === "smelter" && gameState.smelters) {
     delete gameState.smelters[smelterKey(row, col)];
+  }
+  
+  // Unclaim surrounding tiles if it's a base marker (5x5 area)
+  if (tile.type === "baseMarker") {
+    const claimRadius = 2; // 2 tiles in each direction = 5x5 total
+    for (let r = row - claimRadius; r <= row + claimRadius; r++) {
+      for (let c = col - claimRadius; c <= col + claimRadius; c++) {
+        // Check bounds
+        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+          const targetTile = gameState.map[r][c];
+          if (targetTile) {
+            targetTile.owned = false;
+          }
+        }
+      }
+    }
   }
   
   // Remove building
@@ -2937,6 +2993,10 @@ function showBuildingTooltip(event, buildingType) {
       if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0) html += ` `;
       html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.iron)}</span> <img src="images/iron.png" alt="Iron" style="width: 50px; height: 50px; vertical-align: middle;">`;
     }
+    if (cost.gold > 0) {
+      if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0 || cost.iron > 0) html += ` `;
+      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.gold)}</span> <img src="images/gold.png" alt="Gold" style="width: 50px; height: 50px; vertical-align: middle;">`;
+    }
   html += `</span></p>`;
   
   // Production/Benefits
@@ -2987,6 +3047,14 @@ function showBuildingTooltip(event, buildingType) {
     html += `<strong style="color: #8B4513;">🔥 Fuel Required:</strong> `;
     html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">Clay: ${building.smeltClayWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> wood or 1 <img src="images/coal.png" alt="Coal" style="width: 30px; height: 30px; vertical-align: middle;"> coal (3 batches) | Iron: ${building.smeltIronWoodAmount} <img src="images/wood-log.png" alt="Wood" style="width: 30px; height: 30px; vertical-align: middle;"> wood or ${building.smeltIronCoalAmount} <img src="images/coal.png" alt="Coal" style="width: 30px; height: 30px; vertical-align: middle;"> coal per batch</span>`;
     html += `<br><span style="font-size: 12px; color: #aaa;">Converts ${building.smeltClayAmount} clay + ${building.smeltClayWoodAmount} wood (or 1 coal for 3 batches) → ${building.smeltBrickOutput} brick (${building.smeltClayTime/1000}s) | ${building.smeltIronAmount} iron + ${building.smeltIronWoodAmount} wood (or ${building.smeltIronCoalAmount} coal) → ${building.smeltIronBarOutput} iron bar (${building.smeltIronTime/1000}s)</span>`;
+    html += `</p>`;
+  }
+  
+  // Special info for base marker - claims surrounding tiles
+  if (buildingType === "baseMarker") {
+    html += `<p style="margin: 3px 0; padding: 5px; background: rgba(156, 39, 176, 0.2); border-left: 3px solid #9C27B0; border-radius: 3px;">`;
+    html += `<strong style="color: #9C27B0;">📍 Special Ability:</strong> `;
+    html += `<span style="color: #9C27B0; font-size: 18px; font-weight: bold;">Claims all surrounding tiles in a 5x5 area, protecting them from random events</span>`;
     html += `</p>`;
   }
   

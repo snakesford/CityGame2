@@ -1,0 +1,21 @@
+{
+  "name": "citygame2-server",
+  "version": "1.0.0",
+  "description": "Server for CityGame2 to serve static files and JSON data",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "game",
+    "server",
+    "static"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
+

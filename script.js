@@ -528,335 +528,6 @@ let townQuestDataById = {};
 let questDefinitions = [];
 let townQuestDefinitions = [];
 
-// Embedded quest data (from quests.json)
-// This ensures quests work even when opened directly (file:// protocol)
-const embeddedQuestData = {
-  "globalQuests": [
-    {
-      "id": "first_shelter",
-      "title": "A Place to Sleep",
-      "description": "Build 1 Tepee to start housing your population.",
-      "reward": {
-        "wood": 20
-      }
-    },
-    {
-      "id": "basic_sustenance",
-      "title": "Feeding the Tribe",
-      "description": "Build 1 Farm.",
-      "reward": {
-        "stone": 20
-      }
-    },
-    {
-      "id": "timber",
-      "title": "Timber Production",
-      "description": "Reach a wood production rate of 5 per second.",
-      "reward": {
-        "wood": 50
-      }
-    },
-    {
-      "id": "growing_community",
-      "title": "Growing Community",
-      "description": "Reach a total population of 10.",
-      "reward": {
-        "stone": 50
-      }
-    },
-    {
-      "id": "stone_age",
-      "title": "The Stone Age",
-      "description": "Build a Quarry to start gathering stone.",
-      "reward": {
-        "clay": 30
-      }
-    },
-    {
-      "id": "expansion",
-      "title": "Better Buildings",
-      "description": "Upgrade any building to Level 2.",
-      "reward": {
-        "wood": 50,
-        "stone": 50
-      }
-    },
-    {
-      "id": "clay_industry",
-      "title": "Mud to Materials",
-      "description": "Build a Clay Pool and reach 100 stored Clay.",
-      "reward": {
-        "iron": 20
-      }
-    },
-    {
-      "id": "firing_up",
-      "title": "Industrialization",
-      "description": "Build a Smelter.",
-      "reward": {
-        "wood": 20
-      }
-    },
-    {
-      "id": "master_smelter",
-      "title": "Heavy Industry",
-      "description": "Produce a total of 20 Clay Bricks.",
-      "reward": {
-        "gold": 5
-      }
-    },
-    {
-      "id": "urban_living",
-      "title": "Modern Living",
-      "description": "Build a Brick House.",
-      "reward": {
-        "gold": 100
-      }
-    },
-    {
-      "id": "milestone_cabin",
-      "title": "🏕️ Milestone: Establish Your First Settlement",
-      "description": "Requirement: Build 3 Tepees\n\nReward: Unlocks Cabin (Housing upgrade)",
-      "reward": {},
-      "unlocksBuilding": "cabin",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "tepee",
-          "amount": 3
-        }
-      ]
-    },
-    {
-      "id": "milestone_advancedFarm",
-      "title": "🌾 Milestone: Sustainable Farming",
-      "description": "Requirements:\n✔ Build 2 Farms\n✔ Reach 10 population\n\nReward: Unlocks Advanced Farm",
-      "reward": {},
-      "unlocksBuilding": "advancedFarm",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "farm",
-          "amount": 2
-        },
-        {
-          "type": "population",
-          "amount": 10
-        }
-      ]
-    },
-    {
-      "id": "milestone_advancedLumberMill",
-      "title": "🪓 Milestone: Woodcutting Operations",
-      "description": "Requirements:\n✔ Build 1 Lumber Mill\n✔ Reach 50 Wood stored\n\nReward: Unlocks Advanced Lumber Mill",
-      "reward": {},
-      "unlocksBuilding": "advancedLumberMill",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "lumberMill",
-          "amount": 1
-        },
-        {
-          "type": "resource",
-          "resource": "wood",
-          "amount": 50
-        }
-      ]
-    },
-    {
-      "id": "milestone_clayPool",
-      "title": "🪨 Milestone: First Stone Infrastructure",
-      "description": "Requirements:\n✔ Build 1 Quarry\n✔ Store 30 Stone\n\nReward: Unlocks Clay Pool",
-      "reward": {},
-      "unlocksBuilding": "clayPool",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "quarry",
-          "amount": 1
-        },
-        {
-          "type": "resource",
-          "resource": "stone",
-          "amount": 30
-        }
-      ]
-    },
-    {
-      "id": "milestone_smelter",
-      "title": "🔧 Milestone: Toolmaking",
-      "description": "Requirements:\n✔ Produce 10 Clay\n✔ Produce 40 Stone\n✔ Have 1 Lumber Mill\n\nReward: Unlocks Smelter",
-      "reward": {},
-      "unlocksBuilding": "smelter",
-      "requirements": [
-        {
-          "type": "resource",
-          "resource": "clay",
-          "amount": 10
-        },
-        {
-          "type": "resource",
-          "resource": "stone",
-          "amount": 40
-        },
-        {
-          "type": "buildingCount",
-          "buildingType": "lumberMill",
-          "amount": 1
-        }
-      ]
-    },
-    {
-      "id": "milestone_brickHouse",
-      "title": "🏠 Milestone: Brick Construction",
-      "description": "Requirements:\n✔ Build 1 Smelter\n✔ Produce 20 Bricks\n\nReward: Unlocks Brick House",
-      "reward": {},
-      "unlocksBuilding": "brickHouse",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "smelter",
-          "amount": 1
-        },
-        {
-          "type": "resource",
-          "resource": "bricks",
-          "amount": 20
-        }
-      ]
-    },
-    {
-      "id": "milestone_deepMine",
-      "title": "⛏️ Milestone: Deep Mining",
-      "description": "Requirements:\n✔ Store 50 Stone\n✔ Build 1 Iron Mine\n\nReward: Unlocks Deep Mine",
-      "reward": {},
-      "unlocksBuilding": "deepMine",
-      "requirements": [
-        {
-          "type": "resource",
-          "resource": "stone",
-          "amount": 50
-        },
-        {
-          "type": "buildingCount",
-          "buildingType": "ironMine",
-          "amount": 1
-        }
-      ]
-    },
-    {
-      "id": "milestone_oreRefinery",
-      "title": "🏭 Milestone: Ore Processing",
-      "description": "Requirements:\n✔ Build 1 Deep Mine\n✔ Store 100 Stone\n\nReward: Unlocks Ore Refinery",
-      "reward": {},
-      "unlocksBuilding": "oreRefinery",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "deepMine",
-          "amount": 1
-        },
-        {
-          "type": "resource",
-          "resource": "stone",
-          "amount": 100
-        }
-      ]
-    },
-    {
-      "id": "milestone_orchard",
-      "title": "🌳 Milestone: Orchard Mastery",
-      "description": "Requirements:\n✔ Build 1 Advanced Farm\n✔ Reach 20 population\n\nReward: Unlocks Orchard",
-      "reward": {},
-      "unlocksBuilding": "orchard",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "advancedFarm",
-          "amount": 1
-        },
-        {
-          "type": "population",
-          "amount": 20
-        }
-      ]
-    }
-  ],
-  "townQuests": [
-    {
-      "id": "town_quest_L1",
-      "level": 1,
-      "description": "Build 5 buildings (any type)",
-      "buildingCapReward": 5,
-      "merchantUnlock": "merchant_tier1"
-    },
-    {
-      "id": "town_quest_L2",
-      "level": 2,
-      "description": "Gather 100 wood",
-      "buildingCapReward": 5,
-      "merchantUnlock": null
-    },
-    {
-      "id": "town_quest_L3",
-      "level": 3,
-      "description": "Build 3 Farms",
-      "buildingCapReward": 5,
-      "merchantUnlock": "merchant_tier2"
-    },
-    {
-      "id": "town_quest_L4",
-      "level": 4,
-      "description": "Reach 20 population",
-      "buildingCapReward": 5,
-      "merchantUnlock": null
-    },
-    {
-      "id": "town_quest_L5",
-      "level": 5,
-      "description": "Store 50 gold",
-      "buildingCapReward": 5,
-      "merchantUnlock": null
-    },
-    {
-      "id": "town_quest_L6",
-      "level": 6,
-      "description": "Build 2 Quarries",
-      "buildingCapReward": 5,
-      "merchantUnlock": "merchant_tier3"
-    },
-    {
-      "id": "town_quest_L7",
-      "level": 7,
-      "description": "Produce 30 bricks",
-      "buildingCapReward": 5,
-      "merchantUnlock": null
-    },
-    {
-      "id": "town_quest_L8",
-      "level": 8,
-      "description": "Build 10 total buildings",
-      "buildingCapReward": 5,
-      "merchantUnlock": null
-    },
-    {
-      "id": "town_quest_L9",
-      "level": 9,
-      "description": "Reach 50 population",
-      "buildingCapReward": 5,
-      "merchantUnlock": null
-    },
-    {
-      "id": "town_quest_L10",
-      "level": 10,
-      "description": "Store 200 gold",
-      "buildingCapReward": 5,
-      "merchantUnlock": "merchant_tier4"
-    }
-  ]
-};
-
 // Helper function to process quest data and combine with registry logic
 function processQuestData(data) {
   // Populate data maps
@@ -931,32 +602,41 @@ function processQuestData(data) {
 
 // Load quests from JSON file and combine with registry logic
 async function loadQuestsFromJson() {
-  let data = null;
-  
-  // Try to fetch from quests.json file first (works when served via web server)
-  if (window.location.protocol !== 'file:') {
-    try {
-      const response = await fetch('quests.json');
-      if (response.ok) {
-        data = await response.json();
-        console.log('Quests loaded from quests.json file');
-      } else {
-        console.warn('quests.json not found or error, using embedded quest data');
-        data = embeddedQuestData;
-      }
-    } catch (error) {
-      console.warn('Failed to fetch quests.json, using embedded quest data:', error.message);
-      data = embeddedQuestData;
-    }
-  } else {
-    // file:// protocol - use embedded data directly
-    console.log('Using embedded quest data (file:// protocol detected)');
-    data = embeddedQuestData;
+  // Check if we're running from file:// protocol (local file system)
+  // In this case, fetch() won't work due to CORS restrictions
+  if (window.location.protocol === 'file:') {
+    console.warn('Cannot load quests.json from file:// protocol due to browser security restrictions.');
+    console.warn('Please use a local web server (e.g., python -m http.server or npx http-server).');
+    console.warn('The game will run but quests will not be available.');
+    // Initialize empty arrays - game will run but without quests
+    questDefinitions = [];
+    townQuestDefinitions = [];
+    questDataById = {};
+    townQuestDataById = {};
+    return false;
   }
   
-  // Process the quest data (whether from file or embedded)
-  processQuestData(data);
-  return true;
+  try {
+    const response = await fetch('quests.json');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    
+    // Process the quest data
+    processQuestData(data);
+    console.log('Quests loaded successfully from quests.json');
+    return true;
+  } catch (error) {
+    console.error('ERROR: Failed to load quests.json:', error.message);
+    console.error('The game will run but quests will not be available.');
+    // Initialize empty arrays - game will run but without quests
+    questDefinitions = [];
+    townQuestDefinitions = [];
+    questDataById = {};
+    townQuestDataById = {};
+    return false;
+  }
 }
 
 // Merchant definitions

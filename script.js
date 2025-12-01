@@ -4667,35 +4667,33 @@ function startGameLoop() {
       calculateProduction();
       
       // Handle food consumption and population dynamics
-      const consumptionPerSecond = gameState.population.current * gameState.foodConsumptionPerPersonPerSecond;
-      gameState.resources.food -= consumptionPerSecond;
-      
-      // Calculate stable level (how many people the current food production can support)
-      const stableLevel = Math.floor(gameState.rates.fps / gameState.foodConsumptionPerPersonPerSecond);
-      
-      // Handle population decrease when food is insufficient
-      if (gameState.population.current > stableLevel) {
-        gameState.population.foodShortageCounter++;
-        if (gameState.population.foodShortageCounter >= 20) {
-          gameState.population.current = Math.max(1, gameState.population.current - 1);
+      // Only consume food if population is below housing capacity
+      if (gameState.population.current < gameState.population.capacity) {
+        const consumptionPerSecond = gameState.population.current * gameState.foodConsumptionPerPersonPerSecond;
+        gameState.resources.food -= consumptionPerSecond;
+        
+        // Calculate stable level (how many people the current food production can support)
+        const stableLevel = Math.floor(gameState.rates.fps / gameState.foodConsumptionPerPersonPerSecond);
+        
+        // Handle population decrease when food is insufficient
+        if (gameState.population.current > stableLevel) {
+          gameState.population.foodShortageCounter++;
+          if (gameState.population.foodShortageCounter >= 20) {
+            gameState.population.current = Math.max(1, gameState.population.current - 1);
+            gameState.population.foodShortageCounter = 0;
+          }
+        } else {
+          // Reset shortage counter when food is sufficient
           gameState.population.foodShortageCounter = 0;
         }
-      } else {
-        // Reset shortage counter when food is sufficient
-        gameState.population.foodShortageCounter = 0;
-      }
-      
-      // Handle population growth when food surplus exceeds threshold
-      const stableLevelFoodNeeded = stableLevel * gameState.foodConsumptionPerPersonPerSecond;
-      const foodSurplus = gameState.resources.food - stableLevelFoodNeeded;
-      if (foodSurplus >= gameState.popGrowthFoodThreshold) {
-        gameState.resources.food -= gameState.popGrowthFoodThreshold;
-        gameState.population.current += 1;
-      }
-      
-      // Cap population to housing capacity
-      if (gameState.population.current > gameState.population.capacity) {
-        gameState.population.current = gameState.population.capacity;
+        
+        // Handle population growth when food surplus exceeds threshold
+        const stableLevelFoodNeeded = stableLevel * gameState.foodConsumptionPerPersonPerSecond;
+        const foodSurplus = gameState.resources.food - stableLevelFoodNeeded;
+        if (foodSurplus >= gameState.popGrowthFoodThreshold) {
+          gameState.resources.food -= gameState.popGrowthFoodThreshold;
+          gameState.population.current += 1;
+        }
       }
       
       // Prevent food from going negative

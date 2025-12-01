@@ -1,150 +1,326 @@
 {
-    "quests": [
-      {
-        "id": "q001",
-        "title": "Getting Started",
-        "description": "Build 3 Tepees to begin settling your land.",
-        "requirement": { "type": "build", "building": "tepee", "count": 3 },
-        "reward": { "population": 5 }
-      },
-      {
-        "id": "q002",
-        "title": "Growing Roots",
-        "description": "Build your first Farm to generate food.",
-        "requirement": { "type": "build", "building": "farm", "count": 1 },
-        "reward": { "wood": 50 }
-      },
-      {
-        "id": "q003",
-        "title": "Stone Cold Start",
-        "description": "Construct a Quarry to start mining stone.",
-        "requirement": { "type": "build", "building": "quarry", "count": 1 },
-        "reward": { "stone": 50 }
-      },
-  
-      {
-        "id": "q004",
-        "title": "Population Boom",
-        "description": "Reach a population of 10.",
-        "requirement": { "type": "population", "count": 10 },
-        "reward": { "gold": 50 }
-      },
-      {
-        "id": "q005",
-        "title": "Stone Collector",
-        "description": "Gather 500 stone in total.",
-        "requirement": { "type": "resource", "resource": "stone", "count": 500 },
-        "reward": { "gold": 75 }
-      },
-      {
-        "id": "q006",
-        "title": "Brick By Brick",
-        "description": "Smelt 100 clay bricks.",
-        "requirement": { "type": "resource", "resource": "bricks", "count": 100 },
-        "reward": { "gold": 100 }
-      },
-  
-      {
-        "id": "q007",
-        "title": "Iron Works",
-        "description": "Construct an Iron Mine.",
-        "requirement": { "type": "build", "building": "ironMine", "count": 1 },
-        "reward": { "iron": 40 }
-      },
-      {
-        "id": "q008",
-        "title": "Fuel the Forge",
-        "description": "Mine 100 units of coal.",
-        "requirement": { "type": "resource", "resource": "coal", "count": 100 },
-        "reward": { "gold": 125 }
-      },
-      {
-        "id": "q009",
-        "title": "Smelting Operator",
-        "description": "Build a Smelter to refine resources.",
-        "requirement": { "type": "build", "building": "smelter", "count": 1 },
-        "reward": { "bricks": 50 }
-      },
-  
-      {
-        "id": "q010",
-        "title": "Village Builder",
-        "description": "Build 15 total structures.",
-        "requirement": { "type": "totalBuildings", "count": 15 },
-        "reward": { "gold": 200 }
-      },
-      {
-        "id": "q011",
-        "title": "Resource Tycoon",
-        "description": "Gather 2,000 total resources of any type.",
-        "requirement": { "type": "totalResources", "count": 2000 },
-        "reward": { "gold": 300 }
-      },
-      {
-        "id": "q012",
-        "title": "Housing Expansion",
-        "description": "Build 2 Cabins.",
-        "requirement": { "type": "build", "building": "cabin", "count": 2 },
-        "reward": { "housingCapacity": 5 }
-      },
-  
-      {
-        "id": "q013",
-        "title": "Clay Tycoon",
-        "description": "Collect 1,000 clay.",
-        "requirement": { "type": "resource", "resource": "clay", "count": 1000 },
-        "reward": { "gold": 150 }
-      },
-      {
-        "id": "q014",
-        "title": "Advanced Agriculture",
-        "description": "Construct an Advanced Farm.",
-        "requirement": { "type": "build", "building": "advancedFarm", "count": 1 },
-        "reward": { "population": 5 }
-      },
-      {
-        "id": "q015",
-        "title": "Enter the Orchard",
-        "description": "Build an Orchard for advanced food production.",
-        "requirement": { "type": "build", "building": "orchard", "count": 1 },
-        "reward": { "food": 200 }
-      },
-  
-      {
-        "id": "q016",
-        "title": "The Great Expansion",
-        "description": "Reach 40 total buildings.",
-        "requirement": { "type": "totalBuildings", "count": 40 },
-        "reward": { "gold": 500 }
-      },
-      {
-        "id": "q017",
-        "title": "The Iron Age",
-        "description": "Produce 250 iron bars.",
-        "requirement": { "type": "resource", "resource": "ironBars", "count": 250 },
-        "reward": { "gold": 300 }
-      },
-      {
-        "id": "q018",
-        "title": "Master of Minerals",
-        "description": "Build 5 mineral buildings (Quarry, Iron Mine, Coal Mine, etc.).",
-        "requirement": { "type": "buildCategory", "category": "minerals", "count": 5 },
-        "reward": { "gold": 400 }
-      },
-  
-      {
-        "id": "q019",
-        "title": "Town Founder",
-        "description": "Complete the 3×3 Town Pattern and form your first Town.",
-        "requirement": { "type": "townCreated", "count": 1 },
-        "reward": { "buildingCap": 5 }
-      },
-      {
-        "id": "q020",
-        "title": "Town Growth",
-        "description": "Level up a Town Center to Level 2.",
-        "requirement": { "type": "townLevel", "level": 2 },
-        "reward": { "buildingCap": 5 }
+  "globalQuests": [
+    {
+      "id": "first_shelter",
+      "title": "A Place to Sleep",
+      "description": "Build 1 Tepee to start housing your population.",
+      "reward": {
+        "wood": 20
       }
-    ]
-  }
+    },
+    {
+      "id": "basic_sustenance",
+      "title": "Feeding the Tribe",
+      "description": "Build 1 Farm.",
+      "reward": {
+        "stone": 20
+      }
+    },
+    {
+      "id": "timber",
+      "title": "Timber Production",
+      "description": "Reach a wood production rate of 5 per second.",
+      "reward": {
+        "wood": 50
+      }
+    },
+    {
+      "id": "growing_community",
+      "title": "Growing Community",
+      "description": "Reach a total population of 10.",
+      "reward": {
+        "stone": 50
+      }
+    },
+    {
+      "id": "stone_age",
+      "title": "The Stone Age",
+      "description": "Build a Quarry to start gathering stone.",
+      "reward": {
+        "clay": 30
+      }
+    },
+    {
+      "id": "expansion",
+      "title": "Better Buildings",
+      "description": "Upgrade any building to Level 2.",
+      "reward": {
+        "wood": 50,
+        "stone": 50
+      }
+    },
+    {
+      "id": "clay_industry",
+      "title": "Mud to Materials",
+      "description": "Build a Clay Pool and reach 100 stored Clay.",
+      "reward": {
+        "iron": 20
+      }
+    },
+    {
+      "id": "firing_up",
+      "title": "Industrialization",
+      "description": "Build a Smelter.",
+      "reward": {
+        "wood": 20
+      }
+    },
+    {
+      "id": "master_smelter",
+      "title": "Heavy Industry",
+      "description": "Produce a total of 20 Clay Bricks.",
+      "reward": {
+        "gold": 5
+      }
+    },
+    {
+      "id": "urban_living",
+      "title": "Modern Living",
+      "description": "Build a Brick House.",
+      "reward": {
+        "gold": 100
+      }
+    },
+    {
+      "id": "milestone_cabin",
+      "title": "🏕️ Milestone: Establish Your First Settlement",
+      "description": "Requirement: Build 3 Tepees\n\nReward: Unlocks Cabin (Housing upgrade)",
+      "reward": {},
+      "unlocksBuilding": "cabin",
+      "requirements": [
+        {
+          "type": "buildingCount",
+          "buildingType": "tepee",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": "milestone_advancedFarm",
+      "title": "🌾 Milestone: Sustainable Farming",
+      "description": "Requirements:\n✔ Build 2 Farms\n✔ Reach 10 population\n\nReward: Unlocks Advanced Farm",
+      "reward": {},
+      "unlocksBuilding": "advancedFarm",
+      "requirements": [
+        {
+          "type": "buildingCount",
+          "buildingType": "farm",
+          "amount": 2
+        },
+        {
+          "type": "population",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "id": "milestone_advancedLumberMill",
+      "title": "🪓 Milestone: Woodcutting Operations",
+      "description": "Requirements:\n✔ Build 1 Lumber Mill\n✔ Reach 50 Wood stored\n\nReward: Unlocks Advanced Lumber Mill",
+      "reward": {},
+      "unlocksBuilding": "advancedLumberMill",
+      "requirements": [
+        {
+          "type": "buildingCount",
+          "buildingType": "lumberMill",
+          "amount": 1
+        },
+        {
+          "type": "resource",
+          "resource": "wood",
+          "amount": 50
+        }
+      ]
+    },
+    {
+      "id": "milestone_clayPool",
+      "title": "🪨 Milestone: First Stone Infrastructure",
+      "description": "Requirements:\n✔ Build 1 Quarry\n✔ Store 30 Stone\n\nReward: Unlocks Clay Pool",
+      "reward": {},
+      "unlocksBuilding": "clayPool",
+      "requirements": [
+        {
+          "type": "buildingCount",
+          "buildingType": "quarry",
+          "amount": 1
+        },
+        {
+          "type": "resource",
+          "resource": "stone",
+          "amount": 30
+        }
+      ]
+    },
+    {
+      "id": "milestone_smelter",
+      "title": "🔧 Milestone: Toolmaking",
+      "description": "Requirements:\n✔ Produce 10 Clay\n✔ Produce 40 Stone\n✔ Have 1 Lumber Mill\n\nReward: Unlocks Smelter",
+      "reward": {},
+      "unlocksBuilding": "smelter",
+      "requirements": [
+        {
+          "type": "resource",
+          "resource": "clay",
+          "amount": 10
+        },
+        {
+          "type": "resource",
+          "resource": "stone",
+          "amount": 40
+        },
+        {
+          "type": "buildingCount",
+          "buildingType": "lumberMill",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "milestone_brickHouse",
+      "title": "🏠 Milestone: Brick Construction",
+      "description": "Requirements:\n✔ Build 1 Smelter\n✔ Produce 20 Bricks\n\nReward: Unlocks Brick House",
+      "reward": {},
+      "unlocksBuilding": "brickHouse",
+      "requirements": [
+        {
+          "type": "buildingCount",
+          "buildingType": "smelter",
+          "amount": 1
+        },
+        {
+          "type": "resource",
+          "resource": "bricks",
+          "amount": 20
+        }
+      ]
+    },
+    {
+      "id": "milestone_deepMine",
+      "title": "⛏️ Milestone: Deep Mining",
+      "description": "Requirements:\n✔ Store 50 Stone\n✔ Build 1 Iron Mine\n\nReward: Unlocks Deep Mine",
+      "reward": {},
+      "unlocksBuilding": "deepMine",
+      "requirements": [
+        {
+          "type": "resource",
+          "resource": "stone",
+          "amount": 50
+        },
+        {
+          "type": "buildingCount",
+          "buildingType": "ironMine",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "milestone_oreRefinery",
+      "title": "🏭 Milestone: Ore Processing",
+      "description": "Requirements:\n✔ Build 1 Deep Mine\n✔ Store 100 Stone\n\nReward: Unlocks Ore Refinery",
+      "reward": {},
+      "unlocksBuilding": "oreRefinery",
+      "requirements": [
+        {
+          "type": "buildingCount",
+          "buildingType": "deepMine",
+          "amount": 1
+        },
+        {
+          "type": "resource",
+          "resource": "stone",
+          "amount": 100
+        }
+      ]
+    },
+    {
+      "id": "milestone_orchard",
+      "title": "🌳 Milestone: Orchard Mastery",
+      "description": "Requirements:\n✔ Build 1 Advanced Farm\n✔ Reach 20 population\n\nReward: Unlocks Orchard",
+      "reward": {},
+      "unlocksBuilding": "orchard",
+      "requirements": [
+        {
+          "type": "buildingCount",
+          "buildingType": "advancedFarm",
+          "amount": 1
+        },
+        {
+          "type": "population",
+          "amount": 20
+        }
+      ]
+    }
+  ],
+  "townQuests": [
+    {
+      "id": "town_quest_L1",
+      "level": 1,
+      "description": "Build 5 buildings (any type)",
+      "buildingCapReward": 5,
+      "merchantUnlock": "merchant_tier1"
+    },
+    {
+      "id": "town_quest_L2",
+      "level": 2,
+      "description": "Gather 100 wood",
+      "buildingCapReward": 5,
+      "merchantUnlock": null
+    },
+    {
+      "id": "town_quest_L3",
+      "level": 3,
+      "description": "Build 3 Farms",
+      "buildingCapReward": 5,
+      "merchantUnlock": "merchant_tier2"
+    },
+    {
+      "id": "town_quest_L4",
+      "level": 4,
+      "description": "Reach 20 population",
+      "buildingCapReward": 5,
+      "merchantUnlock": null
+    },
+    {
+      "id": "town_quest_L5",
+      "level": 5,
+      "description": "Store 50 gold",
+      "buildingCapReward": 5,
+      "merchantUnlock": null
+    },
+    {
+      "id": "town_quest_L6",
+      "level": 6,
+      "description": "Build 2 Quarries",
+      "buildingCapReward": 5,
+      "merchantUnlock": "merchant_tier3"
+    },
+    {
+      "id": "town_quest_L7",
+      "level": 7,
+      "description": "Produce 30 bricks",
+      "buildingCapReward": 5,
+      "merchantUnlock": null
+    },
+    {
+      "id": "town_quest_L8",
+      "level": 8,
+      "description": "Build 10 total buildings",
+      "buildingCapReward": 5,
+      "merchantUnlock": null
+    },
+    {
+      "id": "town_quest_L9",
+      "level": 9,
+      "description": "Reach 50 population",
+      "buildingCapReward": 5,
+      "merchantUnlock": null
+    },
+    {
+      "id": "town_quest_L10",
+      "level": 10,
+      "description": "Store 200 gold",
+      "buildingCapReward": 5,
+      "merchantUnlock": "merchant_tier4"
+    }
+  ]
+}

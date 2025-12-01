@@ -392,8 +392,144 @@ function ensureSmelterFields(smelter) {
   return smelter;
 }
 
-// Quest definitions
-const questDefinitions = [
+// Quest definitions are now loaded dynamically from quests.json via loadQuestsFromJson()
+// The questDefinitions and townQuestDefinitions arrays are populated by the loader
+// See questRegistry below for quest logic (checkCondition functions, etc.)
+
+// Quest registry: maps quest IDs to their checkCondition functions and special effects
+// This keeps all quest logic in JavaScript while data lives in JSON
+const questRegistry = {
+  // Global quests
+  'first_shelter': {
+    checkCondition: () => hasBuilding('tepee')
+  },
+  'basic_sustenance': {
+    checkCondition: () => hasBuilding('farm')
+  },
+  'timber': {
+    checkCondition: () => gameState.rates.wps >= 5
+  },
+  'growing_community': {
+    checkCondition: () => gameState.population.current >= 10
+  },
+  'stone_age': {
+    checkCondition: () => hasBuilding('quarry')
+  },
+  'expansion': {
+    checkCondition: () => findBuilding(tile => tile.level >= 2) !== null
+  },
+  'clay_industry': {
+    checkCondition: () => hasBuilding('clayPool') && gameState.resources.clay >= 100
+  },
+  'firing_up': {
+    checkCondition: () => hasBuilding('smelter')
+  },
+  'master_smelter': {
+    checkCondition: () => gameState.resources.bricks >= 20
+  },
+  'urban_living': {
+    checkCondition: () => hasBuilding('brickHouse')
+  },
+  // Milestone quests
+  'milestone_cabin': {
+    checkCondition: () => countBuildings('tepee') >= 3,
+    unlocksBuilding: 'cabin'
+  },
+  'milestone_advancedFarm': {
+    checkCondition: () => countBuildings('farm') >= 2 && gameState.population.current >= 10,
+    unlocksBuilding: 'advancedFarm'
+  },
+  'milestone_advancedLumberMill': {
+    checkCondition: () => hasBuilding('lumberMill') && gameState.resources.wood >= 50,
+    unlocksBuilding: 'advancedLumberMill'
+  },
+  'milestone_clayPool': {
+    checkCondition: () => hasBuilding('quarry') && gameState.resources.stone >= 30,
+    unlocksBuilding: 'clayPool'
+  },
+  'milestone_smelter': {
+    checkCondition: () => gameState.resources.clay >= 10 && gameState.resources.stone >= 40 && hasBuilding('lumberMill'),
+    unlocksBuilding: 'smelter'
+  },
+  'milestone_brickHouse': {
+    checkCondition: () => hasBuilding('smelter') && gameState.resources.bricks >= 20,
+    unlocksBuilding: 'brickHouse'
+  },
+  'milestone_deepMine': {
+    checkCondition: () => gameState.resources.stone >= 50 && hasBuilding('ironMine'),
+    unlocksBuilding: 'deepMine'
+  },
+  'milestone_oreRefinery': {
+    checkCondition: () => hasBuilding('deepMine') && gameState.resources.stone >= 100,
+    unlocksBuilding: 'oreRefinery'
+  },
+  'milestone_orchard': {
+    checkCondition: () => hasBuilding('advancedFarm') && gameState.population.current >= 20,
+    unlocksBuilding: 'orchard'
+  },
+  // Town quests
+  'town_quest_L1': {
+    checkCondition: () => getBuildingCount() >= 5,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier1'
+  },
+  'town_quest_L2': {
+    checkCondition: () => gameState.resources.wood >= 100,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  'town_quest_L3': {
+    checkCondition: () => countBuildings('farm') >= 3,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier2'
+  },
+  'town_quest_L4': {
+    checkCondition: () => gameState.population.current >= 20,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  'town_quest_L5': {
+    checkCondition: () => gameState.resources.gold >= 50,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  'town_quest_L6': {
+    checkCondition: () => countBuildings('quarry') >= 2,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier3'
+  },
+  'town_quest_L7': {
+    checkCondition: () => gameState.resources.bricks >= 30,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  'town_quest_L8': {
+    checkCondition: () => getBuildingCount() >= 10,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  'town_quest_L9': {
+    checkCondition: () => gameState.population.current >= 50,
+    buildingCapReward: 5,
+    merchantUnlock: null
+  },
+  'town_quest_L10': {
+    checkCondition: () => gameState.resources.gold >= 200,
+    buildingCapReward: 5,
+    merchantUnlock: 'merchant_tier4'
+  }
+};
+
+// Data storage: maps quest IDs to their JSON data
+let questDataById = {};
+let townQuestDataById = {};
+
+// Quest definitions arrays (populated by loader)
+let questDefinitions = [];
+let townQuestDefinitions = [];
+
+// Fallback quest definitions (used if JSON load fails)
+const fallbackQuestDefinitions = [
   {
     id: 'first_shelter',
     title: 'A Place to Sleep',
@@ -464,7 +600,6 @@ const questDefinitions = [
     checkCondition: () => hasBuilding('brickHouse'),
     reward: { gold: 100 }
   },
-  // Milestone Quests - Building Unlocks
   {
     id: 'milestone_cabin',
     title: '🏕️ Milestone: Establish Your First Settlement',
@@ -575,8 +710,7 @@ const questDefinitions = [
   }
 ];
 
-// Town quest definitions (one per level)
-const townQuestDefinitions = [
+const fallbackTownQuestDefinitions = [
   {
     id: 'town_quest_L1',
     level: 1,
@@ -591,7 +725,7 @@ const townQuestDefinitions = [
     description: 'Gather 100 wood',
     checkCondition: () => gameState.resources.wood >= 100,
     buildingCapReward: 5,
-    merchantUnlock: null // Tier 1 already unlocked
+    merchantUnlock: null
   },
   {
     id: 'town_quest_L3',
@@ -658,6 +792,107 @@ const townQuestDefinitions = [
     merchantUnlock: 'merchant_tier4'
   }
 ];
+
+// Load quests from JSON file and combine with registry logic
+async function loadQuestsFromJson() {
+  // Check if we're running from file:// protocol (local file system)
+  // In this case, fetch() won't work due to CORS, so use fallback immediately
+  if (window.location.protocol === 'file:') {
+    console.log('Running from file:// protocol - using fallback quest definitions. For JSON loading, use a local web server.');
+    questDefinitions = [...fallbackQuestDefinitions];
+    townQuestDefinitions = [...fallbackTownQuestDefinitions];
+    return false;
+  }
+  
+  try {
+    const response = await fetch('quests.json');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    
+    // Populate data maps
+    questDataById = {};
+    townQuestDataById = {};
+    
+    if (data.globalQuests) {
+      data.globalQuests.forEach(quest => {
+        questDataById[quest.id] = quest;
+      });
+    }
+    
+    if (data.townQuests) {
+      data.townQuests.forEach(quest => {
+        townQuestDataById[quest.id] = quest;
+      });
+    }
+    
+    // Create questDefinitions array by combining JSON data with registry logic
+    questDefinitions = [];
+    if (data.globalQuests) {
+      data.globalQuests.forEach(questData => {
+        const registryEntry = questRegistry[questData.id];
+        if (!registryEntry) {
+          console.warn(`No registry entry found for quest: ${questData.id}`);
+          return;
+        }
+        
+        const questDef = {
+          id: questData.id,
+          title: questData.title,
+          description: questData.description,
+          reward: questData.reward || {},
+          checkCondition: registryEntry.checkCondition
+        };
+        
+        // Add optional fields from JSON
+        if (questData.unlocksBuilding) {
+          questDef.unlocksBuilding = questData.unlocksBuilding;
+        }
+        if (questData.requirements) {
+          questDef.requirements = questData.requirements;
+        }
+        
+        questDefinitions.push(questDef);
+      });
+    }
+    
+    // Create townQuestDefinitions array by combining JSON data with registry logic
+    townQuestDefinitions = [];
+    if (data.townQuests) {
+      data.townQuests.forEach(questData => {
+        const registryEntry = questRegistry[questData.id];
+        if (!registryEntry) {
+          console.warn(`No registry entry found for town quest: ${questData.id}`);
+          return;
+        }
+        
+        const questDef = {
+          id: questData.id,
+          level: questData.level,
+          description: questData.description,
+          checkCondition: registryEntry.checkCondition,
+          buildingCapReward: questData.buildingCapReward,
+          merchantUnlock: questData.merchantUnlock
+        };
+        
+        townQuestDefinitions.push(questDef);
+      });
+    }
+    
+    console.log('Quests loaded successfully from JSON');
+    return true;
+  } catch (error) {
+    // Only log error if it's not a CORS/file:// issue (already handled above)
+    if (window.location.protocol !== 'file:') {
+      console.warn('Failed to load quests from JSON, using fallback:', error.message);
+    }
+    // Use fallback quest definitions
+    questDefinitions = [...fallbackQuestDefinitions];
+    townQuestDefinitions = [...fallbackTownQuestDefinitions];
+    return false;
+  }
+}
 
 // Merchant definitions
 const merchantDefinitions = {
@@ -6432,8 +6667,11 @@ window.addEventListener('keyup', (e) => {
 });
 
 // Initialize on page load
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   try {
+    // Load quests from JSON before initializing game
+    await loadQuestsFromJson();
+    
     const loaded = loadGame();
     
     if (!loaded) {

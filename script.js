@@ -3828,7 +3828,15 @@ function showCellTooltip(event, row, col) {
   if (actualProduction.iron > 0) html += formatProductionTooltip(production.iron, actualProduction.iron, 'Iron');
   if (actualProduction.coal > 0) html += formatProductionTooltip(production.coal, actualProduction.coal, 'Coal');
   if (actualProduction.population > 0) html += formatProductionTooltip(production.population, actualProduction.population, 'Population');
-  if (actualProduction.food > 0) html += formatProductionTooltip(production.food, actualProduction.food, 'Food') + ` <img src="images/food.png" alt="Food" style="width:16px;height:16px;vertical-align:middle;margin-left:6px;">`;
+  if (actualProduction.food > 0) {
+    // Use icon in place of the "Food" text label
+    const foodIcon = `<img src="images/food.png" alt="Food" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;">`;
+    html += `${foodIcon}/sec: ${formatNumberWithDecimals(actualProduction.food)}`;
+    if (tile.owned && production.food > 0) {
+      html += ` <span style="color: #FFD700;">(+5%)</span>`;
+    }
+    html += '<br>';
+  }
   if (actualProduction.capacity > 0) {
     html += `Capacity: ${formatNumber(actualProduction.capacity)}`;
     if (tile.owned && production.capacity > 0) {

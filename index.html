@@ -203,6 +203,11 @@
         <span id="housingCapacity" style="font-size: 24px; font-weight: bold;">0</span>
       </span>
     </div>
+    <div class="expansion-controls">
+      <button id="expansion-btn" class="expansion-btn">
+        Buy Random Tiles (2-9 tiles, ~<span id="expansion-cost">0</span> gold)
+      </button>
+    </div>
   </div>
 
   <div class="main-container">
@@ -246,8 +251,23 @@
     </div>
 
     <!-- Center: Grid -->
-    <div class="grid-wrapper">
-      <div id="grid-container" class="grid-container"></div>
+    <div class="grid-area-wrapper">
+      <!-- Zoom Controls -->
+      <div class="zoom-controls">
+        <button id="zoom-in-btn" class="zoom-btn" onclick="zoomIn()" title="Zoom In (Mouse Wheel Up / +)">
+          <span style="font-size: 20px;">+</span>
+        </button>
+        <div class="zoom-level-display" id="zoom-level-display">100%</div>
+        <button id="zoom-out-btn" class="zoom-btn" onclick="zoomOut()" title="Zoom Out (Mouse Wheel Down / -)">
+          <span style="font-size: 20px;">−</span>
+        </button>
+        <button id="zoom-reset-btn" class="zoom-btn" onclick="resetZoom()" title="Reset Zoom (0)">
+          <span style="font-size: 16px;">⌂</span>
+        </button>
+      </div>
+      <div id="grid-wrapper" class="grid-wrapper">
+        <div id="grid-container" class="grid-container"></div>
+      </div>
     </div>
 
     <!-- Right Panel: Tile Info -->

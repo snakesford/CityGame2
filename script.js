@@ -1,5 +1,6 @@
 // Grid size
-const GRID_SIZE = 15;
+const BASE_GRID_SIZE = 15;
+let GRID_SIZE = BASE_GRID_SIZE;
 
 // Game state
 let gameState = {
@@ -27,6 +28,7 @@ let gameState = {
     capacity: 0
   },
   map: [],
+  zoomLevel: 1.0, // Zoom level for the grid (1.0 = 100%)
   character: null, // "miner" | "farmer" | null
   playerColor: null, // Player's chosen color
   playerName: null, // Player's name
@@ -140,11 +142,117 @@ let shiftHeld = false;
 // HELPER FUNCTIONS
 // ============================================
 
+// Current grid size based on actual map dimensions
+function getTargetGridSize() {
+  if (!gameState.map || gameState.map.length === 0) {
+    return BASE_GRID_SIZE;
+  }
+  // Find the maximum dimension (rows or columns) in the current map
+  let maxRow = gameState.map.length;
+  let maxCol = 0;
+  for (let row = 0; row < gameState.map.length; row++) {
+    if (gameState.map[row] && gameState.map[row].length > maxCol) {
+      maxCol = gameState.map[row].length;
+    }
+  }
+  return Math.max(maxRow, maxCol, BASE_GRID_SIZE);
+}
+
+// Grow the grid to a new size while keeping existing tiles
+function expandMapToSize(targetSize) {
+  GRID_SIZE = targetSize;
+  if (!gameState.map) gameState.map = [];
+  for (let row = 0; row < targetSize; row++) {
+    if (!gameState.map[row]) gameState.map[row] = [];
+    for (let col = 0; col < targetSize; col++) {
+      if (!gameState.map[row][col]) {
+        gameState.map[row][col] = {
+          type: "empty",
+          level: 0,
+          owned: false
+        };
+      }
+    }
+  }
+}
+
+// Ensure the grid matches expansion count (used on load and reset)
+function syncGridSizeWithState() {
+  const desiredSize = Math.max(getTargetGridSize(), BASE_GRID_SIZE);
+  expandMapToSize(desiredSize);
+}
+
+// Get bounding box of all tiles in the map
+function getMapBounds() {
+  if (!gameState.map || gameState.map.length === 0) {
+    return { minRow: 0, maxRow: BASE_GRID_SIZE - 1, minCol: 0, maxCol: BASE_GRID_SIZE - 1 };
+  }
+  
+  let minRow = Infinity, maxRow = -Infinity;
+  let minCol = Infinity, maxCol = -Infinity;
+  
+  // Iterate over all rows
+  for (let row = 0; row < gameState.map.length; row++) {
+    if (!gameState.map[row]) continue;
+    // Iterate over all columns in this row (including sparse columns)
+    for (let col = 0; col < gameState.map[row].length; col++) {
+      if (gameState.map[row][col]) {
+        minRow = Math.min(minRow, row);
+        maxRow = Math.max(maxRow, row);
+        minCol = Math.min(minCol, col);
+        maxCol = Math.max(maxCol, col);
+      }
+    }
+    // Also check for sparse columns beyond the length
+    if (typeof gameState.map[row] === 'object') {
+      for (let colKey in gameState.map[row]) {
+        const col = parseInt(colKey);
+        if (!isNaN(col) && col >= gameState.map[row].length && gameState.map[row][col]) {
+          minRow = Math.min(minRow, row);
+          maxRow = Math.max(maxRow, row);
+          minCol = Math.min(minCol, col);
+          maxCol = Math.max(maxCol, col);
+        }
+      }
+    }
+  }
+  
+  // If no tiles found, return default bounds
+  if (minRow === Infinity) {
+    return { minRow: 0, maxRow: BASE_GRID_SIZE - 1, minCol: 0, maxCol: BASE_GRID_SIZE - 1 };
+  }
+  
+  return { minRow, maxRow, minCol, maxCol };
+}
+
+// Get or create a tile at the specified coordinates (supports sparse arrays)
+function getOrCreateTile(row, col) {
+  if (!gameState.map) gameState.map = [];
+  
+  // Ensure row exists
+  if (!gameState.map[row]) {
+    gameState.map[row] = [];
+  }
+  
+  // Ensure column exists and initialize if needed
+  if (!gameState.map[row][col]) {
+    gameState.map[row][col] = {
+      type: "empty",
+      level: 0,
+      owned: false
+    };
+  }
+  
+  return gameState.map[row][col];
+}
+
 // Iterate over all tiles with a callback: callback(tile, row, col)
 function forEachTile(callback) {
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      if (gameState.map[row] && gameState.map[row][col]) {
+  const bounds = getMapBounds();
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
+      if (gameState.map[row][col]) {
         callback(gameState.map[row][col], row, col);
       }
     }
@@ -162,9 +270,11 @@ function countBuildings(buildingType) {
 
 // Check if at least one building of a type exists
 function hasBuilding(buildingType) {
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      if (gameState.map[row] && gameState.map[row][col] && gameState.map[row][col].type === buildingType) {
+  const bounds = getMapBounds();
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
+      if (gameState.map[row][col] && gameState.map[row][col].type === buildingType) {
         return true;
       }
     }
@@ -174,9 +284,11 @@ function hasBuilding(buildingType) {
 
 // Find any building matching a predicate: predicate(tile) => boolean
 function findBuilding(predicate) {
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      if (gameState.map[row] && gameState.map[row][col] && predicate(gameState.map[row][col])) {
+  const bounds = getMapBounds();
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
+      if (gameState.map[row][col] && predicate(gameState.map[row][col])) {
         return { tile: gameState.map[row][col], row, col };
       }
     }
@@ -284,6 +396,17 @@ function migrateSaveData() {
   // Ensure map is initialized
   if (!gameState.map || gameState.map.length === 0) {
     initializeGrid();
+  }
+  
+  // Remove old expansionsPurchased field if it exists (legacy cleanup)
+  if (gameState.expansionsPurchased !== undefined) {
+    delete gameState.expansionsPurchased;
+  }
+  
+  // Align grid size with actual map dimensions and fill any missing cells
+  if (gameState.map && gameState.map.length > 0) {
+    const desiredSize = getTargetGridSize();
+    expandMapToSize(desiredSize);
   }
   
   // Ensure town system fields exist
@@ -1219,17 +1342,9 @@ function getCategoryColors(category, buildingType) {
 
 // Initialize empty grid
 function initializeGrid() {
+  GRID_SIZE = BASE_GRID_SIZE;
   gameState.map = [];
-  for (let row = 0; row < GRID_SIZE; row++) {
-    gameState.map[row] = [];
-    for (let col = 0; col < GRID_SIZE; col++) {
-      gameState.map[row][col] = {
-        type: "empty",
-        level: 0,
-        owned: false
-      };
-    }
-  }
+  expandMapToSize(GRID_SIZE);
 }
 
 // Calculate production for a building at a given level
@@ -1366,30 +1481,32 @@ function calculateProduction() {
   let totalPopulation = 0;
   let totalCapacity = 0;
   
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      const tile = gameState.map[row][col];
-      if (tile.type !== "empty") {
-        // Handle smelter processing
-        if (tile.type === "smelter") {
-          processSmelter(row, col, tile.level);
-        }
-        
-        const production = getBuildingProduction(tile.type, tile.level);
-        
-        // Apply 5% production boost for owned tiles
-        const ownedBoost = tile.owned ? 1.05 : 1.0;
-        
-        totalWood += production.wood * ownedBoost;
-        totalStone += production.stone * ownedBoost;
-        totalClay += production.clay * ownedBoost;
-        totalIron += production.iron * ownedBoost;
-        totalBricks += production.bricks * ownedBoost;
-        totalGold += production.gold * ownedBoost;
-        totalCoal += production.coal * ownedBoost;
-        totalPopulation += production.population * ownedBoost;
-        totalCapacity += production.capacity * ownedBoost;
+  const bounds = getMapBounds();
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
+      const tile = gameState.map[row] && gameState.map[row][col] ? gameState.map[row][col] : null;
+      if (!tile || tile.type === "empty") continue;
+      
+      // Handle smelter processing
+      if (tile.type === "smelter") {
+        processSmelter(row, col, tile.level);
       }
+      
+      const production = getBuildingProduction(tile.type, tile.level);
+      
+      // Apply 5% production boost for owned tiles
+      const ownedBoost = tile.owned ? 1.05 : 1.0;
+      
+      totalWood += production.wood * ownedBoost;
+      totalStone += production.stone * ownedBoost;
+      totalClay += production.clay * ownedBoost;
+      totalIron += production.iron * ownedBoost;
+      totalBricks += production.bricks * ownedBoost;
+      totalGold += production.gold * ownedBoost;
+      totalCoal += production.coal * ownedBoost;
+      totalPopulation += production.population * ownedBoost;
+      totalCapacity += production.capacity * ownedBoost;
     }
   }
   
@@ -1776,9 +1893,8 @@ function checkUnlocks() {
 
 // Purchase a tile to own it (protects from random events)
 function purchaseTile(row, col) {
-  if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
-  
-  const tile = gameState.map[row][col];
+  // Get or create the tile (handles sparse coordinates)
+  const tile = getOrCreateTile(row, col);
   if (tile.owned) return false; // Already owned
   
   const tileCost = 50; // Cost in gold
@@ -1790,16 +1906,122 @@ function purchaseTile(row, col) {
   return true;
 }
 
+// Cost per tile for random expansion
+const COST_PER_TILE = 1500; // Large fixed cost per tile
+
+// Calculate expansion cost (average cost for 2-9 tiles)
+function calculateRandomExpansionCost() {
+  // Average of 2-9 is 5.5 tiles
+  return COST_PER_TILE * 5.5;
+}
+
+// Buy random tiles outside current grid boundaries
+function buyRandomExpansion() {
+  // Generate random number of tiles: 2-9 (inclusive)
+  const numTiles = Math.floor(Math.random() * 8) + 2; // 2-9
+  
+  const expansionCost = COST_PER_TILE * numTiles;
+  if (gameState.resources.gold < expansionCost) {
+    showMessage("Not enough gold for expansion");
+    return false;
+  }
+  
+  // Get current bounds to determine where to place new tiles
+  const bounds = getMapBounds();
+  const currentMinRow = bounds.minRow;
+  const currentMaxRow = bounds.maxRow;
+  const currentMinCol = bounds.minCol;
+  const currentMaxCol = bounds.maxCol;
+  const gridWidth = currentMaxCol - currentMinCol + 1;
+  const gridHeight = currentMaxRow - currentMinRow + 1;
+  
+  const newTiles = [];
+  
+  // Generate random positions just outside the current grid boundaries (adjacent tiles)
+  // Place tiles 1 tile away from the edges to expand the grid outward
+  for (let i = 0; i < numTiles; i++) {
+    let row, col;
+    const side = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+    
+    switch(side) {
+      case 0: // Top (above current grid) - 1 tile above
+        row = currentMinRow - 1; // Just outside top edge
+        col = currentMinCol + Math.floor(Math.random() * gridWidth); // Random column within width
+        break;
+      case 1: // Right - 1 tile to the right
+        row = currentMinRow + Math.floor(Math.random() * gridHeight); // Random row within height
+        col = currentMaxCol + 1; // Just outside right edge
+        break;
+      case 2: // Bottom - 1 tile below
+        row = currentMaxRow + 1; // Just outside bottom edge
+        col = currentMinCol + Math.floor(Math.random() * gridWidth); // Random column within width
+        break;
+      case 3: // Left (left of current grid) - 1 tile to the left
+        row = currentMinRow + Math.floor(Math.random() * gridHeight); // Random row within height
+        col = currentMinCol - 1; // Just outside left edge
+        break;
+    }
+    
+    newTiles.push({ row, col });
+  }
+  
+  // Find the minimum row and col (may be negative)
+  let minRow = currentMinRow, minCol = currentMinCol;
+  newTiles.forEach(tile => {
+    minRow = Math.min(minRow, tile.row);
+    minCol = Math.min(minCol, tile.col);
+  });
+  
+  // Calculate offset to shift everything to positive coordinates
+  const rowOffset = minRow < 0 ? -minRow : 0;
+  const colOffset = minCol < 0 ? -minCol : 0;
+  
+  // If we need to shift, create a new map with offset applied
+  if (rowOffset > 0 || colOffset > 0) {
+    const newMap = [];
+    const oldBounds = getMapBounds();
+    
+    // Copy existing tiles with offset
+    for (let row = oldBounds.minRow; row <= oldBounds.maxRow; row++) {
+      const newRow = row + rowOffset;
+      if (!newMap[newRow]) newMap[newRow] = [];
+      for (let col = oldBounds.minCol; col <= oldBounds.maxCol; col++) {
+        const newCol = col + colOffset;
+        if (gameState.map[row] && gameState.map[row][col]) {
+          newMap[newRow][newCol] = gameState.map[row][col];
+        }
+      }
+    }
+    
+    gameState.map = newMap;
+  }
+  
+  // Place new tiles at their coordinates (with offset applied if needed)
+  newTiles.forEach(tile => {
+    const finalRow = tile.row + rowOffset;
+    const finalCol = tile.col + colOffset;
+    const tileData = getOrCreateTile(finalRow, finalCol);
+    tileData.owned = true; // Mark as owned/accessible
+  });
+  
+  // Deduct gold cost
+  gameState.resources.gold -= expansionCost;
+  
+  renderGrid();
+  updateUI();
+  showMessage(`Acquired ${numTiles} new tiles!`);
+  return true;
+}
+
 // Place building on grid
 function placeBuilding(row, col, buildingType) {
-  if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
-  
   // Ensure grid is initialized
-  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
+  if (!gameState.map || gameState.map.length === 0) {
     initializeGrid();
   }
   
-  const tile = gameState.map[row][col];
+  // Get or create the tile (handles sparse coordinates)
+  const tile = getOrCreateTile(row, col);
   if (tile.type !== "empty") return false;
   
   // Check if tile is locked by a town
@@ -2399,10 +2621,11 @@ function checkAllTownQuests() {
 
 // Upgrade building
 function upgradeBuilding(row, col) {
-  if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
+  // Check if tile exists
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) return false;
   
   const tile = gameState.map[row][col];
-  if (tile.type === "empty") return false;
+  if (!tile || tile.type === "empty") return false;
   
   const building = buildingTypes[tile.type];
   if (!building) return false;
@@ -2442,10 +2665,11 @@ function upgradeBuilding(row, col) {
 
 // Remove building (with refund)
 function removeBuilding(row, col) {
-  if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
+  // Check if tile exists
+  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) return false;
   
   const tile = gameState.map[row][col];
-  if (tile.type === "empty") return false;
+  if (!tile || tile.type === "empty") return false;
   
   // Cannot remove town centers
   if (tile.type && tile.type.startsWith('townCenter_')) {
@@ -2513,10 +2737,59 @@ function removeBuilding(row, col) {
 // Render grid
 function renderGrid() {
   const gridContainer = document.getElementById('grid-container');
-  if (!gridContainer) return;
+  const gridWrapper = document.getElementById('grid-wrapper');
+  if (!gridContainer || !gridWrapper) return;
   
   gridContainer.innerHTML = '';
-  gridContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+  
+  // Calculate bounding box of all tiles
+  const bounds = getMapBounds();
+  const numRows = bounds.maxRow - bounds.minRow + 1;
+  const numCols = bounds.maxCol - bounds.minCol + 1;
+  
+  // Calculate optimal tile size based on container and grid dimensions
+  const wrapperRect = gridWrapper.getBoundingClientRect();
+  const availableWidth = wrapperRect.width || 600;
+  const availableHeight = wrapperRect.height || 600;
+  
+  // Account for padding (10px on each side = 20px total)
+  const padding = 20;
+  const gapSize = 2;
+  
+  // Calculate tile size that fits the grid in the available space
+  const maxTileWidth = (availableWidth - padding - (gapSize * Math.max(0, numCols - 1))) / Math.max(1, numCols);
+  const maxTileHeight = (availableHeight - padding - (gapSize * Math.max(0, numRows - 1))) / Math.max(1, numRows);
+  
+  // Use the smaller dimension to maintain square tiles
+  let tileSize = Math.min(maxTileWidth, maxTileHeight);
+  
+  // Set minimum and maximum tile sizes for usability
+  const MIN_TILE_SIZE = 25; // Minimum 25px per tile (readable)
+  const MAX_TILE_SIZE = 50; // Maximum 50px per tile (comfortable size)
+  
+  // Clamp tile size to min/max bounds
+  // If grid is too large, tiles will be at minimum size and grid will scroll
+  tileSize = Math.max(MIN_TILE_SIZE, Math.min(MAX_TILE_SIZE, Math.floor(tileSize)));
+  
+  // Calculate actual grid dimensions
+  const gridWidth = (tileSize * numCols) + (gapSize * Math.max(0, numCols - 1)) + 4; // +4 for container padding
+  const gridHeight = (tileSize * numRows) + (gapSize * Math.max(0, numRows - 1)) + 4;
+  
+  // Set grid template with fixed tile size
+  gridContainer.style.gridTemplateColumns = `repeat(${numCols}, ${tileSize}px)`;
+  gridContainer.style.gridTemplateRows = `repeat(${numRows}, ${tileSize}px)`;
+  gridContainer.style.width = `${gridWidth}px`;
+  gridContainer.style.height = `${gridHeight}px`;
+  
+  // Store bounds and tile size for use in event handlers
+  gridContainer.dataset.minRow = bounds.minRow;
+  gridContainer.dataset.minCol = bounds.minCol;
+  gridContainer.dataset.tileSize = tileSize;
+  gridContainer.dataset.baseWidth = gridWidth;
+  gridContainer.dataset.baseHeight = gridHeight;
+  
+  // Apply zoom transform after dimensions are set
+  applyZoom();
   
   // Get player color for backgrounds
   const playerColor = gameState.playerColor ? playerColors[gameState.playerColor] : '#4CAF50';
@@ -2529,11 +2802,16 @@ function renderGrid() {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
   
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
+  // Render all tiles in the bounding box
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
       const cell = document.createElement('div');
       cell.className = 'grid-cell';
-      const tile = gameState.map[row][col];
+      
+      // Get tile (may be undefined if sparse)
+      const tile = gameState.map[row] && gameState.map[row][col] 
+        ? gameState.map[row][col] 
+        : { type: "empty", level: 0, owned: false };
       
       if (tile.type !== "empty") {
         cell.classList.add(`cell-${tile.type}`);
@@ -2544,7 +2822,7 @@ function renderGrid() {
           const level = tile.type.replace('townCenter_L', '');
           cell.classList.add(`town-center-level-${level}`);
         }
-    } else {
+      } else {
         cell.classList.add('cell-empty');
       }
       
@@ -2603,6 +2881,87 @@ function renderGrid() {
       
       gridContainer.appendChild(cell);
     }
+  }
+}
+
+// Zoom functions
+function zoomIn() {
+  if (!gameState.zoomLevel) gameState.zoomLevel = 1.0;
+  gameState.zoomLevel = Math.min(3.0, gameState.zoomLevel + 0.1); // Max 300% zoom
+  applyZoom();
+  updateZoomDisplay();
+}
+
+function zoomOut() {
+  if (!gameState.zoomLevel) gameState.zoomLevel = 1.0;
+  gameState.zoomLevel = Math.max(0.3, gameState.zoomLevel - 0.1); // Min 30% zoom
+  applyZoom();
+  updateZoomDisplay();
+}
+
+function resetZoom() {
+  gameState.zoomLevel = 1.0;
+  applyZoom();
+  updateZoomDisplay();
+}
+
+function applyZoom() {
+  const gridContainer = document.getElementById('grid-container');
+  const gridWrapper = document.getElementById('grid-wrapper');
+  if (!gridContainer || !gridWrapper) return;
+  
+  const zoom = gameState.zoomLevel || 1.0;
+  
+  // Get the base dimensions from dataset or style
+  const baseWidth = parseFloat(gridContainer.dataset.baseWidth) || parseFloat(gridContainer.style.width) || gridContainer.offsetWidth || 0;
+  const baseHeight = parseFloat(gridContainer.dataset.baseHeight) || parseFloat(gridContainer.style.height) || gridContainer.offsetHeight || 0;
+  
+  if (baseWidth === 0 || baseHeight === 0) {
+    // If dimensions aren't set yet, try again after a short delay
+    setTimeout(() => applyZoom(), 50);
+    return;
+  }
+  
+  // Apply zoom transform
+  gridContainer.style.transform = `scale(${zoom})`;
+  
+  // Calculate zoomed dimensions
+  const zoomedWidth = baseWidth * zoom;
+  const zoomedHeight = baseHeight * zoom;
+  const wrapperWidth = gridWrapper.clientWidth;
+  const wrapperHeight = gridWrapper.clientHeight;
+  
+  // Always use top-left origin for consistent scrolling behavior
+  gridContainer.style.transformOrigin = '0 0';
+  
+  // Set wrapper alignment to allow scrolling from top-left
+  gridWrapper.style.justifyContent = 'flex-start';
+  gridWrapper.style.alignItems = 'flex-start';
+  
+  // Ensure wrapper always allows scrolling
+  gridWrapper.style.overflow = 'auto';
+  
+  // When zoomed out, center the grid by adjusting margins after scaling
+  if (zoom < 1.0) {
+    // Calculate centering offset
+    const offsetX = (wrapperWidth - zoomedWidth) / 2;
+    const offsetY = (wrapperHeight - zoomedHeight) / 2;
+    
+    // Use margin to center when zoomed out
+    gridContainer.style.marginLeft = `${Math.max(0, offsetX)}px`;
+    gridContainer.style.marginTop = `${Math.max(0, offsetY)}px`;
+  } else {
+    // When zoomed in, no centering - allow full scrolling
+    gridContainer.style.marginLeft = '0';
+    gridContainer.style.marginTop = '0';
+  }
+}
+
+function updateZoomDisplay() {
+  const zoomDisplay = document.getElementById('zoom-level-display');
+  if (zoomDisplay) {
+    const zoomPercent = Math.round((gameState.zoomLevel || 1.0) * 100);
+    zoomDisplay.textContent = `${zoomPercent}%`;
   }
 }
 
@@ -3430,6 +3789,12 @@ function showCellTooltip(event, row, col) {
   const tooltip = document.getElementById('tooltip');
   if (!tooltip) return;
   
+  // Check if tile exists
+  if (!gameState.map[row] || !gameState.map[row][col]) {
+    tooltip.style.display = 'none';
+    return;
+  }
+  
   const tile = gameState.map[row][col];
   
   // Show ownership info for empty owned tiles
@@ -3526,6 +3891,19 @@ function hideCellTooltip() {
   }
 }
 
+// Refresh expansion button text
+function updateExpansionUI() {
+  const expansionBtn = document.getElementById('expansion-btn');
+  const expansionCostEl = document.getElementById('expansion-cost');
+  if (expansionCostEl) {
+    expansionCostEl.textContent = formatNumber(calculateRandomExpansionCost());
+  }
+  if (expansionBtn) {
+    expansionBtn.disabled = gameState.resources.gold < calculateRandomExpansionCost();
+    expansionBtn.title = expansionBtn.disabled ? 'Not enough gold for expansion (2-9 random tiles)' : 'Purchase 2-9 random tiles outside current boundaries';
+  }
+}
+
 // Update UI
 function updateUI() {
   // Update character indicator
@@ -3566,9 +3944,25 @@ function updateUI() {
   if (coalEl) coalEl.textContent = formatNumber(gameState.resources.coal || 0);
   if (populationEl) populationEl.textContent = formatNumber(gameState.population.current);
   if (capacityEl) capacityEl.textContent = formatNumber(gameState.population.capacity);
+  updateExpansionUI();
   
   // Update build menu buttons
   updateBuildMenu();
+}
+
+// Attach expansion button handler
+function setupExpansionButton() {
+  const expansionBtn = document.getElementById('expansion-btn');
+  if (!expansionBtn) return;
+  
+  expansionBtn.addEventListener('click', () => {
+    const success = buyRandomExpansion();
+    if (!success) {
+      updateUI();
+    }
+  });
+  
+  updateExpansionUI();
 }
 
 // Update build menu
@@ -3847,6 +4241,8 @@ function loadGameSlot(slot) {
       initializeBuildMenu();
       updateBuildMenu();
       initializeResourceTooltips();
+      setupExpansionButton();
+      setupZoomControls();
       setLastSaveSlot(slot);
       updateSaveSlots();
       startGameLoop();
@@ -4076,6 +4472,8 @@ function importSave(event) {
           initializeBuildMenu();
           updateBuildMenu();
           initializeResourceTooltips();
+          setupExpansionButton();
+          setupZoomControls();
           updateSaveSlots();
           startGameLoop();
           showMessage("Save file imported!");
@@ -4646,6 +5044,8 @@ function selectCharacter(characterType) {
   initializeBuildMenu();
   updateBuildMenu();
   initializeResourceTooltips();
+  setupExpansionButton();
+  setupZoomControls();
   
   // Start the game loop
   startGameLoop();
@@ -6323,7 +6723,54 @@ window.addEventListener('click', (event) => {
 });
 
 // Track Shift key state for multiple building placement
+// Setup zoom controls
+function setupZoomControls() {
+  const gridWrapper = document.getElementById('grid-wrapper');
+  if (!gridWrapper) return;
+  
+  // Initialize zoom level if not set
+  if (!gameState.zoomLevel) {
+    gameState.zoomLevel = 1.0;
+  }
+  
+  // Mouse wheel zoom (only with Ctrl/Cmd to allow normal scrolling)
+  gridWrapper.addEventListener('wheel', (e) => {
+    // Only zoom if Ctrl/Cmd key is held, otherwise allow normal scrolling
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        zoomIn();
+      } else {
+        zoomOut();
+      }
+    }
+    // If Ctrl/Cmd is not held, allow normal scrolling (don't preventDefault)
+  }, { passive: false });
+  
+  // Initialize zoom display and apply zoom
+  updateZoomDisplay();
+  applyZoom();
+}
+
 window.addEventListener('keydown', (e) => {
+  // Only handle zoom if not typing in an input
+  if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    // Zoom shortcuts
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      zoomIn();
+      return;
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault();
+      zoomOut();
+      return;
+    } else if (e.key === '0' && !e.shiftKey) {
+      e.preventDefault();
+      resetZoom();
+      return;
+    }
+  }
+  
   if (e.key === 'Shift' && !shiftHeld) {
     shiftHeld = true;
   }
@@ -6447,6 +6894,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       initializeBuildMenu();
       updateBuildMenu();
       initializeResourceTooltips();
+      setupExpansionButton();
+      setupZoomControls();
       updateSaveSlots();
       startGameLoop();
     }

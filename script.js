@@ -5010,7 +5010,15 @@ function showBuildingTooltip(event, buildingType) {
   // Production/Benefits
   html += `<p style="margin: 3px 0;"><strong style="color: ${categoryColor};">Produces:</strong> `;
   let hasProduction = false;
+  
+  // For farming buildings, show food production prominently first
+  if (building.category === 'farming' && production.food > 0) {
+    html += `<span style="color: #4CAF50; font-size: 20px; font-weight: bold;">${formatNumberWithDecimals(production.food)} <img src="images/food.png" alt="Food" style="width: 40px; height: 40px; vertical-align: middle;">/s</span>`;
+    hasProduction = true;
+  }
+  
     if (production.wood > 0) {
+      if (hasProduction) html += `, `;
       html += `<span style="color: #8B4513; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.wood)} <img src="images/wood-log.png" alt="Wood" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
       hasProduction = true;
     }
@@ -5037,6 +5045,12 @@ function showBuildingTooltip(event, buildingType) {
     if (production.population > 0) {
       if (hasProduction) html += `, `;
       html += `<span style="color: #4CAF50; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.population)} <img src="images/population.png" alt="Population" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
+      hasProduction = true;
+    }
+    // Show food for non-farming buildings (if any)
+    if (production.food > 0 && building.category !== 'farming') {
+      if (hasProduction) html += `, `;
+      html += `<span style="color: #4CAF50; font-size: 18px; font-weight: bold;">${formatNumberWithDecimals(production.food)} <img src="images/food.png" alt="Food" style="width: 35px; height: 35px; vertical-align: middle;">/s</span>`;
       hasProduction = true;
     }
   if (production.capacity > 0) {

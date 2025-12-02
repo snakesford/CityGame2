@@ -73,7 +73,7 @@ const buildingTypes = {
     },
     costGrowthFactor: 1.25,
     baseProduction: {
-      population: 0.5
+      food: 0.5
     },
     productionGrowthFactor: 1.12
   },
@@ -86,7 +86,7 @@ const buildingTypes = {
     },
     costGrowthFactor: 1.25,
     baseProduction: {
-      population: 1.0
+      food: 1.0
     },
     productionGrowthFactor: 1.12
   }
@@ -125,6 +125,7 @@ function getBuildingProduction(type, level = 1, context = {}) {
       iron: 0,
       bricks: 0,
       population: 0,
+      food: 0,
       capacity: 0
     };
   }
@@ -137,6 +138,7 @@ function getBuildingProduction(type, level = 1, context = {}) {
     iron: 0,
     bricks: 0,
     population: 0,
+    food: 0,
     capacity: 0
   };
 
@@ -160,6 +162,9 @@ function getBuildingProduction(type, level = 1, context = {}) {
     const farmer = characterTypes.farmer;
     if (def.category === 'farming') {
       // Farming production multiplier
+      if (result.food) {
+        result.food *= farmer.farmingProductionMultiplier;
+      }
       if (result.population) {
         result.population *= farmer.farmingProductionMultiplier;
       }
@@ -350,6 +355,7 @@ function calculateProduction(state) {
   // Reset to base
   let woodRate = 1; // base wps
   let stoneRate = 0;
+  let foodRate = 0;
   let capacity = 0;
 
   const ctx = { character: state.character };
@@ -363,6 +369,7 @@ function calculateProduction(state) {
 
       if (prod.wood) woodRate += prod.wood;
       if (prod.stone) stoneRate += prod.stone;
+      if (prod.food) foodRate += prod.food;
       if (prod.capacity) capacity += prod.capacity;
       if (prod.population) {
         // in this core logic we don't advance population per second,
@@ -373,6 +380,7 @@ function calculateProduction(state) {
 
   state.rates.wps = woodRate;
   state.rates.sps = stoneRate;
+  state.rates.fps = foodRate;
   state.population.capacity = capacity;
 }
 

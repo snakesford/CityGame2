@@ -12,7 +12,8 @@ let gameState = {
     gold: 0,
     bricks: 0,
     ironBars: 0,
-    coal: 0
+    coal: 0,
+    food: 0
   },
   rates: {
     wps: 1, // Base 1 wps
@@ -20,12 +21,13 @@ let gameState = {
     cps: 0, // Clay per second
     ips: 0, // Iron per second
     gps: 0, // Gold per second
-    bps: 0 // Bricks per second
+    bps: 0, // Bricks per second
+    fps: 0 // Food per second
   },
-  smelters: {}, // Store smelter data: {row_col: {mineralType: 'clay'|'iron'|null, smeltingStartTime: timestamp, readyOutput: {bricks: 0, ironBars: 0}}}
   population: {
-    current: 0,
-    capacity: 0
+    current: 1,
+    capacity: 0,
+    foodShortageCounter: 0
   },
   map: [],
   zoomLevel: 1.0, // Zoom level for the grid (1.0 = 100%)
@@ -49,7 +51,9 @@ let gameState = {
     wood: { totalTraded: 0, cooldownStart: null },
     stone: { totalTraded: 0, cooldownStart: null },
     clay: { totalTraded: 0, cooldownStart: null }
-  }
+  },
+  foodConsumptionPerPersonPerSecond: 0.1, // Each person eats 0.1 food per second
+  popGrowthFoodThreshold: 20 // Need 20 surplus food over stable level to add 1 population
 };
 
 // Player color definitions
@@ -352,6 +356,14 @@ function migrateSaveData() {
   // Ensure resource fields exist
   if (!gameState.resources.ironBars) gameState.resources.ironBars = 0;
   if (!gameState.resources.coal) gameState.resources.coal = 0;
+  if (!gameState.resources.food) gameState.resources.food = 0;
+  
+  // Ensure population foodShortageCounter exists
+  if (!gameState.population.foodShortageCounter) gameState.population.foodShortageCounter = 0;
+  
+  // Ensure food consumption constants exist
+  if (!gameState.foodConsumptionPerPersonPerSecond) gameState.foodConsumptionPerPersonPerSecond = 0.1;
+  if (!gameState.popGrowthFoodThreshold) gameState.popGrowthFoodThreshold = 20;
   
   // Ensure merchant cooldowns exist
   if (!gameState.merchantCooldowns) {
@@ -927,7 +939,7 @@ const buildingTypes = {
     category: "farming",
     baseCost: { wood: 20, stone: 0 },
     costGrowthFactor: 1.3,
-    baseProduction: { wood: 0, stone: 0, population: 0.4, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0, population: 0, capacity: 0, food: 0.5 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: true
@@ -997,11 +1009,11 @@ const buildingTypes = {
     category: "farming",
     baseCost: { wood: 60, stone: 0 },
     costGrowthFactor: 1.3,
-    baseProduction: { wood: 0, stone: 0, population: 1.0, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0, population: 0, capacity: 0, food: 1.0 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false,
-    requiredCharacter: "farmer" // Farmer-only building
+    // Previously farmer-only; now available to all characters
   },
   advancedLumberMill: {
     displayName: "Advanced Lumber Mill",
@@ -1040,7 +1052,7 @@ const buildingTypes = {
     category: "farming",
     baseCost: { wood: 120, stone: 0 },
     costGrowthFactor: 1.3,
-    baseProduction: { wood: 0, stone: 0, population: 2.0, capacity: 0 },
+    baseProduction: { wood: 0, stone: 0, population: 0, capacity: 0, food: 2.0 },
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false,
@@ -1364,7 +1376,7 @@ function initializeGrid() {
 // Calculate production for a building at a given level
 function getBuildingProduction(buildingType, level) {
   const building = buildingTypes[buildingType];
-  if (!building || level < 1) return { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 };
+  if (!building || level < 1) return { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, gold: 0, coal: 0, population: 0, food: 0, capacity: 0 };
   
   const factor = Math.pow(building.productionGrowthFactor, level - 1);
   let production = {
@@ -1376,6 +1388,7 @@ function getBuildingProduction(buildingType, level) {
     gold: (building.baseProduction.gold || 0) * factor,
     coal: (building.baseProduction.coal || 0) * factor,
     population: (building.baseProduction.population || 0) * factor,
+    food: (building.baseProduction.food || 0) * factor,
     capacity: (building.baseProduction.capacity || 0) * factor
   };
   
@@ -1388,9 +1401,10 @@ function getBuildingProduction(buildingType, level) {
       production.stone *= character.miningProductionMultiplier;
     }
     
-    // Farmer: 50% bonus to farming production, 30% bonus to population growth
+    // Farmer: 50% bonus to farming production (food and population), 30% bonus to population growth
     if (gameState.character === 'farmer') {
       if (building.category === 'farming') {
+        production.food *= character.farmingProductionMultiplier;
         production.population *= character.farmingProductionMultiplier;
       }
       // Apply population multiplier to all population production
@@ -1492,7 +1506,7 @@ function calculateProduction() {
   let totalBricks = 0;
   let totalGold = 0;
   let totalCoal = 0;
-  let totalPopulation = 0;
+  let totalFood = 0;
   let totalCapacity = 0;
   
   const bounds = getMapBounds();
@@ -1536,13 +1550,8 @@ function calculateProduction() {
   gameState.rates.bps = totalBricks;
   gameState.rates.gps = totalGold;
   gameState.rates.coalps = totalCoal;
+  gameState.rates.fps = totalFood;
   gameState.population.capacity = totalCapacity;
-  
-  // Update population (capped by capacity)
-  gameState.population.current = Math.min(
-    gameState.population.current + totalPopulation,
-    gameState.population.capacity
-  );
 }
 
 // Process smelter conversion (clay -> bricks or iron -> iron bars)
@@ -1900,7 +1909,11 @@ function checkUnlocks() {
   for (const [key, building] of Object.entries(buildingTypes)) {
     // Check character requirement
     if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
-      building.unlocked = false;
+      // If this building was explicitly unlocked via quests or save, don't override that.
+      const unlockedBySave = gameState.buildingUnlocks && gameState.buildingUnlocks[key];
+      if (!unlockedBySave) {
+        building.unlocked = false;
+      }
     }
   }
 }
@@ -2173,9 +2186,28 @@ function placeBuilding(row, col, buildingType) {
   }
   
   const building = buildingTypes[buildingType];
-  if (!building || !building.unlocked) return false;
+  if (!building) return false;
+
+  // If the building is not unlocked, check if its milestone requirements are already met.
+  // If so, auto-unlock and persist the unlock so the player can place it immediately.
+  if (!building.unlocked) {
+    const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === buildingType);
+    if (unlockQuest && unlockQuest.requirements && unlockQuest.requirements.length > 0) {
+      const allMet = unlockQuest.requirements.every(req => checkRequirement(req));
+      if (allMet) {
+        building.unlocked = true;
+        if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
+        gameState.buildingUnlocks[buildingType] = true;
+        updateBuildMenu();
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
   
-  // Check character requirement
+  // Enforce character requirement for placement regardless of saved/quest unlocks
   if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
     return false;
   }
@@ -3438,6 +3470,7 @@ function updateTileInfo() {
     coal: production.coal * ownedBoost,
     bricks: production.bricks * ownedBoost,
     population: production.population * ownedBoost,
+    food: production.food * ownedBoost,
     capacity: production.capacity * ownedBoost
   };
   
@@ -3466,6 +3499,7 @@ function updateTileInfo() {
   if (actualProduction.coal > 0) html += formatProductionWithBoost(production.coal, actualProduction.coal, 'images/coal.png', 'Coal');
   if (actualProduction.bricks > 0) html += formatProductionWithBoost(production.bricks, actualProduction.bricks, 'images/claybricks.png', 'Bricks');
   if (actualProduction.population > 0) html += formatProductionWithBoost(production.population, actualProduction.population, 'images/population.png', 'Population');
+  if (actualProduction.food > 0) html += formatProductionWithBoost(production.food, actualProduction.food, 'images/food.png', 'Food');
   if (actualProduction.capacity > 0) {
     html += `<p style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: bold;">Capacity:</span> <span style="color: #4CAF50; font-weight: bold;">↑</span> ${formatNumber(actualProduction.capacity)}`;
     if (tile.owned && production.capacity > 0) {
@@ -3975,6 +4009,7 @@ function showCellTooltip(event, row, col) {
     coal: production.coal * ownedBoost,
     bricks: production.bricks * ownedBoost,
     population: production.population * ownedBoost,
+    food: production.food * ownedBoost,
     capacity: production.capacity * ownedBoost
   };
   
@@ -4003,6 +4038,15 @@ function showCellTooltip(event, row, col) {
   if (actualProduction.iron > 0) html += formatProductionTooltip(production.iron, actualProduction.iron, 'Iron');
   if (actualProduction.coal > 0) html += formatProductionTooltip(production.coal, actualProduction.coal, 'Coal');
   if (actualProduction.population > 0) html += formatProductionTooltip(production.population, actualProduction.population, 'Population');
+  if (actualProduction.food > 0) {
+    // Use icon in place of the "Food" text label
+    const foodIcon = `<img src="images/food.png" alt="Food" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;">`;
+    html += `${foodIcon}/sec: ${formatNumberWithDecimals(actualProduction.food)}`;
+    if (tile.owned && production.food > 0) {
+      html += ` <span style="color: #FFD700;">(+5%)</span>`;
+    }
+    html += '<br>';
+  }
   if (actualProduction.capacity > 0) {
     html += `Capacity: ${formatNumber(actualProduction.capacity)}`;
     if (tile.owned && production.capacity > 0) {
@@ -4070,6 +4114,7 @@ function updateUI() {
   const bricksEl = document.getElementById('bricks');
   const ironBarsEl = document.getElementById('ironBars');
   const coalEl = document.getElementById('coal');
+  const foodEl = document.getElementById('food');
   const populationEl = document.getElementById('population');
   const capacityEl = document.getElementById('housingCapacity');
   
@@ -4084,6 +4129,7 @@ function updateUI() {
   if (bricksEl) bricksEl.textContent = formatNumber(gameState.resources.bricks);
   if (ironBarsEl) ironBarsEl.textContent = formatNumber(gameState.resources.ironBars);
   if (coalEl) coalEl.textContent = formatNumber(gameState.resources.coal || 0);
+  if (foodEl) foodEl.textContent = formatNumber(gameState.resources.food || 0);
   if (populationEl) populationEl.textContent = formatNumber(gameState.population.current);
   if (capacityEl) capacityEl.textContent = formatNumber(gameState.population.capacity);
   updateExpansionUI();
@@ -4146,13 +4192,16 @@ function updateBuildMenu() {
     const btn = document.querySelector(`[data-building-type="${key}"]`);
     if (!btn) continue;
     
-    // Hide buildings that require a different character
-    if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
+    // Show all building buttons by default; if a building requires a specific character
+    // and the player hasn't selected that character, keep the button visible but mark it disabled
+    // Special-case: hide Orchard entirely unless the player is the Farmer
+    if (key === 'orchard' && gameState.character !== 'farmer') {
       btn.style.display = 'none';
       continue;
-    } else {
-      btn.style.display = 'block';
     }
+
+    btn.style.display = 'block';
+    const requiredCharacterMismatch = building.requiredCharacter && gameState.character !== building.requiredCharacter;
     
     // Ensure building icon is present (front and center)
     const iconPath = buildingIcons[key];
@@ -4180,8 +4229,9 @@ function updateBuildMenu() {
     
     const cost = getBuildingCost(key, 1);
     const affordable = canAfford(cost);
-    
-    btn.disabled = !building.unlocked || !affordable;
+
+    // Disable button if locked by unlocks, not affordable, or requires a different character
+    btn.disabled = !building.unlocked || !affordable || requiredCharacterMismatch;
     
     // Remove existing requirement display
     const existingReqs = btn.querySelector('.building-requirements');
@@ -4189,6 +4239,10 @@ function updateBuildMenu() {
       existingReqs.remove();
     }
     
+    if (requiredCharacterMismatch) {
+      btn.title = `Requires ${building.requiredCharacter} character`;
+    }
+
     if (!building.unlocked) {
       // Find the milestone quest that unlocks this building
       const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
@@ -4454,10 +4508,10 @@ function resetGame() {
       // Cycle to next save slot for new game
       cycleToNextSaveSlot();
       gameState = {
-      resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0, ironBars: 0, coal: 0 },
-      rates: { wps: 1, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0 }, // Base 1 wps
+      resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0, ironBars: 0, coal: 0, food: 0 },
+      rates: { wps: 1, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0, fps: 0 }, // Base 1 wps
       smelters: {},
-      population: { current: 0, capacity: 0 },
+      population: { current: 1, capacity: 0, foodShortageCounter: 0 },
       map: [],
       character: null, // Reset character selection
       playerColor: null, // Reset player color
@@ -4475,7 +4529,9 @@ function resetGame() {
         wood: { totalTraded: 0, cooldownStart: null },
         stone: { totalTraded: 0, cooldownStart: null },
         clay: { totalTraded: 0, cooldownStart: null }
-      }
+      },
+      foodConsumptionPerPersonPerSecond: 0.1,
+      popGrowthFoodThreshold: 20
     };
     resetBuildingUnlocks();
     initializeQuests();
@@ -4855,10 +4911,46 @@ function startGameLoop() {
         gameState.resources.gold += gameState.rates.gps || 0;
         gameState.resources.bricks += gameState.rates.bps || 0;
         gameState.resources.coal += gameState.rates.coalps || 0;
+        gameState.resources.food += gameState.rates.fps || 0;
       }
       
-      // Update population
+      // Update production rates
       calculateProduction();
+      
+      // Handle food consumption and population dynamics
+      // Only consume food if population is below housing capacity
+      if (gameState.population.current < gameState.population.capacity) {
+        const consumptionPerSecond = gameState.population.current * gameState.foodConsumptionPerPersonPerSecond;
+        gameState.resources.food -= consumptionPerSecond;
+        
+        // Calculate stable level (how many people the current food production can support)
+        const stableLevel = Math.floor(gameState.rates.fps / gameState.foodConsumptionPerPersonPerSecond);
+        
+        // Handle population decrease when food is insufficient
+        if (gameState.population.current > stableLevel) {
+          gameState.population.foodShortageCounter++;
+          if (gameState.population.foodShortageCounter >= 20) {
+            gameState.population.current = Math.max(1, gameState.population.current - 1);
+            gameState.population.foodShortageCounter = 0;
+          }
+        } else {
+          // Reset shortage counter when food is sufficient
+          gameState.population.foodShortageCounter = 0;
+        }
+        
+        // Handle population growth when food surplus exceeds threshold
+        const stableLevelFoodNeeded = stableLevel * gameState.foodConsumptionPerPersonPerSecond;
+        const foodSurplus = gameState.resources.food - stableLevelFoodNeeded;
+        if (foodSurplus >= gameState.popGrowthFoodThreshold) {
+          gameState.resources.food -= gameState.popGrowthFoodThreshold;
+          gameState.population.current += 1;
+        }
+      }
+      
+      // Prevent food from going negative
+      if (gameState.resources.food < 0) {
+        gameState.resources.food = 0;
+      }
       checkUnlocks();
       checkQuests();
       updateBuildMenu();
@@ -4897,7 +4989,8 @@ function showResourceTooltip(event, resourceType) {
     gold: 'Gold',
     bricks: 'Clay Bricks',
     ironBars: 'Iron Bars',
-    coal: 'Coal'
+    coal: 'Coal',
+    food: 'Food'
   };
   
   const resourceIcons = {
@@ -4909,6 +5002,8 @@ function showResourceTooltip(event, resourceType) {
     bricks: 'images/claybricks.png',
     ironBars: 'images/ironBar.webp',
     coal: 'images/coal.png'
+  ,
+    food: 'images/food.png'
   };
   
   const resourceColors = {
@@ -4920,6 +5015,8 @@ function showResourceTooltip(event, resourceType) {
     bricks: '#D32F2F',
     ironBars: '#708090',
     coal: '#CCCCCC'
+    ,
+    food: '#8BC34A'
   };
   
   const rateKeys = {
@@ -4931,6 +5028,8 @@ function showResourceTooltip(event, resourceType) {
     bricks: 'bps',
     ironBars: null, // Iron bars don't have a production rate
     coal: 'coalps' // Coal per second
+  ,
+    food: 'fps'
   };
   
   const resourceName = resourceNames[resourceType] || resourceType;
@@ -5539,6 +5638,9 @@ function checkQuests() {
             // Unlock building if this quest unlocks one
             if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
               buildingTypes[questDef.unlocksBuilding].unlocked = true;
+              // Persist this unlock in the runtime save state so other checks honor it
+              if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
+              gameState.buildingUnlocks[questDef.unlocksBuilding] = true;
               updateBuildMenu();
               // Don't show popup for building unlock quests - just unlock silently
             } else {

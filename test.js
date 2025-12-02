@@ -93,6 +93,81 @@ function runTests() {
   }
 
   // --------------------------------------------------
+  // Tooltip HTML builder tests (DOM-free)
+  // --------------------------------------------------
+  // We add a small helper to build the tooltip HTML string similar to `showCellTooltip`
+  // but without DOM operations so it can be unit tested in Node.
+  function buildCellTooltipHtml(tile, gameState, buildingDefs, getProdFn) {
+    if (!tile || tile.type === 'empty') return '';
+    const building = buildingDefs[tile.type] || { displayName: tile.type };
+    const production = getProdFn ? getProdFn(tile.type, tile.level || 1, { character: gameState.character }) : {};
+
+    const ownedBoost = tile.owned ? 1.05 : 1.0;
+    const actualProduction = {
+      wood: (production.wood || 0) * ownedBoost,
+      stone: (production.stone || 0) * ownedBoost,
+      clay: (production.clay || 0) * ownedBoost,
+      iron: (production.iron || 0) * ownedBoost,
+      coal: (production.coal || 0) * ownedBoost,
+      bricks: (production.bricks || 0) * ownedBoost,
+      population: (production.population || 0) * ownedBoost,
+      food: (production.food || 0) * ownedBoost,
+      capacity: (production.capacity || 0) * ownedBoost
+    };
+
+    let html = `<strong>${building.displayName || building.key || tile.type}</strong><br>`;
+    html += `Level: ${tile.level || 1}<br>`;
+    if (tile.owned) {
+      const playerName = gameState.playerName || 'Player';
+      html += `<br><span style="color: #4CAF50; font-weight: bold;">✓ Owned by ${playerName}</span><br>`;
+    }
+
+    const formatNum = (v) => (typeof v === 'number' ? v.toFixed(2).replace(/\.00$/, '') : v);
+
+    if (actualProduction.wood > 0) html += `Wood/sec: ${formatNum(actualProduction.wood)}<br>`;
+    if (actualProduction.stone > 0) html += `Stone/sec: ${formatNum(actualProduction.stone)}<br>`;
+    if (actualProduction.clay > 0) html += `Clay/sec: ${formatNum(actualProduction.clay)}<br>`;
+    if (actualProduction.iron > 0) html += `Iron/sec: ${formatNum(actualProduction.iron)}<br>`;
+    if (actualProduction.coal > 0) html += `Coal/sec: ${formatNum(actualProduction.coal)}<br>`;
+    if (actualProduction.population > 0) html += `Population/sec: ${formatNum(actualProduction.population)}<br>`;
+    if (actualProduction.food > 0) {
+      const foodIcon = `<img src="images/food.png" alt="Food" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;">`;
+      html += `${foodIcon}/sec: ${formatNum(actualProduction.food)}`;
+      if (tile.owned) html += ` <span style="color: #FFD700;">(+5%)</span>`;
+      html += '<br>';
+    }
+    if (actualProduction.capacity > 0) html += `Capacity: ${formatNum(actualProduction.capacity)}<br>`;
+
+    return html;
+  }
+
+  // Tests for tooltip builder
+  test('Tooltip builder includes food icon for food-producing tiles', () => {
+    const state = { character: null, playerName: 'Tester' };
+    const tile = { type: 'farm', level: 1, owned: false };
+    const html = buildCellTooltipHtml(tile, state, logic.buildingTypes, logic.getBuildingProduction);
+    assert.ok(html.includes('images/food.png'), 'Tooltip should include food icon image');
+    assert.ok(html.includes('/sec:'), 'Tooltip should use "/sec:" label after icon');
+  });
+
+  test('Tooltip builder shows +5% badge when owned', () => {
+    const state = { character: null, playerName: 'Tester' };
+    const tile = { type: 'farm', level: 1, owned: true };
+    const html = buildCellTooltipHtml(tile, state, logic.buildingTypes, logic.getBuildingProduction);
+    assert.ok(html.includes('images/food.png'), 'Should include food icon');
+    assert.ok(html.includes('(+5%)'), 'Should include +5% owned badge');
+  });
+
+  test('Tooltip builder does not contain word "Food" label', () => {
+    const state = { character: null };
+    const tile = { type: 'farm', level: 1, owned: false };
+    const html = buildCellTooltipHtml(tile, state, logic.buildingTypes, logic.getBuildingProduction);
+    // It should not include the text label "Food" as a word (icon used instead)
+    // However alt text may include the word Food inside img tag, so we check for the plain label
+    assert.ok(!/Food\/sec:/i.test(html), 'Should not contain plain "Food/sec:" label');
+  });
+
+  // --------------------------------------------------
   // 2. Building production tests
   //    (assumes buildingTypes + getBuildingProduction)
   // --------------------------------------------------
@@ -126,14 +201,14 @@ function runTests() {
       assert.strictEqual(prod.capacity, buildingTypes.tepee.baseProduction.capacity);
     });
 
-    test('farm level 1 base population production', () => {
+    test('farm level 1 base food production', () => {
       const prod = getBuildingProduction('farm', 1, { character: null });
-      assert.strictEqual(prod.population, buildingTypes.farm.baseProduction.population);
+      assert.strictEqual(prod.food, buildingTypes.farm.baseProduction.food);
     });
 
-    test('advancedFarm level 1 base population production', () => {
+    test('advancedFarm level 1 base food production', () => {
       const prod = getBuildingProduction('advancedFarm', 1, { character: null });
-      assert.strictEqual(prod.population, buildingTypes.advancedFarm.baseProduction.population);
+      assert.strictEqual(prod.food, buildingTypes.advancedFarm.baseProduction.food);
     });
 
     test('quarry level 3 scales correctly', () => {
@@ -212,27 +287,21 @@ function runTests() {
     if (characterTypes.farmer && has('buildingTypes')) {
       const { buildingTypes } = logic;
 
-      test('farmer gets population bonus on advancedFarm', () => {
+      test('farmer gets food bonus on advancedFarm', () => {
         const def = buildingTypes.advancedFarm;
-        // base pop * farmingProductionMultiplier * populationMultiplier
-        const expected =
-          def.baseProduction.population *
-          characterTypes.farmer.farmingProductionMultiplier *
-          characterTypes.farmer.populationMultiplier;
+        // base food * farmingProductionMultiplier
+        const expected = def.baseProduction.food * characterTypes.farmer.farmingProductionMultiplier;
 
         const prod = getBuildingProduction('advancedFarm', 1, { character: 'farmer' });
-        assert.ok(Math.abs(prod.population - expected) < 1e-6);
+        assert.ok(Math.abs(prod.food - expected) < 1e-6);
       });
 
-      test('farmer gets population bonus on farm', () => {
+      test('farmer gets food bonus on farm', () => {
         const def = buildingTypes.farm;
-        const expected =
-          def.baseProduction.population *
-          characterTypes.farmer.farmingProductionMultiplier *
-          characterTypes.farmer.populationMultiplier;
+        const expected = def.baseProduction.food * characterTypes.farmer.farmingProductionMultiplier;
 
         const prod = getBuildingProduction('farm', 1, { character: 'farmer' });
-        assert.ok(Math.abs(prod.population - expected) < 1e-6);
+        assert.ok(Math.abs(prod.food - expected) < 1e-6);
       });
 
       test('farmer does not get bonus on non-farming buildings', () => {

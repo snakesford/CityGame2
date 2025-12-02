@@ -159,6 +159,8 @@ function getTargetGridSize() {
 }
 
 // Grow the grid to a new size while keeping existing tiles
+// NOTE: This function forces square grids. For non-square maps, use getMapBounds() instead.
+// Kept for backward compatibility and initial grid setup only.
 function expandMapToSize(targetSize) {
   GRID_SIZE = targetSize;
   if (!gameState.map) gameState.map = [];
@@ -177,9 +179,22 @@ function expandMapToSize(targetSize) {
 }
 
 // Ensure the grid matches expansion count (used on load and reset)
+// Updated to not force square expansion - just update GRID_SIZE based on actual bounds
 function syncGridSizeWithState() {
-  const desiredSize = Math.max(getTargetGridSize(), BASE_GRID_SIZE);
-  expandMapToSize(desiredSize);
+  if (!gameState.map || gameState.map.length === 0) {
+    // Only force square grid on initial setup
+    expandMapToSize(BASE_GRID_SIZE);
+    return;
+  }
+  
+  // Update GRID_SIZE to max dimension for backward compatibility, but don't force square grid
+  const bounds = getMapBounds();
+  const maxDimension = Math.max(
+    bounds.maxRow - bounds.minRow + 1,
+    bounds.maxCol - bounds.minCol + 1,
+    BASE_GRID_SIZE
+  );
+  GRID_SIZE = maxDimension;
 }
 
 // Get bounding box of all tiles in the map
@@ -403,10 +418,9 @@ function migrateSaveData() {
     delete gameState.expansionsPurchased;
   }
   
-  // Align grid size with actual map dimensions and fill any missing cells
+  // Update GRID_SIZE based on actual map dimensions (don't force square grid)
   if (gameState.map && gameState.map.length > 0) {
-    const desiredSize = getTargetGridSize();
-    expandMapToSize(desiredSize);
+    syncGridSizeWithState();
   }
   
   // Ensure town system fields exist
@@ -1915,7 +1929,7 @@ function calculateRandomExpansionCost() {
   return COST_PER_TILE * 5.5;
 }
 
-// Buy random tiles outside current grid boundaries
+// Buy random tiles outside current grid boundaries as a clump in one direction
 function buyRandomExpansion() {
   // Generate random number of tiles: 2-9 (inclusive)
   const numTiles = Math.floor(Math.random() * 8) + 2; // 2-9
@@ -1935,35 +1949,155 @@ function buyRandomExpansion() {
   const gridWidth = currentMaxCol - currentMinCol + 1;
   const gridHeight = currentMaxRow - currentMinRow + 1;
   
-  const newTiles = [];
+  // Choose ONE random direction (0=top, 1=right, 2=bottom, 3=left)
+  const direction = Math.floor(Math.random() * 4);
   
-  // Generate random positions just outside the current grid boundaries (adjacent tiles)
-  // Place tiles 1 tile away from the edges to expand the grid outward
-  for (let i = 0; i < numTiles; i++) {
-    let row, col;
-    const side = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+  // Determine valid positions along the chosen edge and pick a starting position
+  let startRow, startCol;
+  let validPositions = [];
+  
+  switch(direction) {
+    case 0: // Top (above current grid)
+      // Generate valid starting positions along the top edge
+      for (let col = currentMinCol; col <= currentMaxCol; col++) {
+        validPositions.push({ row: currentMinRow - 1, col: col });
+      }
+      break;
+    case 1: // Right
+      // Generate valid starting positions along the right edge
+      for (let row = currentMinRow; row <= currentMaxRow; row++) {
+        validPositions.push({ row: row, col: currentMaxCol + 1 });
+      }
+      break;
+    case 2: // Bottom
+      // Generate valid starting positions along the bottom edge
+      for (let col = currentMinCol; col <= currentMaxCol; col++) {
+        validPositions.push({ row: currentMaxRow + 1, col: col });
+      }
+      break;
+    case 3: // Left
+      // Generate valid starting positions along the left edge
+      for (let row = currentMinRow; row <= currentMaxRow; row++) {
+        validPositions.push({ row: row, col: currentMinCol - 1 });
+      }
+      break;
+  }
+  
+  // Pick a random starting position
+  if (validPositions.length === 0) {
+    showMessage("Cannot expand - no valid positions");
+    return false;
+  }
+  
+  const startPos = validPositions[Math.floor(Math.random() * validPositions.length)];
+  startRow = startPos.row;
+  startCol = startPos.col;
+  
+  // Generate clump of adjacent tiles starting from the starting position
+  const clump = new Set();
+  const clumpArray = [];
+  
+  // Helper function to check if a position is valid for clump expansion
+  const isValidClumpPosition = (row, col) => {
+    // Must be adjacent to at least one existing tile in the clump
+    if (clump.size === 0) return true; // First tile is always valid
     
-    switch(side) {
-      case 0: // Top (above current grid) - 1 tile above
-        row = currentMinRow - 1; // Just outside top edge
-        col = currentMinCol + Math.floor(Math.random() * gridWidth); // Random column within width
-        break;
-      case 1: // Right - 1 tile to the right
-        row = currentMinRow + Math.floor(Math.random() * gridHeight); // Random row within height
-        col = currentMaxCol + 1; // Just outside right edge
-        break;
-      case 2: // Bottom - 1 tile below
-        row = currentMaxRow + 1; // Just outside bottom edge
-        col = currentMinCol + Math.floor(Math.random() * gridWidth); // Random column within width
-        break;
-      case 3: // Left (left of current grid) - 1 tile to the left
-        row = currentMinRow + Math.floor(Math.random() * gridHeight); // Random row within height
-        col = currentMinCol - 1; // Just outside left edge
-        break;
+    // Check if adjacent to any tile in the clump
+    for (const tile of clumpArray) {
+      const rowDiff = Math.abs(row - tile.row);
+      const colDiff = Math.abs(col - tile.col);
+      if (rowDiff + colDiff === 1) { // Adjacent (manhattan distance = 1)
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  // Helper function to get adjacent positions
+  const getAdjacentPositions = (row, col) => {
+    return [
+      { row: row - 1, col: col }, // Top
+      { row: row + 1, col: col }, // Bottom
+      { row: row, col: col - 1 }, // Left
+      { row: row, col: col + 1 }  // Right
+    ];
+  };
+  
+  // Add starting position to clump
+  const startKey = `${startRow},${startCol}`;
+  clump.add(startKey);
+  clumpArray.push({ row: startRow, col: startCol });
+  
+  // Generate remaining tiles in the clump
+  for (let i = 1; i < numTiles; i++) {
+    // Collect all valid adjacent positions
+    const candidates = [];
+    
+    // For each tile in the clump, check its adjacent positions
+    for (const tile of clumpArray) {
+      const adjacent = getAdjacentPositions(tile.row, tile.col);
+      for (const pos of adjacent) {
+        const key = `${pos.row},${pos.col}`;
+        
+        // Skip if already in clump
+        if (clump.has(key)) continue;
+        
+        // Check if position is valid for expansion
+        // Position should be in the general direction of expansion (within reasonable bounds)
+        let inDirection = false;
+        switch(direction) {
+          case 0: // Top
+            inDirection = pos.row <= currentMinRow - 1 && pos.row >= currentMinRow - 3;
+            break;
+          case 1: // Right
+            inDirection = pos.col >= currentMaxCol + 1 && pos.col <= currentMaxCol + 3;
+            break;
+          case 2: // Bottom
+            inDirection = pos.row >= currentMaxRow + 1 && pos.row <= currentMaxRow + 3;
+            break;
+          case 3: // Left
+            inDirection = pos.col <= currentMinCol - 1 && pos.col >= currentMinCol - 3;
+            break;
+        }
+        
+        if (inDirection && isValidClumpPosition(pos.row, pos.col)) {
+          // Check if not already in candidates
+          if (!candidates.find(c => c.row === pos.row && c.col === pos.col)) {
+            candidates.push(pos);
+          }
+        }
+      }
     }
     
-    newTiles.push({ row, col });
+    // If no candidates found, try to expand in any direction from existing clump tiles
+    if (candidates.length === 0) {
+      for (const tile of clumpArray) {
+        const adjacent = getAdjacentPositions(tile.row, tile.col);
+        for (const pos of adjacent) {
+          const key = `${pos.row},${pos.col}`;
+          if (!clump.has(key) && isValidClumpPosition(pos.row, pos.col)) {
+            if (!candidates.find(c => c.row === pos.row && c.col === pos.col)) {
+              candidates.push(pos);
+            }
+          }
+        }
+      }
+    }
+    
+    // If still no candidates, break (shouldn't happen, but safety check)
+    if (candidates.length === 0) {
+      break;
+    }
+    
+    // Randomly select one candidate
+    const selected = candidates[Math.floor(Math.random() * candidates.length)];
+    const selectedKey = `${selected.row},${selected.col}`;
+    clump.add(selectedKey);
+    clumpArray.push({ row: selected.row, col: selected.col });
   }
+  
+  // Convert clump to array of tiles
+  const newTiles = clumpArray;
   
   // Find the minimum row and col (may be negative)
   let minRow = currentMinRow, minCol = currentMinCol;
@@ -2003,6 +2137,14 @@ function buyRandomExpansion() {
     const tileData = getOrCreateTile(finalRow, finalCol);
     tileData.owned = true; // Mark as owned/accessible
   });
+  
+  // Update GRID_SIZE to max dimension for backward compatibility
+  const newBounds = getMapBounds();
+  GRID_SIZE = Math.max(
+    newBounds.maxRow - newBounds.minRow + 1,
+    newBounds.maxCol - newBounds.minCol + 1,
+    GRID_SIZE
+  );
   
   // Deduct gold cost
   gameState.resources.gold -= expansionCost;

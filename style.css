@@ -64,6 +64,130 @@ h4 {
   outline: none;
 }
 
+/* Boost Badge Styles */
+.boost-badge {
+  display: inline-block;
+  margin-left: 5px;
+  vertical-align: middle;
+  position: relative;
+}
+
+.boost-badge-content {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: help;
+  background: rgba(255, 215, 0, 0.2);
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  color: #FFD700;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.boost-badge-content:hover {
+  background: rgba(255, 215, 0, 0.3);
+  border-color: rgba(255, 215, 0, 0.8);
+}
+
+.boost-badge.boost-temporary .boost-badge-content {
+  background: rgba(0, 255, 0, 0.2);
+  border-color: rgba(0, 255, 0, 0.5);
+  color: #00FF00;
+  animation: pulse 2s infinite;
+}
+
+.boost-badge.boost-temporary .boost-badge-content:hover {
+  background: rgba(0, 255, 0, 0.3);
+  border-color: rgba(0, 255, 0, 0.8);
+}
+
+.boost-badge.boost-permanent .boost-badge-content {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: rgba(255, 215, 0, 0.5);
+  color: #FFD700;
+}
+
+.boost-badge.boost-permanent .boost-badge-content:hover {
+  background: rgba(255, 215, 0, 0.3);
+  border-color: rgba(255, 215, 0, 0.8);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Boost Badge Tooltip */
+.boost-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  border-radius: 6px;
+  color: white;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: normal;
+  z-index: 10000;
+  pointer-events: none;
+  min-width: 250px;
+  max-width: 350px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.boost-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(255, 215, 0, 0.6);
+}
+
+.boost-badge:hover .boost-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.boost-tooltip-header {
+  font-weight: bold;
+  color: #FFD700;
+  margin-bottom: 8px;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+  padding-bottom: 6px;
+}
+
+.boost-tooltip-item {
+  margin: 4px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.boost-tooltip-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.boost-tooltip-text {
+  flex: 1;
+}
+
 /* Main Container */
 .main-container {
   display: flex;

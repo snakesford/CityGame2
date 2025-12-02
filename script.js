@@ -1507,6 +1507,7 @@ function calculateProduction() {
   let totalGold = 0;
   let totalCoal = 0;
   let totalFood = 0;
+  let totalPopulation = 0;
   let totalCapacity = 0;
   
   const bounds = getMapBounds();
@@ -1526,15 +1527,25 @@ function calculateProduction() {
       // Apply 5% production boost for owned tiles
       const ownedBoost = tile.owned ? 1.05 : 1.0;
       
-      totalWood += production.wood * ownedBoost;
-      totalStone += production.stone * ownedBoost;
-      totalClay += production.clay * ownedBoost;
-      totalIron += production.iron * ownedBoost;
-      totalBricks += production.bricks * ownedBoost;
-      totalGold += production.gold * ownedBoost;
-      totalCoal += production.coal * ownedBoost;
-      totalPopulation += production.population * ownedBoost;
-      totalCapacity += production.capacity * ownedBoost;
+      // Apply town center boost (5% per town level)
+      let townBoost = 1.0;
+      if (tile.townId && gameState.towns[tile.townId]) {
+        const townLevel = gameState.towns[tile.townId].level || 1;
+        townBoost = 1.0 + (townLevel * 0.05); // 5% per level
+      }
+      
+      const combinedBoost = ownedBoost * townBoost;
+      
+      totalWood += production.wood * combinedBoost;
+      totalStone += production.stone * combinedBoost;
+      totalClay += production.clay * combinedBoost;
+      totalIron += production.iron * combinedBoost;
+      totalBricks += production.bricks * combinedBoost;
+      totalGold += production.gold * combinedBoost;
+      totalCoal += production.coal * combinedBoost;
+      totalFood += production.food * combinedBoost;
+      totalPopulation += production.population * combinedBoost;
+      totalCapacity += production.capacity * combinedBoost;
     }
   }
   
@@ -1552,6 +1563,183 @@ function calculateProduction() {
   gameState.rates.coalps = totalCoal;
   gameState.rates.fps = totalFood;
   gameState.population.capacity = totalCapacity;
+}
+
+// Get all active boosts for a specific resource
+function getResourceBoosts(resourceName) {
+  const boosts = [];
+  const now = Date.now();
+  
+  // Map resource names to their upgrade keys
+  const upgradeMap = {
+    'wood': 'woodProduction',
+    'stone': 'stoneProduction',
+    'clay': 'clayProduction',
+    'iron': 'ironProduction',
+    'population': 'housingCapacity',
+    'capacity': 'housingCapacity'
+  };
+  
+  const upgradeKey = upgradeMap[resourceName];
+  
+  // Check permanent upgrades from shop
+  if (upgradeKey && gameState.upgrades && gameState.upgrades[upgradeKey]) {
+    boosts.push({
+      type: 'permanent',
+      description: '+20% from shop upgrade',
+      multiplier: 1.2,
+      icon: '⭐'
+    });
+  }
+  
+  // Check temporary boosts
+  if (upgradeKey && gameState.temporaryBoosts && gameState.temporaryBoosts[upgradeKey]) {
+    const boost = gameState.temporaryBoosts[upgradeKey];
+    if (boost.expiresAt && now < boost.expiresAt) {
+      const timeRemaining = Math.ceil((boost.expiresAt - now) / 1000); // seconds
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+      const percentBonus = Math.round((boost.multiplier - 1) * 100);
+      boosts.push({
+        type: 'temporary',
+        description: `+${percentBonus}% temporary boost (${timeStr} remaining)`,
+        multiplier: boost.multiplier,
+        expiresAt: boost.expiresAt,
+        icon: '⚡'
+      });
+    }
+  }
+  
+  // Check character bonuses (only show if character is selected AND there's production)
+  if (gameState.character) {
+    const character = characterTypes[gameState.character];
+    
+    // Check if there are buildings producing this resource that would benefit from character bonus
+    let hasRelevantProduction = false;
+    const bounds = getMapBounds();
+    for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+      if (!gameState.map[row]) continue;
+      for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
+        const tile = gameState.map[row] && gameState.map[row][col] ? gameState.map[row][col] : null;
+        if (!tile || tile.type === "empty") continue;
+        
+        const building = buildingTypes[tile.type];
+        if (!building) continue;
+        
+        const production = getBuildingProduction(tile.type, tile.level || 1);
+        
+        if (gameState.character === 'miner') {
+          // Miner bonus applies to stone-category buildings
+          if (building.category === 'stone') {
+            if ((resourceName === 'stone' && production.stone > 0) ||
+                (resourceName === 'iron' && production.iron > 0)) {
+              hasRelevantProduction = true;
+              break;
+            }
+          }
+        } else if (gameState.character === 'farmer') {
+          // Farmer bonus applies to farming-category buildings
+          if (building.category === 'farming') {
+            if ((resourceName === 'population' && production.population > 0) ||
+                (resourceName === 'capacity' && production.capacity > 0)) {
+              hasRelevantProduction = true;
+              break;
+            }
+          }
+        }
+      }
+      if (hasRelevantProduction) break;
+    }
+    
+    if (hasRelevantProduction) {
+      if (gameState.character === 'miner') {
+        // Miner gets +50% stone and iron production
+        if (resourceName === 'stone' || resourceName === 'iron') {
+          boosts.push({
+            type: 'character',
+            description: '+50% from Miner character',
+            multiplier: 1.5,
+            icon: '⛏'
+          });
+        }
+      } else if (gameState.character === 'farmer') {
+        // Farmer gets +50% farming production (population)
+        if (resourceName === 'population' || resourceName === 'capacity') {
+          boosts.push({
+            type: 'character',
+            description: '+50% from Farmer character',
+            multiplier: 1.5,
+            icon: '🌾'
+          });
+        }
+        // Farmer also gets +30% population growth
+        if (resourceName === 'population') {
+          boosts.push({
+            type: 'character',
+            description: '+30% population growth from Farmer',
+            multiplier: 1.3,
+            icon: '🌾'
+          });
+        }
+      }
+    }
+  }
+  
+  // Check trader permanent upgrades
+  if (upgradeKey && gameState.traderUpgrades && gameState.traderUpgrades[upgradeKey]) {
+    boosts.push({
+      type: 'trader',
+      description: '+15% from trader upgrade',
+      multiplier: 1.15,
+      icon: '🛒'
+    });
+  }
+  
+  // Check town center boosts
+  // Find the highest town level that affects this resource
+  let maxTownLevel = 0;
+  const bounds = getMapBounds();
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
+      const tile = gameState.map[row] && gameState.map[row][col] ? gameState.map[row][col] : null;
+      if (!tile || tile.type === "empty" || !tile.townId) continue;
+      
+      // Check if this tile produces the resource we're checking
+      const production = getBuildingProduction(tile.type, tile.level || 1);
+      const producesResource = (
+        (resourceName === 'wood' && production.wood > 0) ||
+        (resourceName === 'stone' && production.stone > 0) ||
+        (resourceName === 'clay' && production.clay > 0) ||
+        (resourceName === 'iron' && production.iron > 0) ||
+        (resourceName === 'gold' && production.gold > 0) ||
+        (resourceName === 'bricks' && production.bricks > 0) ||
+        (resourceName === 'ironBars' && production.ironBars > 0) ||
+        (resourceName === 'coal' && production.coal > 0) ||
+        (resourceName === 'food' && production.food > 0) ||
+        (resourceName === 'population' && production.population > 0) ||
+        (resourceName === 'capacity' && production.capacity > 0)
+      );
+      
+      if (producesResource && gameState.towns[tile.townId]) {
+        const townLevel = gameState.towns[tile.townId].level || 1;
+        maxTownLevel = Math.max(maxTownLevel, townLevel);
+      }
+    }
+  }
+  
+  if (maxTownLevel > 0) {
+    const townBoostPercent = maxTownLevel * 5;
+    boosts.push({
+      type: 'town',
+      description: `+${townBoostPercent}% from Town Center (Level ${maxTownLevel})`,
+      multiplier: 1.0 + (maxTownLevel * 0.05),
+      icon: '🏛'
+    });
+  }
+  
+  return boosts;
 }
 
 // Process smelter conversion (clay -> bricks or iron -> iron bars)
@@ -4136,6 +4324,79 @@ function updateUI() {
   
   // Update build menu buttons
   updateBuildMenu();
+  
+  // Update boost badges
+  updateBoostBadges();
+}
+
+// Update boost badges for all resources
+function updateBoostBadges() {
+  const resources = ['wood', 'stone', 'clay', 'iron', 'gold', 'bricks', 'ironBars', 'coal', 'food', 'population', 'capacity'];
+  
+  resources.forEach(resourceName => {
+    const badgeEl = document.getElementById(`boost-${resourceName}`);
+    if (!badgeEl) return;
+    
+    const boosts = getResourceBoosts(resourceName);
+    
+    if (boosts.length === 0) {
+      badgeEl.innerHTML = '';
+      badgeEl.style.display = 'none';
+      return;
+    }
+    
+    // Calculate total multiplier
+    const totalMultiplier = boosts.reduce((acc, boost) => acc * boost.multiplier, 1);
+    const totalPercent = Math.round((totalMultiplier - 1) * 100);
+    
+    // Build tooltip HTML with clear source information
+    const tooltipItems = boosts.map(boost => {
+      let source = '';
+      switch(boost.type) {
+        case 'permanent':
+          source = 'Shop Upgrade';
+          break;
+        case 'temporary':
+          source = 'Wandering Trader';
+          break;
+        case 'character':
+          source = 'Character Bonus';
+          break;
+        case 'trader':
+          source = 'Trader Upgrade';
+          break;
+        case 'town':
+          source = 'Town Center';
+          break;
+        default:
+          source = 'Unknown';
+      }
+      return `<div class="boost-tooltip-item">
+        <span class="boost-tooltip-icon">${boost.icon}</span>
+        <span class="boost-tooltip-text">${boost.description} <span style="color: #aaa; font-size: 11px;">(${source})</span></span>
+      </div>`;
+    }).join('');
+    
+    // Create badge HTML with custom tooltip
+    const badgeHTML = `
+      <span class="boost-badge-content">⚡+${totalPercent}%</span>
+      <div class="boost-tooltip">
+        <div class="boost-tooltip-header">Active Boosts (+${totalPercent}% total)</div>
+        ${tooltipItems}
+      </div>
+    `;
+    
+    badgeEl.innerHTML = badgeHTML;
+    badgeEl.style.display = 'inline-block';
+    
+    // Add class based on boost types
+    badgeEl.className = 'boost-badge';
+    if (boosts.some(b => b.type === 'temporary')) {
+      badgeEl.classList.add('boost-temporary');
+    } else if (boosts.some(b => b.type === 'permanent')) {
+      badgeEl.classList.add('boost-permanent');
+    }
+  });
 }
 
 // Attach expansion button handler

@@ -16,7 +16,7 @@ let gameState = {
     food: 0
   },
   rates: {
-    wps: 1, // Base 1 wps
+    wps: 0.3, // Base 1 wps
     sps: 0, // Stone per second
     cps: 0, // Clay per second
     ips: 0, // Iron per second
@@ -86,7 +86,7 @@ const characterTypes = {
     buildDiscount: 0.8, // 20% discount on farm building placement
     farmingProductionMultiplier: 1.5, // 50% bonus to farming production
     populationMultiplier: 1.3, // 30% faster population growth
-    uniqueBuildings: ["orchard"] // advancedFarm is available to all players after milestone quest
+    uniqueBuildings: ["advancedFarm", "orchard"]
   }
 };
 
@@ -1499,7 +1499,7 @@ function getTotalBuildingCost(buildingType, level) {
 
 // Calculate production from all buildings
 function calculateProduction() {
-  let totalWood = 1; // Base 1 wps always
+  let totalWood = 0.3; // Base 1 wps always
   let totalStone = 0;
   let totalClay = 0;
   let totalIron = 0;
@@ -1553,7 +1553,7 @@ function calculateProduction() {
   if (gameState.upgrades.housingCapacity) {
     totalCapacity *= 1.2;
   }
-  
+
   gameState.rates.wps = totalWood;
   gameState.rates.sps = totalStone;
   gameState.rates.cps = totalClay;
@@ -2368,9 +2368,11 @@ function placeBuilding(row, col, buildingType) {
   const tile = getOrCreateTile(row, col);
   if (tile.type !== "empty") return false;
   
-  // Allow placing buildings on town-claimed tiles (town centers and their linked positions)
-  // Town tiles are already marked `owned` and `townId` when a town is created.
-  // We intentionally do not block placement here so players can populate their town center.
+  // Check if tile is locked by a town
+  if (tile.townId) {
+    showMessage("Cannot place building on town-locked tile!");
+    return false;
+  }
   
   const building = buildingTypes[buildingType];
   if (!building) return false;
@@ -4769,7 +4771,7 @@ function resetGame() {
       cycleToNextSaveSlot();
       gameState = {
       resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0, ironBars: 0, coal: 0, food: 0 },
-      rates: { wps: 1, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0, fps: 0 }, // Base 1 wps
+      rates: { wps: 0.3, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0, fps: 0 }, // Base 1 wps
       smelters: {},
       population: { current: 1, capacity: 0, foodShortageCounter: 0 },
       map: [],

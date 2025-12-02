@@ -86,7 +86,7 @@ const characterTypes = {
     buildDiscount: 0.8, // 20% discount on farm building placement
     farmingProductionMultiplier: 1.5, // 50% bonus to farming production
     populationMultiplier: 1.3, // 30% faster population growth
-    uniqueBuildings: ["advancedFarm", "orchard"]
+    uniqueBuildings: ["orchard"] // advancedFarm is available to all players after milestone quest
   }
 };
 
@@ -1641,7 +1641,8 @@ function getResourceBoosts(resourceName) {
         } else if (gameState.character === 'farmer') {
           // Farmer bonus applies to farming-category buildings
           if (building.category === 'farming') {
-            if ((resourceName === 'population' && production.population > 0) ||
+            if ((resourceName === 'food' && production.food > 0) ||
+                (resourceName === 'population' && production.population > 0) ||
                 (resourceName === 'capacity' && production.capacity > 0)) {
               hasRelevantProduction = true;
               break;
@@ -1664,8 +1665,8 @@ function getResourceBoosts(resourceName) {
           });
         }
       } else if (gameState.character === 'farmer') {
-        // Farmer gets +50% farming production (population)
-        if (resourceName === 'population' || resourceName === 'capacity') {
+        // Farmer gets +50% farming production (food, population, capacity)
+        if (resourceName === 'food' || resourceName === 'population' || resourceName === 'capacity') {
           boosts.push({
             type: 'character',
             description: '+50% from Farmer character',

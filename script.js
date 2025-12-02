@@ -49,7 +49,9 @@ let gameState = {
     wood: { totalTraded: 0, cooldownStart: null },
     stone: { totalTraded: 0, cooldownStart: null },
     clay: { totalTraded: 0, cooldownStart: null }
-  }
+  },
+  randomEvents: {}, // Track active random events: {row_col: {type: 'wanderingTrader', spawnTime: timestamp, expiresAt: timestamp}}
+  temporaryBoosts: {} // Track temporary boosts: {boostType: {multiplier: number, expiresAt: timestamp}}
 };
 
 // Player color definitions
@@ -469,6 +471,21 @@ function migrateSaveData() {
   // Ensure quests field exists
   if (!gameState.quests || !Array.isArray(gameState.quests)) {
     gameState.quests = [];
+  }
+  
+  // Ensure randomEvents field exists
+  if (!gameState.randomEvents) {
+    gameState.randomEvents = {};
+  }
+  
+  // Ensure temporaryBoosts field exists
+  if (!gameState.temporaryBoosts) {
+    gameState.temporaryBoosts = {};
+  }
+  
+  // Ensure traderUpgrades field exists
+  if (!gameState.traderUpgrades) {
+    gameState.traderUpgrades = {};
   }
   
   // Restore building unlock states
@@ -907,6 +924,116 @@ const merchantDefinitions = {
         type: 'permanent_upgrade'
       }
     ]
+  }
+};
+
+// Wandering Trader trade definitions
+const wanderingTraderTrades = {
+  // Rare Resources
+  buyIron: {
+    id: 'buyIron',
+    name: 'Buy Iron',
+    description: 'Purchase 10 iron for 15 gold',
+    cost: { gold: 15 },
+    reward: { iron: 10 },
+    type: 'resource_purchase'
+  },
+  buyCoal: {
+    id: 'buyCoal',
+    name: 'Buy Coal',
+    description: 'Purchase 10 coal for 15 gold',
+    cost: { gold: 15 },
+    reward: { coal: 10 },
+    type: 'resource_purchase'
+  },
+  buyIronBars: {
+    id: 'buyIronBars',
+    name: 'Buy Iron Bars',
+    description: 'Purchase 5 iron bars for 25 gold',
+    cost: { gold: 25 },
+    reward: { ironBars: 5 },
+    type: 'resource_purchase'
+  },
+  
+  // Temporary Boosts (5 minutes)
+  boostWood: {
+    id: 'boostWood',
+    name: 'Wood Production Boost',
+    description: '+50% wood production for 5 minutes',
+    cost: { gold: 40 },
+    reward: { boost: 'woodProduction', multiplier: 1.5, duration: 300000 },
+    type: 'temporary_boost'
+  },
+  boostStone: {
+    id: 'boostStone',
+    name: 'Stone Production Boost',
+    description: '+50% stone production for 5 minutes',
+    cost: { gold: 40 },
+    reward: { boost: 'stoneProduction', multiplier: 1.5, duration: 300000 },
+    type: 'temporary_boost'
+  },
+  boostClay: {
+    id: 'boostClay',
+    name: 'Clay Production Boost',
+    description: '+50% clay production for 5 minutes',
+    cost: { gold: 40 },
+    reward: { boost: 'clayProduction', multiplier: 1.5, duration: 300000 },
+    type: 'temporary_boost'
+  },
+  boostIron: {
+    id: 'boostIron',
+    name: 'Iron Production Boost',
+    description: '+50% iron production for 5 minutes',
+    cost: { gold: 50 },
+    reward: { boost: 'ironProduction', multiplier: 1.5, duration: 300000 },
+    type: 'temporary_boost'
+  },
+  
+  // Permanent Upgrades
+  permanentWoodBoost: {
+    id: 'permanentWoodBoost',
+    name: 'Permanent Wood Boost',
+    description: 'Permanent +15% wood production',
+    cost: { gold: 150 },
+    reward: { permanentUpgrade: 'woodProduction' },
+    type: 'permanent_upgrade'
+  },
+  permanentStoneBoost: {
+    id: 'permanentStoneBoost',
+    name: 'Permanent Stone Boost',
+    description: 'Permanent +15% stone production',
+    cost: { gold: 150 },
+    reward: { permanentUpgrade: 'stoneProduction' },
+    type: 'permanent_upgrade'
+  },
+  
+  // Bargain Trades (better rates)
+  bargainWood: {
+    id: 'bargainWood',
+    name: 'Bargain: Sell Wood',
+    description: 'Sell 8 wood for 1 gold (better rate!)',
+    cost: { wood: 8 },
+    reward: { gold: 1 },
+    type: 'bargain_trade',
+    resource: 'wood'
+  },
+  bargainStone: {
+    id: 'bargainStone',
+    name: 'Bargain: Sell Stone',
+    description: 'Sell 8 stone for 1 gold (better rate!)',
+    cost: { stone: 8 },
+    reward: { gold: 1 },
+    type: 'bargain_trade',
+    resource: 'stone'
+  },
+  bargainClay: {
+    id: 'bargainClay',
+    name: 'Bargain: Sell Clay',
+    description: 'Sell 8 clay for 1 gold (better rate!)',
+    cost: { clay: 8 },
+    reward: { gold: 1 },
+    type: 'bargain_trade',
+    resource: 'clay'
   }
 };
 
@@ -1411,6 +1538,16 @@ function getBuildingProduction(buildingType, level) {
     production.clay *= 1.2;
   }
   
+  // Apply trader permanent upgrades (applied per building)
+  if (gameState.traderUpgrades) {
+    if (gameState.traderUpgrades.woodProduction && production.wood > 0) {
+      production.wood *= 1.15; // +15% from trader
+    }
+    if (gameState.traderUpgrades.stoneProduction && production.stone > 0) {
+      production.stone *= 1.15; // +15% from trader
+    }
+  }
+  
   return production;
 }
 
@@ -1527,6 +1664,32 @@ function calculateProduction() {
   // Apply housing capacity upgrade
   if (gameState.upgrades.housingCapacity) {
     totalCapacity *= 1.2;
+  }
+  
+  // Apply temporary boosts from wandering trader
+  if (gameState.temporaryBoosts) {
+    if (gameState.temporaryBoosts.woodProduction && gameState.temporaryBoosts.woodProduction.multiplier) {
+      totalWood *= gameState.temporaryBoosts.woodProduction.multiplier;
+    }
+    if (gameState.temporaryBoosts.stoneProduction && gameState.temporaryBoosts.stoneProduction.multiplier) {
+      totalStone *= gameState.temporaryBoosts.stoneProduction.multiplier;
+    }
+    if (gameState.temporaryBoosts.clayProduction && gameState.temporaryBoosts.clayProduction.multiplier) {
+      totalClay *= gameState.temporaryBoosts.clayProduction.multiplier;
+    }
+    if (gameState.temporaryBoosts.ironProduction && gameState.temporaryBoosts.ironProduction.multiplier) {
+      totalIron *= gameState.temporaryBoosts.ironProduction.multiplier;
+    }
+  }
+  
+  // Apply trader permanent upgrades
+  if (gameState.traderUpgrades) {
+    if (gameState.traderUpgrades.woodProduction) {
+      totalWood *= 1.15; // +15% from trader
+    }
+    if (gameState.traderUpgrades.stoneProduction) {
+      totalStone *= 1.15; // +15% from trader
+    }
   }
   
   gameState.rates.wps = totalWood;
@@ -2876,6 +3039,107 @@ function removeBuilding(row, col) {
   return true;
 }
 
+// Generate event key from row/col
+function eventKey(row, col) {
+  return `${row}_${col}`;
+}
+
+// Spawn a random event on an un-owned tile
+function spawnRandomEvent(eventType = 'wanderingTrader') {
+  if (!gameState.map || gameState.map.length === 0) {
+    return false;
+  }
+  
+  // Find all un-owned tiles
+  const unOwnedTiles = [];
+  forEachTile((tile, row, col) => {
+    if (!tile.owned) {
+      unOwnedTiles.push({ row, col, tile });
+    }
+  });
+  
+  if (unOwnedTiles.length === 0) {
+    showMessage("No un-owned tiles available for random events!");
+    return false;
+  }
+  
+  // Randomly select an un-owned tile
+  const selected = unOwnedTiles[Math.floor(Math.random() * unOwnedTiles.length)];
+  const { row, col, tile } = selected;
+  const key = eventKey(row, col);
+  
+  // Check if there's already an event on this tile
+  if (gameState.randomEvents[key]) {
+    return false; // Event already exists here
+  }
+  
+  // If tile has a building, remove it
+  let buildingRemoved = false;
+  let buildingName = '';
+  if (tile.type !== "empty") {
+    buildingName = buildingTypes[tile.type] ? buildingTypes[tile.type].displayName : tile.type;
+    // Temporarily disable the message from removeBuilding
+    const originalShowMessage = window.showMessage;
+    window.showMessage = () => {}; // Suppress message
+    buildingRemoved = removeBuilding(row, col);
+    window.showMessage = originalShowMessage; // Restore
+    
+    if (buildingRemoved) {
+      showMessage(`A ${eventType === 'wanderingTrader' ? 'wandering trader' : 'random event'} has appeared! The ${buildingName} was removed.`);
+    }
+  }
+  
+  // Create event data
+  const now = Date.now();
+  const eventDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
+  gameState.randomEvents[key] = {
+    type: eventType,
+    spawnTime: now,
+    expiresAt: now + eventDuration,
+    row: row,
+    col: col
+  };
+  
+  renderGrid();
+  if (!buildingRemoved) {
+    showMessage(`A ${eventType === 'wanderingTrader' ? 'wandering trader' : 'random event'} has appeared at (${row}, ${col})!`);
+  }
+  
+  return true;
+}
+
+// Manual trigger for random events (for testing)
+function triggerRandomEvent(eventType = 'wanderingTrader') {
+  return spawnRandomEvent(eventType);
+}
+
+// Check and remove expired events
+function checkEventExpirations() {
+  const now = Date.now();
+  let expired = false;
+  
+  for (const key in gameState.randomEvents) {
+    const event = gameState.randomEvents[key];
+    if (event && event.expiresAt && now >= event.expiresAt) {
+      delete gameState.randomEvents[key];
+      expired = true;
+    }
+  }
+  
+  // Also check expired temporary boosts
+  for (const boostType in gameState.temporaryBoosts) {
+    const boost = gameState.temporaryBoosts[boostType];
+    if (boost && boost.expiresAt && now >= boost.expiresAt) {
+      delete gameState.temporaryBoosts[boostType];
+    }
+  }
+  
+  if (expired) {
+    renderGrid();
+    updateUI();
+  }
+}
+
 // Render grid
 function renderGrid() {
   const gridContainer = document.getElementById('grid-container');
@@ -2978,6 +3242,36 @@ function renderGrid() {
         const bgColor = hexToRgba(playerColor, 0.3);
         cell.style.backgroundColor = bgColor;
         cell.style.boxShadow = `inset 0 0 10px ${hexToRgba(playerColor, 0.5)}`;
+      }
+      
+      // Check for random events on this tile
+      const key = eventKey(row, col);
+      const event = gameState.randomEvents[key];
+      if (event) {
+        if (event.type === 'wanderingTrader') {
+          cell.classList.add('cell-event-trader');
+          cell.style.position = 'relative';
+          cell.title = 'Wandering Trader - Click to trade!';
+          
+          // Add visual indicator (animated border or icon)
+          const eventIndicator = document.createElement('div');
+          eventIndicator.style.position = 'absolute';
+          eventIndicator.style.top = '2px';
+          eventIndicator.style.right = '2px';
+          eventIndicator.style.width = '12px';
+          eventIndicator.style.height = '12px';
+          eventIndicator.style.borderRadius = '50%';
+          eventIndicator.style.backgroundColor = '#FFD700';
+          eventIndicator.style.border = '2px solid #FFA500';
+          eventIndicator.style.boxShadow = '0 0 8px #FFD700';
+          eventIndicator.style.animation = 'pulse 1.5s infinite';
+          eventIndicator.title = 'Wandering Trader';
+          cell.appendChild(eventIndicator);
+          
+          // Add pulsing border effect
+          cell.style.border = '2px solid #FFD700';
+          cell.style.boxShadow = `0 0 10px rgba(255, 215, 0, 0.6), inset 0 0 10px rgba(255, 215, 0, 0.3)`;
+        }
       }
       
       // Highlight selected cell
@@ -3209,6 +3503,16 @@ function handleCellClick(row, col) {
   }
   
   const tile = gameState.map[row][col];
+  
+  // Check for random events first (highest priority)
+  const key = eventKey(row, col);
+  const event = gameState.randomEvents[key];
+  if (event) {
+    if (event.type === 'wanderingTrader') {
+      openWanderingTraderModal(key);
+      return;
+    }
+  }
   
   // Edit mode: move buildings
   if (editMode) {
@@ -4846,6 +5150,9 @@ function startGameLoop() {
         return;
       }
       
+      // Check for expired events and boosts
+      checkEventExpirations();
+      
       // Update resources based on production
       if (gameState.rates) {
         gameState.resources.wood += gameState.rates.wps || 0;
@@ -6148,6 +6455,252 @@ function refreshTownCenterModalIfOpen() {
     if (modal && modal.style.display === 'flex') {
       openTownCenterModal(currentTownId, currentTownRow, currentTownCol);
     }
+  }
+}
+
+// Current wandering trader event key
+let currentTraderEventKey = null;
+let traderUpdateInterval = null;
+
+// Open wandering trader modal
+function openWanderingTraderModal(eventKey) {
+  const event = gameState.randomEvents[eventKey];
+  if (!event || event.type !== 'wanderingTrader') {
+    return;
+  }
+  
+  currentTraderEventKey = eventKey;
+  const contentEl = document.getElementById('wandering-trader-content');
+  const timeRemainingEl = document.getElementById('trader-time-remaining');
+  
+  if (!contentEl || !timeRemainingEl) {
+    return;
+  }
+  
+  // Update time remaining
+  const updateTimeRemaining = () => {
+    const now = Date.now();
+    const remaining = Math.max(0, event.expiresAt - now);
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    timeRemainingEl.textContent = `Time remaining: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    if (remaining <= 0) {
+      closeWanderingTraderModal();
+      checkEventExpirations();
+      renderGrid();
+    }
+  };
+  
+  updateTimeRemaining();
+  
+  // Clear existing interval
+  if (traderUpdateInterval) {
+    clearInterval(traderUpdateInterval);
+  }
+  
+  // Update every second
+  traderUpdateInterval = setInterval(updateTimeRemaining, 1000);
+  
+  // Build HTML content
+  let html = '';
+  
+  // Rare Resources section
+  html += '<h3 style="color: #FFD700; margin-top: 0; margin-bottom: 15px;">Rare Resources</h3>';
+  const rareResources = ['buyIron', 'buyCoal', 'buyIronBars'];
+  rareResources.forEach(tradeId => {
+    const trade = wanderingTraderTrades[tradeId];
+    if (!trade) return;
+    
+    html += '<div class="shop-item" style="margin-bottom: 15px;">';
+    html += '<div class="shop-item-info">';
+    html += `<h3>${trade.name}</h3>`;
+    html += `<p style="color: #aaa; font-size: 13px;">${trade.description}</p>`;
+    html += '<div class="shop-item-cost">';
+    html += '<span class="shop-cost-item">';
+    html += `<img src="images/gold.png" alt="Gold" style="width: 24px; height: 24px; vertical-align: middle;">`;
+    html += `<span>${trade.cost.gold}</span>`;
+    html += '</span>';
+    html += '<span style="margin: 0 10px;">→</span>';
+    html += '<span class="shop-cost-item">';
+    const resourceName = Object.keys(trade.reward)[0];
+    const resourceImage = resourceName === 'iron' ? 'iron.png' : resourceName === 'coal' ? 'coal.png' : 'ironBar.webp';
+    html += `<img src="images/${resourceImage}" alt="${resourceName}" style="width: 24px; height: 24px; vertical-align: middle;">`;
+    html += `<span>${trade.reward[resourceName]}</span>`;
+    html += '</span>';
+    html += '</div>';
+    html += '</div>';
+    html += `<button class="shop-buy-btn" onclick="executeTraderTrade('${tradeId}', '${eventKey}')">Purchase</button>`;
+    html += '</div>';
+  });
+  
+  // Temporary Boosts section
+  html += '<h3 style="color: #FFD700; margin-top: 20px; margin-bottom: 15px;">Temporary Boosts (5 minutes)</h3>';
+  const boosts = ['boostWood', 'boostStone', 'boostClay', 'boostIron'];
+  boosts.forEach(tradeId => {
+    const trade = wanderingTraderTrades[tradeId];
+    if (!trade) return;
+    
+    html += '<div class="shop-item" style="margin-bottom: 15px;">';
+    html += '<div class="shop-item-info">';
+    html += `<h3>${trade.name}</h3>`;
+    html += `<p style="color: #aaa; font-size: 13px;">${trade.description}</p>`;
+    html += '<div class="shop-item-cost">';
+    html += '<span class="shop-cost-item">';
+    html += `<img src="images/gold.png" alt="Gold" style="width: 24px; height: 24px; vertical-align: middle;">`;
+    html += `<span>${trade.cost.gold}</span>`;
+    html += '</span>';
+    html += '</div>';
+    html += '</div>';
+    html += `<button class="shop-buy-btn" onclick="executeTraderTrade('${tradeId}', '${eventKey}')">Purchase</button>`;
+    html += '</div>';
+  });
+  
+  // Permanent Upgrades section
+  html += '<h3 style="color: #FFD700; margin-top: 20px; margin-bottom: 15px;">Permanent Upgrades</h3>';
+  const upgrades = ['permanentWoodBoost', 'permanentStoneBoost'];
+  upgrades.forEach(tradeId => {
+    const trade = wanderingTraderTrades[tradeId];
+    if (!trade) return;
+    
+    html += '<div class="shop-item" style="margin-bottom: 15px;">';
+    html += '<div class="shop-item-info">';
+    html += `<h3>${trade.name}</h3>`;
+    html += `<p style="color: #aaa; font-size: 13px;">${trade.description}</p>`;
+    html += '<div class="shop-item-cost">';
+    html += '<span class="shop-cost-item">';
+    html += `<img src="images/gold.png" alt="Gold" style="width: 24px; height: 24px; vertical-align: middle;">`;
+    html += `<span>${trade.cost.gold}</span>`;
+    html += '</span>';
+    html += '</div>';
+    html += '</div>';
+    html += `<button class="shop-buy-btn" onclick="executeTraderTrade('${tradeId}', '${eventKey}')">Purchase</button>`;
+    html += '</div>';
+  });
+  
+  // Bargain Trades section
+  html += '<h3 style="color: #FFD700; margin-top: 20px; margin-bottom: 15px;">Bargain Trades</h3>';
+  const bargains = ['bargainWood', 'bargainStone', 'bargainClay'];
+  bargains.forEach(tradeId => {
+    const trade = wanderingTraderTrades[tradeId];
+    if (!trade) return;
+    
+    html += '<div class="shop-item" style="margin-bottom: 15px;">';
+    html += '<div class="shop-item-info">';
+    html += `<h3>${trade.name}</h3>`;
+    html += `<p style="color: #aaa; font-size: 13px;">${trade.description}</p>`;
+    html += '<div class="shop-item-cost">';
+    html += '<span class="shop-cost-item">';
+    const resourceName = trade.resource;
+    const resourceImage = resourceName === 'wood' ? 'wood-log.png' : resourceName === 'stone' ? 'rock.png' : 'clay.png';
+    html += `<img src="images/${resourceImage}" alt="${resourceName}" style="width: 24px; height: 24px; vertical-align: middle;">`;
+    html += `<span>${trade.cost[resourceName]}</span>`;
+    html += '</span>';
+    html += '<span style="margin: 0 10px;">→</span>';
+    html += '<span class="shop-cost-item">';
+    html += `<img src="images/gold.png" alt="Gold" style="width: 24px; height: 24px; vertical-align: middle;">`;
+    html += `<span>${trade.reward.gold}</span>`;
+    html += '</span>';
+    html += '</div>';
+    html += '</div>';
+    html += `<button class="shop-buy-btn" onclick="executeTraderTrade('${tradeId}', '${eventKey}')">Trade</button>`;
+    html += '</div>';
+  });
+  
+  contentEl.innerHTML = html;
+  
+  // Show modal
+  const modal = document.getElementById('wandering-trader-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+// Close wandering trader modal
+function closeWanderingTraderModal() {
+  toggleModal('wandering-trader-modal');
+  currentTraderEventKey = null;
+  
+  if (traderUpdateInterval) {
+    clearInterval(traderUpdateInterval);
+    traderUpdateInterval = null;
+  }
+}
+
+// Execute trader trade
+function executeTraderTrade(tradeId, eventKey) {
+  const trade = wanderingTraderTrades[tradeId];
+  if (!trade) {
+    showMessage("Trade not found!");
+    return;
+  }
+  
+  const event = gameState.randomEvents[eventKey];
+  if (!event || event.type !== 'wanderingTrader') {
+    showMessage("Trader event not found!");
+    return;
+  }
+  
+  // Check if player can afford
+  if (!canAfford(trade.cost)) {
+    showMessage("Cannot afford this trade!");
+    return;
+  }
+  
+  // Deduct cost
+  deductCost(trade.cost);
+  
+  // Handle different trade types
+  if (trade.type === 'resource_purchase') {
+    // Add resources
+    for (const [resource, amount] of Object.entries(trade.reward)) {
+      if (gameState.resources[resource] !== undefined) {
+        gameState.resources[resource] += amount;
+      }
+    }
+    showMessage(`Purchased ${Object.entries(trade.reward).map(([r, a]) => `${a} ${r}`).join(', ')}!`);
+  } else if (trade.type === 'temporary_boost') {
+    // Apply temporary boost
+    const now = Date.now();
+    const boostType = trade.reward.boost;
+    gameState.temporaryBoosts[boostType] = {
+      multiplier: trade.reward.multiplier,
+      expiresAt: now + trade.reward.duration
+    };
+    showMessage(`Boost activated: ${trade.name}!`);
+  } else if (trade.type === 'permanent_upgrade') {
+    // Apply permanent upgrade
+    if (trade.reward.permanentUpgrade) {
+      const upgradeType = trade.reward.permanentUpgrade;
+      if (upgradeType === 'woodProduction' || upgradeType === 'stoneProduction') {
+        // Store trader-specific permanent upgrades separately
+        if (!gameState.traderUpgrades) {
+          gameState.traderUpgrades = {};
+        }
+        gameState.traderUpgrades[upgradeType] = true;
+        showMessage(`Permanent upgrade applied: ${trade.name}!`);
+      }
+    }
+  } else if (trade.type === 'bargain_trade') {
+    // Bargain trade - sell resources for gold
+    const resourceName = trade.resource;
+    const resourceAmount = trade.cost[resourceName];
+    
+    if (gameState.resources[resourceName] < resourceAmount) {
+      showMessage(`Not enough ${resourceName}!`);
+      return;
+    }
+    
+    gameState.resources[resourceName] -= resourceAmount;
+    gameState.resources.gold += trade.reward.gold;
+    showMessage(`Sold ${resourceAmount} ${resourceName} for ${trade.reward.gold} gold!`);
+  }
+  
+  updateUI();
+  
+  // Refresh modal if still open
+  if (currentTraderEventKey === eventKey) {
+    openWanderingTraderModal(eventKey);
   }
 }
 

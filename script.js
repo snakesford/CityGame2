@@ -2135,11 +2135,9 @@ function placeBuilding(row, col, buildingType) {
   const tile = gameState.map[row][col];
   if (tile.type !== "empty") return false;
   
-  // Check if tile is locked by a town
-  if (tile.townId) {
-    showMessage("Cannot place building on town-locked tile!");
-    return false;
-  }
+  // Allow placing buildings on town-claimed tiles (town centers and their linked positions)
+  // Town tiles are already marked `owned` and `townId` when a town is created.
+  // We intentionally do not block placement here so players can populate their town center.
   
   const building = buildingTypes[buildingType];
   if (!building) return false;

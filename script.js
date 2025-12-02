@@ -1196,7 +1196,7 @@ const buildingTypes = {
     productionGrowthFactor: 1.2,
     maxLevel: null,
     unlocked: false,
-    requiredCharacter: "farmer" // Farmer-only building
+    // Previously farmer-only; now available to all characters
   },
   advancedLumberMill: {
     displayName: "Advanced Lumber Mill",
@@ -2098,7 +2098,11 @@ function checkUnlocks() {
   for (const [key, building] of Object.entries(buildingTypes)) {
     // Check character requirement
     if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
-      building.unlocked = false;
+      // If this building was explicitly unlocked via quests or save, don't override that.
+      const unlockedBySave = gameState.buildingUnlocks && gameState.buildingUnlocks[key];
+      if (!unlockedBySave) {
+        building.unlocked = false;
+      }
     }
   }
 }
@@ -2138,9 +2142,28 @@ function placeBuilding(row, col, buildingType) {
   }
   
   const building = buildingTypes[buildingType];
-  if (!building || !building.unlocked) return false;
+  if (!building) return false;
+
+  // If the building is not unlocked, check if its milestone requirements are already met.
+  // If so, auto-unlock and persist the unlock so the player can place it immediately.
+  if (!building.unlocked) {
+    const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === buildingType);
+    if (unlockQuest && unlockQuest.requirements && unlockQuest.requirements.length > 0) {
+      const allMet = unlockQuest.requirements.every(req => checkRequirement(req));
+      if (allMet) {
+        building.unlocked = true;
+        if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
+        gameState.buildingUnlocks[buildingType] = true;
+        updateBuildMenu();
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
   
-  // Check character requirement
+  // Enforce character requirement for placement regardless of saved/quest unlocks
   if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
     return false;
   }
@@ -3953,13 +3976,16 @@ function updateBuildMenu() {
     const btn = document.querySelector(`[data-building-type="${key}"]`);
     if (!btn) continue;
     
-    // Hide buildings that require a different character
-    if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
+    // Show all building buttons by default; if a building requires a specific character
+    // and the player hasn't selected that character, keep the button visible but mark it disabled
+    // Special-case: hide Orchard entirely unless the player is the Farmer
+    if (key === 'orchard' && gameState.character !== 'farmer') {
       btn.style.display = 'none';
       continue;
-    } else {
-      btn.style.display = 'block';
     }
+
+    btn.style.display = 'block';
+    const requiredCharacterMismatch = building.requiredCharacter && gameState.character !== building.requiredCharacter;
     
     // Ensure building icon is present (front and center)
     const iconPath = buildingIcons[key];
@@ -3987,8 +4013,9 @@ function updateBuildMenu() {
     
     const cost = getBuildingCost(key, 1);
     const affordable = canAfford(cost);
-    
-    btn.disabled = !building.unlocked || !affordable;
+
+    // Disable button if locked by unlocks, not affordable, or requires a different character
+    btn.disabled = !building.unlocked || !affordable || requiredCharacterMismatch;
     
     // Remove existing requirement display
     const existingReqs = btn.querySelector('.building-requirements');
@@ -3996,6 +4023,10 @@ function updateBuildMenu() {
       existingReqs.remove();
     }
     
+    if (requiredCharacterMismatch) {
+      btn.title = `Requires ${building.requiredCharacter} character`;
+    }
+
     if (!building.unlocked) {
       // Find the milestone quest that unlocks this building
       const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
@@ -5385,6 +5416,9 @@ function checkQuests() {
             // Unlock building if this quest unlocks one
             if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
               buildingTypes[questDef.unlocksBuilding].unlocked = true;
+              // Persist this unlock in the runtime save state so other checks honor it
+              if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
+              gameState.buildingUnlocks[questDef.unlocksBuilding] = true;
               updateBuildMenu();
               // Don't show popup for building unlock quests - just unlock silently
             } else {

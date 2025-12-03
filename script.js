@@ -952,7 +952,16 @@ const buildingTypes = {
     customCosts: {
       1: { wood: 35, stone: 0 },
       2: { wood: 20, stone: 0 },
-      3: { wood: 35, stone: 0 }
+      3: { wood: 35, stone: 10 },
+      4: { wood: 61, stone: 20, iron: 10, ironBars: 0, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      5: { wood: 106, stone: 40, iron: 20, ironBars: 4, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      6: { wood: 185, stone: 80, iron: 30, ironBars: 8, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      7: { wood: 320, stone: 100, iron: 40, ironBars: 12, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      8: { wood: 555, stone: 140, iron: 50, ironBars: 16, bricks: 0, gold: 20, coal: 0, population: 0, capacity: 0 },
+      9: { wood: 965, stone: 180, iron: 60, ironBars: 20, bricks: 0, gold: 40, coal: 0, population: 0, capacity: 0 },
+      10: { wood: 1675, stone: 220, iron: 70, ironBars: 24, bricks: 0, gold: 60, coal: 0, population: 0, capacity: 0 },
+      11: { wood: 2900, stone: 260, iron: 80, ironBars: 28, bricks: 0, gold: 80, coal: 0, population: 0, capacity: 0 },
+      12: { wood: 5040, stone: 300, iron: 90, ironBars: 32, bricks: 0, gold: 100, coal: 0, population: 0, capacity: 0 },
     },
     baseProduction: { wood: 0.6, stone: 0, population: 0, capacity: 0 },
     productionGrowthFactor: 1.2, // Used for levels beyond 3
@@ -1564,7 +1573,13 @@ function getBuildingCost(buildingType, level) {
       stone: customCost.stone || 0,
       clay: customCost.clay || 0,
       iron: customCost.iron || 0,
-      bricks: customCost.bricks || 0
+      ironBars: customCost.ironBars || 0,
+      bricks: customCost.bricks || 0,
+      gold: customCost.gold || 0,
+      coal: customCost.coal || 0,
+      population: customCost.population || 0,
+      food: customCost.food || 0,
+      capacity: customCost.capacity || 0
     };
   }
   

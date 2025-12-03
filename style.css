@@ -209,13 +209,13 @@ h4 {
   display: flex;
   gap: 20px;
   justify-content: center;
-  align-items: stretch;
+  align-items: flex-start; /* Align items to top so build menu can extend fully */
   flex-wrap: nowrap;
   flex: 1;
   min-height: 0;
-  max-height: calc(100vh - 200px); /* Limit height to prevent excessive vertical expansion */
   padding: 10px;
-  overflow: hidden; /* Prevent overflow */
+  overflow-x: hidden;
+  overflow-y: auto; /* Allow scrolling if content is taller than viewport */
 }
 
 /* Build Menu */
@@ -230,8 +230,8 @@ h4 {
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
-  max-height: 100%;
-  align-self: stretch;
+  /* Remove max-height constraint so it can extend fully */
+  align-self: flex-start; /* Align to top, allow natural height */
 }
 
 .building-category {
@@ -822,8 +822,8 @@ h4 {
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
-  height: 100%;
-  align-self: stretch;
+  max-height: calc(100vh - 250px); /* Match grid area height constraint */
+  align-self: flex-start; /* Align to top */
   box-sizing: border-box;
 }
 

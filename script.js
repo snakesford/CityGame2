@@ -948,9 +948,28 @@ const buildingTypes = {
     displayName: "Lumber Mill",
     category: "wood",
     baseCost: { wood: 35, stone: 0 },
-    costGrowthFactor: 1.3,
+    costGrowthFactor: 1.75, // Used for levels beyond 3
+    customCosts: {
+      1: { wood: 35, stone: 0 },
+      2: { wood: 20, stone: 0 },
+      3: { wood: 35, stone: 10 },
+      4: { wood: 61, stone: 20, iron: 10, ironBars: 0, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      5: { wood: 106, stone: 40, iron: 20, ironBars: 4, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      6: { wood: 185, stone: 80, iron: 30, ironBars: 8, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      7: { wood: 320, stone: 100, iron: 40, ironBars: 12, bricks: 0, gold: 0, coal: 0, population: 0, capacity: 0 },
+      8: { wood: 555, stone: 140, iron: 50, ironBars: 16, bricks: 0, gold: 20, coal: 0, population: 0, capacity: 0 },
+      9: { wood: 965, stone: 180, iron: 60, ironBars: 20, bricks: 0, gold: 40, coal: 0, population: 0, capacity: 0 },
+      10: { wood: 1675, stone: 220, iron: 70, ironBars: 24, bricks: 0, gold: 60, coal: 0, population: 0, capacity: 0 },
+      11: { wood: 2900, stone: 260, iron: 80, ironBars: 28, bricks: 0, gold: 80, coal: 0, population: 0, capacity: 0 },
+      12: { wood: 5040, stone: 300, iron: 90, ironBars: 32, bricks: 0, gold: 100, coal: 0, population: 0, capacity: 0 },
+    },
     baseProduction: { wood: 0.6, stone: 0, population: 0, capacity: 0 },
-    productionGrowthFactor: 1.2,
+    productionGrowthFactor: 1.2, // Used for levels beyond 3
+    customProduction: {
+      1: { wood: 0.6, stone: 0, population: 0, capacity: 0 },
+      2: { wood: 1.0, stone: 0, population: 0, capacity: 0 },
+      3: { wood: 1.8, stone: 0, population: 0, capacity: 0 }
+    },
     maxLevel: null,
     unlocked: true
   },
@@ -1378,19 +1397,126 @@ function getBuildingProduction(buildingType, level) {
   const building = buildingTypes[buildingType];
   if (!building || level < 1) return { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, gold: 0, coal: 0, population: 0, food: 0, capacity: 0 };
   
-  const factor = Math.pow(building.productionGrowthFactor, level - 1);
-  let production = {
-    wood: (building.baseProduction.wood || 0) * factor,
-    stone: (building.baseProduction.stone || 0) * factor,
-    clay: (building.baseProduction.clay || 0) * factor,
-    iron: (building.baseProduction.iron || 0) * factor,
-    bricks: (building.baseProduction.bricks || 0) * factor,
-    gold: (building.baseProduction.gold || 0) * factor,
-    coal: (building.baseProduction.coal || 0) * factor,
-    population: (building.baseProduction.population || 0) * factor,
-    food: (building.baseProduction.food || 0) * factor,
-    capacity: (building.baseProduction.capacity || 0) * factor
-  };
+  let production;
+  
+  // Check for custom production first
+  if (building.customProduction && building.customProduction[level]) {
+    const customProd = building.customProduction[level];
+    production = {
+      wood: customProd.wood || 0,
+      stone: customProd.stone || 0,
+      clay: customProd.clay || 0,
+      iron: customProd.iron || 0,
+      bricks: customProd.bricks || 0,
+      gold: customProd.gold || 0,
+      coal: customProd.coal || 0,
+      population: customProd.population || 0,
+      food: customProd.food || 0,
+      capacity: customProd.capacity || 0
+    };
+  } else if (building.customProduction && Object.keys(building.customProduction).length > 0) {
+    // Calculate production for levels beyond custom production
+    // Find the highest custom level and its production
+    const customLevels = Object.keys(building.customProduction).map(Number).sort((a, b) => a - b);
+    const maxCustomLevel = Math.max(...customLevels);
+    const secondLastLevel = customLevels.length >= 2 ? customLevels[customLevels.length - 2] : null;
+    
+    const lastCustomProd = building.customProduction[maxCustomLevel];
+    
+    // Calculate the increase from second-to-last to last custom level
+    let lastIncrease = {};
+    if (secondLastLevel !== null) {
+      const secondLastCustomProd = building.customProduction[secondLastLevel];
+      lastIncrease = {
+        wood: (lastCustomProd.wood || 0) - (secondLastCustomProd.wood || 0),
+        stone: (lastCustomProd.stone || 0) - (secondLastCustomProd.stone || 0),
+        clay: (lastCustomProd.clay || 0) - (secondLastCustomProd.clay || 0),
+        iron: (lastCustomProd.iron || 0) - (secondLastCustomProd.iron || 0),
+        bricks: (lastCustomProd.bricks || 0) - (secondLastCustomProd.bricks || 0),
+        gold: (lastCustomProd.gold || 0) - (secondLastCustomProd.gold || 0),
+        coal: (lastCustomProd.coal || 0) - (secondLastCustomProd.coal || 0),
+        population: (lastCustomProd.population || 0) - (secondLastCustomProd.population || 0),
+        food: (lastCustomProd.food || 0) - (secondLastCustomProd.food || 0),
+        capacity: (lastCustomProd.capacity || 0) - (secondLastCustomProd.capacity || 0)
+      };
+    } else {
+      // Only one custom level, use base production difference
+      lastIncrease = {
+        wood: (lastCustomProd.wood || 0) - (building.baseProduction.wood || 0),
+        stone: (lastCustomProd.stone || 0) - (building.baseProduction.stone || 0),
+        clay: (lastCustomProd.clay || 0) - (building.baseProduction.clay || 0),
+        iron: (lastCustomProd.iron || 0) - (building.baseProduction.iron || 0),
+        bricks: (lastCustomProd.bricks || 0) - (building.baseProduction.bricks || 0),
+        gold: (lastCustomProd.gold || 0) - (building.baseProduction.gold || 0),
+        coal: (lastCustomProd.coal || 0) - (building.baseProduction.coal || 0),
+        population: (lastCustomProd.population || 0) - (building.baseProduction.population || 0),
+        food: (lastCustomProd.food || 0) - (building.baseProduction.food || 0),
+        capacity: (lastCustomProd.capacity || 0) - (building.baseProduction.capacity || 0)
+      };
+    }
+    
+    // Calculate how many levels beyond the max custom level
+    const levelsBeyond = level - maxCustomLevel;
+    
+    // Start with the last custom production
+    let currentProduction = {
+      wood: lastCustomProd.wood || 0,
+      stone: lastCustomProd.stone || 0,
+      clay: lastCustomProd.clay || 0,
+      iron: lastCustomProd.iron || 0,
+      bricks: lastCustomProd.bricks || 0,
+      gold: lastCustomProd.gold || 0,
+      coal: lastCustomProd.coal || 0,
+      population: lastCustomProd.population || 0,
+      food: lastCustomProd.food || 0,
+      capacity: lastCustomProd.capacity || 0
+    };
+    
+    // For each level beyond, double the last increase and add it
+    // Level 4: lastIncrease * 2, Level 5: (lastIncrease * 2) * 2, etc.
+    let currentIncrease = { ...lastIncrease };
+    for (let i = 1; i <= levelsBeyond; i++) {
+      currentProduction.wood += currentIncrease.wood * 2;
+      currentProduction.stone += currentIncrease.stone * 2;
+      currentProduction.clay += currentIncrease.clay * 2;
+      currentProduction.iron += currentIncrease.iron * 2;
+      currentProduction.bricks += currentIncrease.bricks * 2;
+      currentProduction.gold += currentIncrease.gold * 2;
+      currentProduction.coal += currentIncrease.coal * 2;
+      currentProduction.population += currentIncrease.population * 2;
+      currentProduction.food += currentIncrease.food * 2;
+      currentProduction.capacity += currentIncrease.capacity * 2;
+      
+      // Double the increase for the next level
+      currentIncrease.wood *= 2;
+      currentIncrease.stone *= 2;
+      currentIncrease.clay *= 2;
+      currentIncrease.iron *= 2;
+      currentIncrease.bricks *= 2;
+      currentIncrease.gold *= 2;
+      currentIncrease.coal *= 2;
+      currentIncrease.population *= 2;
+      currentIncrease.food *= 2;
+      currentIncrease.capacity *= 2;
+    }
+    
+    production = currentProduction;
+  } else {
+    // No custom production, use exponential formula
+    const factor = Math.pow(building.productionGrowthFactor, level - 1);
+    production = {
+      wood: (building.baseProduction.wood || 0) * factor,
+      stone: (building.baseProduction.stone || 0) * factor,
+      clay: (building.baseProduction.clay || 0) * factor,
+      iron: (building.baseProduction.iron || 0) * factor,
+      bricks: (building.baseProduction.bricks || 0) * factor,
+      gold: (building.baseProduction.gold || 0) * factor,
+      coal: (building.baseProduction.coal || 0) * factor,
+      population: (building.baseProduction.population || 0) * factor,
+      food: (building.baseProduction.food || 0) * factor,
+      capacity: (building.baseProduction.capacity || 0) * factor
+    };
+  }
   
   // Apply character bonuses
   if (gameState.character) {
@@ -1439,8 +1565,43 @@ function getBuildingCost(buildingType, level) {
   const building = buildingTypes[buildingType];
   if (!building) return { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0 };
   
+  // Check for custom costs first
+  if (building.customCosts && building.customCosts[level]) {
+    const customCost = building.customCosts[level];
+    return {
+      wood: customCost.wood || 0,
+      stone: customCost.stone || 0,
+      clay: customCost.clay || 0,
+      iron: customCost.iron || 0,
+      ironBars: customCost.ironBars || 0,
+      bricks: customCost.bricks || 0,
+      gold: customCost.gold || 0,
+      coal: customCost.coal || 0,
+      population: customCost.population || 0,
+      food: customCost.food || 0,
+      capacity: customCost.capacity || 0
+    };
+  }
+  
   let cost;
-  if (level === 1) {
+  
+  // If custom costs exist and we're beyond the last custom level, scale from last custom cost
+  if (building.customCosts && Object.keys(building.customCosts).length > 0) {
+    const customLevels = Object.keys(building.customCosts).map(Number).sort((a, b) => a - b);
+    const maxCustomLevel = Math.max(...customLevels);
+    const lastCustomCost = building.customCosts[maxCustomLevel];
+    const levelsBeyond = level - maxCustomLevel;
+    
+    // Scale from last custom cost using costGrowthFactor
+    const factor = Math.pow(building.costGrowthFactor, levelsBeyond);
+    cost = {
+      wood: Math.floor((lastCustomCost.wood || 0) * factor),
+      stone: Math.floor((lastCustomCost.stone || 0) * factor),
+      clay: Math.floor((lastCustomCost.clay || 0) * factor),
+      iron: Math.floor((lastCustomCost.iron || 0) * factor),
+      bricks: Math.floor((lastCustomCost.bricks || 0) * factor)
+    };
+  } else if (level === 1) {
     cost = { ...building.baseCost };
     // Ensure all resource fields exist
     if (!cost.clay) cost.clay = 0;

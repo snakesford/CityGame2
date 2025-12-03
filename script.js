@@ -2690,7 +2690,10 @@ function placeBuilding(row, col, buildingType) {
   
   // Get or create the tile (handles sparse coordinates)
   const tile = getOrCreateTile(row, col);
-  if (tile.type !== "empty") return false;
+  if (tile.type !== "empty") {
+    showMessage("Cannot place building - tile is not empty!");
+    return false;
+  }
   
   // Check if tile is locked by a town
   if (tile.townId) {
@@ -2699,7 +2702,10 @@ function placeBuilding(row, col, buildingType) {
   }
   
   const building = buildingTypes[buildingType];
-  if (!building) return false;
+  if (!building) {
+    showMessage("Invalid building type!");
+    return false;
+  }
 
   // If the building is not unlocked, check if its milestone requirements are already met.
   // If so, auto-unlock and persist the unlock so the player can place it immediately.
@@ -2713,15 +2719,18 @@ function placeBuilding(row, col, buildingType) {
         gameState.buildingUnlocks[buildingType] = true;
         updateBuildMenu();
       } else {
+        showMessage("Building is locked - complete requirements to unlock!");
         return false;
       }
     } else {
+      showMessage("Building is locked!");
       return false;
     }
   }
   
   // Enforce character requirement for placement regardless of saved/quest unlocks
   if (building.requiredCharacter && gameState.character !== building.requiredCharacter) {
+    showMessage(`This building requires the ${characterTypes[building.requiredCharacter].name} character!`);
     return false;
   }
   
@@ -2732,7 +2741,10 @@ function placeBuilding(row, col, buildingType) {
   }
   
   const cost = getBuildingCost(buildingType, 1);
-  if (!canAfford(cost)) return false;
+  if (!canAfford(cost)) {
+    showMessage("Not enough resources!");
+    return false;
+  }
   deductCost(cost);
   
   // Place building
@@ -2953,9 +2965,16 @@ function checkTownPattern(centerRow, centerCol) {
 function checkAllCabinsForPatterns() {
   let patternsFound = 0;
   
-  for (let row = 1; row < GRID_SIZE - 1; row++) {
-    for (let col = 1; col < GRID_SIZE - 1; col++) {
-      const tile = gameState.map[row][col];
+  // Use actual map bounds instead of GRID_SIZE to handle expansion tiles
+  const bounds = getMapBounds();
+  
+  // Check all tiles in the map bounds (with 1 tile margin for pattern checking)
+  for (let row = bounds.minRow + 1; row <= bounds.maxRow - 1; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol + 1; col <= bounds.maxCol - 1; col++) {
+      const tile = gameState.map[row] && gameState.map[row][col] 
+        ? gameState.map[row][col] 
+        : null;
       if (tile && tile.type === "cabin" && !tile.townId) {
         const result = checkTownPattern(row, col);
         if (result >= 0) {
@@ -2980,24 +2999,20 @@ function createTown(centerRow, centerCol, rotation) {
   const claimRadius = 2; // 2 tiles in each direction = 5x5 total
   for (let r = centerRow - claimRadius; r <= centerRow + claimRadius; r++) {
     for (let c = centerCol - claimRadius; c <= centerCol + claimRadius; c++) {
-      // Check bounds
-      if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
-        const targetTile = gameState.map[r][c];
-        if (targetTile) {
-          // Claim the tile (same as gold purchase)
-          if (!targetTile.owned) {
-            targetTile.owned = true;
-          }
-          // Also set townId for town-specific locking
-          targetTile.townId = townId;
-          linkedPositions.push({ row: r, col: c });
-        }
+      // Get or create tile (handles sparse coordinates and expansion tiles)
+      const targetTile = getOrCreateTile(r, c);
+      // Claim the tile (same as gold purchase)
+      if (!targetTile.owned) {
+        targetTile.owned = true;
       }
+      // Also set townId for town-specific locking
+      targetTile.townId = townId;
+      linkedPositions.push({ row: r, col: c });
     }
   }
   
   // Replace center Cabin with Town Center L1
-  const centerTile = gameState.map[centerRow][centerCol];
+  const centerTile = getOrCreateTile(centerRow, centerCol);
   centerTile.type = "townCenter_L1";
   centerTile.level = 1;
   
@@ -4001,8 +4016,18 @@ function updateZoomDisplay() {
 let draggedCell = null;
 
 function handleDragStart(e, row, col) {
-  const tile = gameState.map[row][col];
-  if (tile.type === "empty") {
+  // Ensure grid is initialized
+  if (!gameState.map || gameState.map.length === 0) {
+    initializeGrid();
+  }
+  
+  // Get tile (should exist since we're dragging from a building)
+  const tile = gameState.map[row] && gameState.map[row][col] 
+    ? gameState.map[row][col] 
+    : null;
+  
+  // Safety check: tile must exist and not be empty
+  if (!tile || tile.type === "empty") {
     e.preventDefault();
     return;
   }
@@ -4021,7 +4046,14 @@ function handleDragOver(e, row, col) {
   
   // Add visual feedback for valid drop target (empty cells or other buildings for swapping)
   if (draggedCell) {
-    const tile = gameState.map[row][col];
+    // Ensure grid is initialized
+    if (!gameState.map || gameState.map.length === 0) {
+      initializeGrid();
+    }
+    
+    // Get or create the tile (handles sparse coordinates and expansion tiles)
+    const tile = getOrCreateTile(row, col);
+    
     // Allow dropping on empty cells or other buildings (for swapping)
     if (tile.type === "empty" || (draggedCell.row !== row || draggedCell.col !== col)) {
       e.currentTarget.classList.add('cell-drag-over');
@@ -4053,8 +4085,24 @@ function handleDrop(e, row, col) {
     return;
   }
   
-  const toTile = gameState.map[toRow][toCol];
-  const fromTile = gameState.map[fromRow][fromCol];
+  // Ensure grid is initialized
+  if (!gameState.map || gameState.map.length === 0) {
+    initializeGrid();
+  }
+  
+  // Get or create the target tile (handles sparse coordinates and expansion tiles)
+  const toTile = getOrCreateTile(toRow, toCol);
+  
+  // Get the source tile (should exist since we're dragging from it)
+  const fromTile = gameState.map[fromRow] && gameState.map[fromRow][fromCol] 
+    ? gameState.map[fromRow][fromCol] 
+    : null;
+  
+  // Safety check: source tile must exist
+  if (!fromTile || fromTile.type === "empty") {
+    draggedCell = null;
+    return;
+  }
   
   // Allow dropping on empty cells or swapping with other buildings
   if (toTile.type === "empty") {
@@ -4093,12 +4141,14 @@ function handleDragEnd(e) {
 
 // Handle cell click
 function handleCellClick(row, col) {
-  // Safety check for map bounds
-  if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) {
-    return;
+  // Ensure grid is initialized
+  if (!gameState.map || gameState.map.length === 0) {
+    initializeGrid();
   }
   
-  const tile = gameState.map[row][col];
+  // Get or create the tile (handles sparse coordinates and expansion tiles)
+  // This will create the tile if it doesn't exist, which is needed for expansion tiles
+  const tile = getOrCreateTile(row, col);
   
   // Check for random events first (highest priority)
   const key = eventKey(row, col);
@@ -4133,10 +4183,8 @@ function handleCellClick(row, col) {
   
   // Normal mode behavior
   if (selectedBuildingType && tile.type === "empty") {
-    // Try to place building
-    if (!placeBuilding(row, col, selectedBuildingType)) {
-      showMessage("Not enough resources.");
-    } else {
+    // Try to place building (placeBuilding now shows specific error messages)
+    if (placeBuilding(row, col, selectedBuildingType)) {
       // Only clear building selection if Shift is not held (allows multiple placements)
       if (!shiftHeld) {
         selectedBuildingType = null;
@@ -4344,6 +4392,15 @@ function updateTileInfo() {
   
   if (tile.owned) {
     html += `<p style="color: #4CAF50; font-weight: bold; margin: 5px 0;">✓ Owned - Protected from random events</p>`;
+  } else {
+    // Show purchase button if tile is not owned
+    const tileCost = 50; // Cost in gold to purchase a tile
+    const canAffordTile = gameState.resources.gold >= tileCost;
+    html += `<p style="color: #FFA500; font-weight: bold; margin: 5px 0;">⚠ This tile is not owned. Random events can affect unowned tiles.</p>`;
+    html += `<button id="purchase-tile-btn" style="margin: 10px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: ${canAffordTile ? '#FFD700' : '#666'}; border: 3px solid ${canAffordTile ? 'rgba(255,255,255,0.4)' : '#888'}; border-radius: 8px; cursor: ${canAffordTile ? 'pointer' : 'not-allowed'}; opacity: ${canAffordTile ? '1' : '0.5'}; transition: all 0.2s; font-weight: bold; font-size: 16px;" ${!canAffordTile ? 'disabled' : ''} onmouseover="if(this.style.opacity!=='0.5')this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">`;
+    html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
+    html += `<span style="font-weight: bold; font-size: 18px; color: ${canAffordTile ? '#000000' : '#ffffff'};">Purchase Tile - ${formatNumber(tileCost)}</span>`;
+    html += `</button>`;
   }
   
   // Helper function to format production with boost indicator
@@ -4749,6 +4806,21 @@ function updateTileInfo() {
         selectedTile = null;
         updateTileInfo();
         showMessage("Building removed.");
+      }
+    });
+  }
+  
+  // Add event listener for purchase tile button (when building is on unowned tile)
+  const purchaseTileBtn = document.getElementById('purchase-tile-btn');
+  if (purchaseTileBtn) {
+    purchaseTileBtn.addEventListener('click', () => {
+      if (selectedTile && purchaseTile(selectedTile.row, selectedTile.col)) {
+        updateTileInfo();
+        updateUI();
+        renderGrid();
+        showMessage("Tile purchased! This tile is now protected from random events.");
+      } else {
+        showMessage("Cannot purchase tile: insufficient gold.");
       }
     });
   }
@@ -6342,13 +6414,21 @@ function toggleEditMode() {
 
 // Move building from one position to another
 function moveBuilding(fromRow, fromCol, toRow, toCol) {
-  if (fromRow < 0 || fromRow >= GRID_SIZE || fromCol < 0 || fromCol >= GRID_SIZE) return false;
-  if (toRow < 0 || toRow >= GRID_SIZE || toCol < 0 || toCol >= GRID_SIZE) return false;
+  // Ensure grid is initialized
+  if (!gameState.map || gameState.map.length === 0) {
+    initializeGrid();
+  }
   
-  const fromTile = gameState.map[fromRow][fromCol];
-  const toTile = gameState.map[toRow][toCol];
+  // Get source tile (should exist since we're moving from a building)
+  const fromTile = gameState.map[fromRow] && gameState.map[fromRow][fromCol] 
+    ? gameState.map[fromRow][fromCol] 
+    : null;
   
-  if (fromTile.type === "empty" || toTile.type !== "empty") return false;
+  // Get or create target tile (handles sparse coordinates and expansion tiles)
+  const toTile = getOrCreateTile(toRow, toCol);
+  
+  // Safety checks
+  if (!fromTile || fromTile.type === "empty" || toTile.type !== "empty") return false;
   
   // Cannot move town centers
   if (fromTile.type && fromTile.type.startsWith('townCenter_')) {
@@ -6401,19 +6481,25 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
   // This allows completing a town pattern by dragging a cabin or other building into position
   let patternFound = false;
   
+  // Get map bounds to handle expansion tiles
+  const bounds = getMapBounds();
+  
   // Check all possible cabin center positions that could form a 3x3 pattern with the moved building
-  const minRow = Math.max(1, toRow - 2);
-  const maxRow = Math.min(GRID_SIZE - 2, toRow + 2);
-  const minCol = Math.max(1, toCol - 2);
-  const maxCol = Math.min(GRID_SIZE - 2, toCol + 2);
+  const minRow = Math.max(bounds.minRow + 1, toRow - 2);
+  const maxRow = Math.min(bounds.maxRow - 1, toRow + 2);
+  const minCol = Math.max(bounds.minCol + 1, toCol - 2);
+  const maxCol = Math.min(bounds.maxCol - 1, toCol + 2);
   
   console.log(`🔍 Checking for town patterns after moving ${buildingType} to (${toRow}, ${toCol})`);
   console.log(`   Scanning cabin centers from (${minRow}, ${minCol}) to (${maxRow}, ${maxCol})`);
   
   // Check all possible cabin center positions
   for (let r = minRow; r <= maxRow; r++) {
+    if (!gameState.map[r]) continue;
     for (let c = minCol; c <= maxCol; c++) {
-      const tile = gameState.map[r][c];
+      const tile = gameState.map[r] && gameState.map[r][c] 
+        ? gameState.map[r][c] 
+        : null;
       
       // Check if this position is a cabin (either existing or just moved here)
       const isCabin = (r === toRow && c === toCol && buildingType === "cabin") || 
@@ -6458,13 +6544,21 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
 
 // Swap two buildings
 function swapBuildings(row1, col1, row2, col2) {
-  if (row1 < 0 || row1 >= GRID_SIZE || col1 < 0 || col1 >= GRID_SIZE) return false;
-  if (row2 < 0 || row2 >= GRID_SIZE || col2 < 0 || col2 >= GRID_SIZE) return false;
+  // Ensure grid is initialized
+  if (!gameState.map || gameState.map.length === 0) {
+    initializeGrid();
+  }
   
-  const tile1 = gameState.map[row1][col1];
-  const tile2 = gameState.map[row2][col2];
+  // Get both tiles (should exist since we're swapping buildings)
+  const tile1 = gameState.map[row1] && gameState.map[row1][col1] 
+    ? gameState.map[row1][col1] 
+    : null;
+  const tile2 = gameState.map[row2] && gameState.map[row2][col2] 
+    ? gameState.map[row2][col2] 
+    : null;
   
-  if (tile1.type === "empty" || tile2.type === "empty") return false;
+  // Safety checks
+  if (!tile1 || !tile2 || tile1.type === "empty" || tile2.type === "empty") return false;
   
   // Save building data from both locations
   const buildingType1 = tile1.type;

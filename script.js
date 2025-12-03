@@ -3678,6 +3678,194 @@ function renderGrid() {
       gridContainer.appendChild(cell);
     }
   }
+  
+  // Render mini map
+  renderMiniMap();
+  
+  // Set up scroll listener for viewport indicator (throttled)
+  if (gridWrapper) {
+    // Remove existing listener if any
+    gridWrapper.removeEventListener('scroll', handleGridScroll);
+    // Add new listener
+    gridWrapper.addEventListener('scroll', handleGridScroll, { passive: true });
+  }
+}
+
+// Handle grid scroll (throttled)
+function handleGridScroll() {
+  // Throttle updates to avoid performance issues
+  if (handleGridScroll.timeout) {
+    clearTimeout(handleGridScroll.timeout);
+  }
+  handleGridScroll.timeout = setTimeout(() => {
+    updateMiniMapViewport();
+  }, 50); // Update every 50ms max
+}
+
+// Render mini map
+function renderMiniMap() {
+  const miniMapContainer = document.getElementById('mini-map-container');
+  if (!miniMapContainer) return;
+  
+  miniMapContainer.innerHTML = '';
+  
+  // Get map bounds
+  const bounds = getMapBounds();
+  const numRows = bounds.maxRow - bounds.minRow + 1;
+  const numCols = bounds.maxCol - bounds.minCol + 1;
+  
+  if (numRows === 0 || numCols === 0) return;
+  
+  // Calculate cell size to fit in mini map (150x150px container, minus padding)
+  const containerSize = 150;
+  const padding = 4;
+  const gap = 1;
+  const availableSize = containerSize - padding * 2;
+  
+  // Calculate max cells that can fit
+  const maxCellSize = Math.floor((availableSize - gap * Math.max(numRows - 1, numCols - 1)) / Math.max(numRows, numCols));
+  const cellSize = Math.max(1, maxCellSize); // At least 1px per cell
+  
+  // Set grid template
+  miniMapContainer.style.gridTemplateColumns = `repeat(${numCols}, ${cellSize}px)`;
+  miniMapContainer.style.gridTemplateRows = `repeat(${numRows}, ${cellSize}px)`;
+  
+  // Get player color for owned tiles
+  const playerColor = gameState.playerColor ? playerColors[gameState.playerColor] : '#4CAF50';
+  
+  // Helper function to convert hex to rgba
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  
+  // Render all tiles
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
+      const cell = document.createElement('div');
+      cell.className = 'mini-map-cell';
+      
+      // Get tile (may be undefined if sparse)
+      const tile = gameState.map[row] && gameState.map[row][col] 
+        ? gameState.map[row][col] 
+        : { type: "empty", level: 0, owned: false };
+      
+      if (tile.type !== "empty") {
+        // Add town center level class for styling before adding the type class
+        if (tile.type && tile.type.startsWith('townCenter_L')) {
+          const level = tile.type.replace('townCenter_L', '');
+          cell.classList.add(`town-center-level-${level}`);
+        } else {
+          cell.classList.add(`cell-${tile.type}`);
+        }
+      } else {
+        cell.classList.add('cell-empty');
+      }
+      
+      // Show ownership indicator
+      if (tile.owned) {
+        cell.classList.add('cell-owned');
+        const bgColor = hexToRgba(playerColor, 0.3);
+        cell.style.backgroundColor = bgColor;
+      }
+      
+      miniMapContainer.appendChild(cell);
+    }
+  }
+  
+  // Update viewport indicator
+  updateMiniMapViewport();
+}
+
+// Update viewport indicator on mini map
+function updateMiniMapViewport() {
+  const miniMapViewport = document.getElementById('mini-map-viewport');
+  const gridContainer = document.getElementById('grid-container');
+  const gridWrapper = document.getElementById('grid-wrapper');
+  const miniMapContainer = document.getElementById('mini-map-container');
+  
+  if (!miniMapViewport || !gridContainer || !gridWrapper || !miniMapContainer) return;
+  
+  // Get map bounds
+  const bounds = getMapBounds();
+  const numRows = bounds.maxRow - bounds.minRow + 1;
+  const numCols = bounds.maxCol - bounds.minCol + 1;
+  
+  if (numRows === 0 || numCols === 0) {
+    miniMapViewport.style.display = 'none';
+    return;
+  }
+  
+  // Get grid wrapper scroll position and size
+  const wrapperScrollLeft = gridWrapper.scrollLeft;
+  const wrapperScrollTop = gridWrapper.scrollTop;
+  const wrapperWidth = gridWrapper.clientWidth;
+  const wrapperHeight = gridWrapper.clientHeight;
+  
+  // Get grid container base dimensions and zoom
+  const baseWidth = parseFloat(gridContainer.dataset.baseWidth) || gridContainer.offsetWidth || 0;
+  const baseHeight = parseFloat(gridContainer.dataset.baseHeight) || gridContainer.offsetHeight || 0;
+  const zoom = gameState.zoomLevel || 1.0;
+  
+  if (baseWidth === 0 || baseHeight === 0) {
+    miniMapViewport.style.display = 'none';
+    return;
+  }
+  
+  // Get margin offset (for zoomed out centering)
+  const marginLeft = parseFloat(gridContainer.style.marginLeft) || 0;
+  const marginTop = parseFloat(gridContainer.style.marginTop) || 0;
+  
+  // Calculate visible area in grid container coordinates (before zoom)
+  // Account for transform origin at 0,0 and margins
+  const visibleLeft = (wrapperScrollLeft - marginLeft) / zoom;
+  const visibleTop = (wrapperScrollTop - marginTop) / zoom;
+  const visibleWidth = wrapperWidth / zoom;
+  const visibleHeight = wrapperHeight / zoom;
+  
+  // Get tile size from grid container
+  const tileSize = parseFloat(gridContainer.dataset.tileSize) || 0;
+  const gapSize = 2; // Gap between tiles in main grid
+  
+  if (tileSize === 0) {
+    miniMapViewport.style.display = 'none';
+    return;
+  }
+  
+  // Calculate which tiles are visible (accounting for grid gaps)
+  const minRow = bounds.minRow;
+  const minCol = bounds.minCol;
+  
+  // Calculate visible tile range
+  // Account for container padding (2px on each side = 4px total)
+  const containerPadding = 2;
+  const visibleStartCol = Math.max(0, Math.floor((visibleLeft - containerPadding) / (tileSize + gapSize)));
+  const visibleStartRow = Math.max(0, Math.floor((visibleTop - containerPadding) / (tileSize + gapSize)));
+  const visibleEndCol = Math.min(numCols - 1, Math.ceil((visibleLeft + visibleWidth - containerPadding) / (tileSize + gapSize)));
+  const visibleEndRow = Math.min(numRows - 1, Math.ceil((visibleTop + visibleHeight - containerPadding) / (tileSize + gapSize)));
+  
+  // Calculate mini map cell size
+  const containerSize = 150;
+  const padding = 4;
+  const miniGap = 1;
+  const availableSize = containerSize - padding * 2;
+  const maxCellSize = Math.floor((availableSize - miniGap * Math.max(numRows - 1, numCols - 1)) / Math.max(numRows, numCols));
+  const miniCellSize = Math.max(1, maxCellSize);
+  
+  // Calculate viewport position and size in mini map coordinates
+  const viewportLeft = padding + (visibleStartCol * (miniCellSize + miniGap));
+  const viewportTop = padding + (visibleStartRow * (miniCellSize + miniGap));
+  const viewportWidth = Math.max(2, (visibleEndCol - visibleStartCol + 1) * (miniCellSize + miniGap) - miniGap);
+  const viewportHeight = Math.max(2, (visibleEndRow - visibleStartRow + 1) * (miniCellSize + miniGap) - miniGap);
+  
+  // Update viewport indicator
+  miniMapViewport.style.display = 'block';
+  miniMapViewport.style.left = `${viewportLeft}px`;
+  miniMapViewport.style.top = `${viewportTop}px`;
+  miniMapViewport.style.width = `${viewportWidth}px`;
+  miniMapViewport.style.height = `${viewportHeight}px`;
 }
 
 // Zoom functions
@@ -3686,6 +3874,7 @@ function zoomIn() {
   gameState.zoomLevel = Math.min(3.0, gameState.zoomLevel + 0.1); // Max 300% zoom
   applyZoom();
   updateZoomDisplay();
+  updateMiniMapViewport();
 }
 
 function zoomOut() {
@@ -3693,12 +3882,14 @@ function zoomOut() {
   gameState.zoomLevel = Math.max(0.3, gameState.zoomLevel - 0.1); // Min 30% zoom
   applyZoom();
   updateZoomDisplay();
+  updateMiniMapViewport();
 }
 
 function resetZoom() {
   gameState.zoomLevel = 1.0;
   applyZoom();
   updateZoomDisplay();
+  updateMiniMapViewport();
 }
 
 function applyZoom() {
@@ -3736,6 +3927,9 @@ function applyZoom() {
   
   // Ensure wrapper always allows scrolling
   gridWrapper.style.overflow = 'auto';
+  
+  // Update mini map viewport indicator after zoom
+  updateMiniMapViewport();
   
   // When zoomed out, center the grid by adjusting margins after scaling
   if (zoom < 1.0) {

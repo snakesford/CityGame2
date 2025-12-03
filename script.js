@@ -148,6 +148,20 @@ let shiftHeld = false;
 // HELPER FUNCTIONS
 // ============================================
 
+// Play a sound effect
+function playSound(soundFile, volume = 0.5) {
+  try {
+    const audio = new Audio(`Audio/${soundFile}`);
+    audio.volume = volume;
+    audio.play().catch(error => {
+      // Silently fail if audio cannot play (e.g., user hasn't interacted with page)
+      console.debug('Could not play sound:', soundFile, error);
+    });
+  } catch (error) {
+    console.debug('Error creating audio:', soundFile, error);
+  }
+}
+
 // Current grid size based on actual map dimensions
 function getTargetGridSize() {
   if (!gameState.map || gameState.map.length === 0) {
@@ -517,6 +531,12 @@ function toggleModal(modalId, onShow) {
   const isHidden = modal.style.display === 'none' || modal.style.display === '';
   modal.style.display = isHidden ? 'flex' : 'none';
   if (isHidden && onShow) onShow();
+  
+  // Play close sound when modal is being closed
+  if (!isHidden) {
+    playSound('switch_001.ogg', 0.5);
+  }
+  
   return isHidden;
 }
 
@@ -2417,6 +2437,9 @@ function purchaseTile(row, col) {
   gameState.resources.gold -= tileCost;
   tile.owned = true;
   
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
+  
   return true;
 }
 
@@ -2649,6 +2672,9 @@ function buyRandomExpansion() {
   // Deduct gold cost
   gameState.resources.gold -= expansionCost;
   
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
+  
   renderGrid();
   updateUI();
   showMessage(`Acquired ${numTiles} new tiles!`);
@@ -2794,6 +2820,9 @@ function placeBuilding(row, col, buildingType) {
       console.log(`   ❌ No patterns found in comprehensive scan`);
     }
   }
+  
+  // Play placement sound
+  playSound('drop_004.ogg', 0.6);
   
   return true;
 }
@@ -3254,6 +3283,9 @@ function levelUpTown(townId) {
     updateUI();
   }
   
+  // Play upgrade sound
+  playSound('maximize_006.ogg', 0.6);
+  
   return true;
 }
 
@@ -3320,6 +3352,9 @@ function upgradeBuilding(row, col) {
   renderGrid();
   updateUI();
   updateTileInfo();
+  
+  // Play upgrade sound
+  playSound('maximize_006.ogg', 0.6);
   
   return true;
 }
@@ -6210,6 +6245,9 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
   updateUI();
   updateTileInfo();
   
+  // Play move sound
+  playSound('drop_004.ogg', 0.6);
+  
   return true;
 }
 
@@ -7884,6 +7922,9 @@ function purchaseUpgrade(upgradeKey, cost) {
   calculateProduction();
   updateUI();
   updateShopUI();
+  
+  // Play upgrade sound
+  playSound('maximize_006.ogg', 0.6);
   
   const upgradeNames = {
     woodProduction: 'Wood Production Boost',

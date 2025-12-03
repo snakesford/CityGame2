@@ -3401,6 +3401,9 @@ function removeBuilding(row, col) {
   gameState.resources.bricks += refund.bricks;
   gameState.resources.gold += refund.gold;
   
+  // Play purchase sound for refund
+  playSound('purchase.mov', 0.5);
+  
   // Remove smelter storage if it's a smelter
   if (tile.type === "smelter" && gameState.smelters) {
     delete gameState.smelters[smelterKey(row, col)];

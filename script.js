@@ -7205,6 +7205,9 @@ function executeTraderTrade(tradeId, eventKey) {
   // Deduct cost
   deductCost(trade.cost);
   
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
+  
   // Handle different trade types
   if (trade.type === 'resource_purchase') {
     // Add resources
@@ -7248,6 +7251,7 @@ function executeTraderTrade(tradeId, eventKey) {
     
     gameState.resources[resourceName] -= resourceAmount;
     gameState.resources.gold += trade.reward.gold;
+    
     showMessage(`Sold ${resourceAmount} ${resourceName} for ${trade.reward.gold} gold!`);
   }
   
@@ -7301,6 +7305,9 @@ function executeMerchantTrade(townId, tradeId) {
   
   // Execute trade
   deductCost(trade.cost);
+  
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
   
   // Apply reward
   if (trade.type === 'resource_trade') {
@@ -7877,6 +7884,9 @@ function executeMerchantResourceTrade(townId, resourceName, exchangeRate) {
     gameState.resources[resourceName] -= resourceAmount;
     gameState.resources.gold += goldReward;
     
+    // Play purchase sound
+    playSound('purchase.mov', 0.6);
+    
     // Update cooldown tracking
     const cooldown = gameState.merchantCooldowns[resourceName];
     cooldown.totalTraded += resourceAmount;
@@ -7921,6 +7931,9 @@ function purchaseUpgrade(upgradeKey, cost) {
   
   gameState.resources.gold -= cost;
   gameState.upgrades[upgradeKey] = true;
+  
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
   
   // Recalculate production to apply the upgrade
   calculateProduction();

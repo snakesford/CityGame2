@@ -3046,8 +3046,12 @@ function getTownAtPosition(row, col) {
 // Get building count (total non-empty buildings, excluding town centers)
 function getBuildingCount() {
   let count = 0;
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
+  if (!gameState.map) return 0;
+  
+  const bounds = getMapBounds();
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
       const tile = gameState.map[row][col];
       if (tile && tile.type !== "empty" && !tile.type.startsWith('townCenter_')) {
         count++;

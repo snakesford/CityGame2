@@ -108,6 +108,12 @@
     Book of Buildings
   </button>
 
+  <!-- Quests Button (Below Book of Buildings) -->
+  <button id="quests-btn" class="quests-btn" onclick="toggleQuests()" style="position: fixed; top: 100px; left: 10px; z-index: 1000; padding: 10px 25px; background: linear-gradient(135deg, #9E9E9E 0%, #757575 100%); border: none; border-radius: 25px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px; min-width: 150px; justify-content: center;">
+    <img src="images/quests.png" alt="Quests" style="width: 20px; height: 20px; vertical-align: middle;">
+    Quests
+  </button>
+
   <!-- Player Indicator (Upper Right) -->
   <div id="player-indicator" class="player-indicator" style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: none; align-items: center; gap: 10px; padding: 8px 15px; background: rgba(0,0,0,0.6); border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
     <div class="player-color-dot" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5);"></div>
@@ -160,9 +166,6 @@
     <div style="text-align: center; margin-bottom: 10px; display: flex; gap: 10px; justify-content: center;">
       <button id="shop-btn" class="shop-btn" onclick="toggleShop()">
         <img src="images/store.png" alt="Shop" style="width: 40px; height: 40px;">
-      </button>
-      <button id="quests-btn" class="quests-btn" onclick="toggleQuests()">
-        <img src="images/quests.png" alt="Quests" style="width: 40px; height: 40px;">
       </button>
     </div>
     <div class="resource-display">

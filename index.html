@@ -529,6 +529,22 @@
     </div>
   </div>
 
+  <!-- Wandering Trader Modal -->
+  <div id="wandering-trader-modal" class="shop-modal" style="display: none; z-index: 5000;">
+    <div class="shop-content" style="max-width: 800px; width: 90%; max-height: 80vh; height: auto; overflow-y: auto;">
+      <div class="shop-header">
+        <h2>🛒 Wandering Trader</h2>
+        <button class="shop-close" onclick="closeWanderingTraderModal()">&times;</button>
+      </div>
+      <div class="shop-body" style="padding: 20px;">
+        <p id="trader-time-remaining" style="color: #FFD700; margin-bottom: 15px; font-weight: bold;"></p>
+        <div id="wandering-trader-content">
+          <!-- Trader content will be populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script type="text/javascript" src="script.js"></script>
 </body>
 </html>

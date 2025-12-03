@@ -4347,15 +4347,40 @@ function handleCellClick(row, col) {
 }
 
 // Show message
-function showMessage(text) {
+function showMessage(text, duration = 2000, positionAboveGrid = false) {
   // Simple alert for now, can be improved with a toast notification
   const messageDiv = document.getElementById('message');
   if (messageDiv) {
     messageDiv.textContent = text;
+    
+    if (positionAboveGrid) {
+      // Position message above the grid container
+      const gridContainer = document.getElementById('grid-container');
+      if (gridContainer) {
+        const gridRect = gridContainer.getBoundingClientRect();
+        messageDiv.style.position = 'fixed';
+        messageDiv.style.top = `${gridRect.top - 50}px`;
+        messageDiv.style.left = '50%';
+        messageDiv.style.transform = 'translateX(-50%)';
+      } else {
+        // Fallback to default position if grid not found
+        messageDiv.style.position = 'fixed';
+        messageDiv.style.top = '20px';
+        messageDiv.style.left = '50%';
+        messageDiv.style.transform = 'translateX(-50%)';
+      }
+    } else {
+      // Default position (top center)
+      messageDiv.style.position = 'fixed';
+      messageDiv.style.top = '20px';
+      messageDiv.style.left = '50%';
+      messageDiv.style.transform = 'translateX(-50%)';
+    }
+    
     messageDiv.style.display = 'block';
     setTimeout(() => {
       messageDiv.style.display = 'none';
-    }, 2000);
+    }, duration);
   }
 }
 
@@ -4923,13 +4948,11 @@ function updateTileInfo() {
   
   const removeBtn = document.getElementById('remove-btn');
   if (removeBtn) {
-    removeBtn.addEventListener('click', async () => {
-      if (await showConfirmation('Remove this building? You will receive 50% refund.')) {
-        removeBuilding(selectedTile.row, selectedTile.col);
-        selectedTile = null;
-        updateTileInfo();
-        showMessage("Building removed.");
-      }
+    removeBtn.addEventListener('click', () => {
+      removeBuilding(selectedTile.row, selectedTile.col);
+      selectedTile = null;
+      updateTileInfo();
+      showMessage("Building removed and 50% refunded!", 4000, true);
     });
   }
   
@@ -8457,6 +8480,22 @@ window.addEventListener('keydown', (e) => {
   
   if (e.key === 'Shift' && !shiftHeld) {
     shiftHeld = true;
+  }
+  
+  // Handle Delete key to refund selected building
+  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    if (selectedTile) {
+      const tile = gameState.map[selectedTile.row][selectedTile.col];
+      if (tile && tile.type !== "empty") {
+        e.preventDefault();
+        removeBuilding(selectedTile.row, selectedTile.col);
+        selectedTile = null;
+        renderGrid();
+        updateTileInfo();
+        showMessage("Building removed and 50% refunded!", 4000, true);
+        return;
+      }
+    }
   }
   
   // Close menus and exit edit mode when Escape is pressed

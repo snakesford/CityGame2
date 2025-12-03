@@ -2,17 +2,32 @@ body {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   color: white;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  padding: 20px;
+  padding: 0;
   min-height: 100vh;
   margin: 0;
+  overflow: hidden;
 }
 
+
+#main-game {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow-y: auto;  /* Changed from overflow: hidden */
+  overflow-x: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
 
 h1 {
   text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
   color: #FFD700;
   text-align: center;
-  margin-bottom: 20px;
+  margin: 0;
+  padding: 10px;
+  flex-shrink: 0;
 }
 
 h2, h3, h4 {
@@ -36,8 +51,9 @@ h4 {
   background: rgba(0,0,0,0.3);
   padding: 15px;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin: 0 10px 10px 10px;
   border: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
 }
 
 .resource-display {
@@ -193,9 +209,11 @@ h4 {
   display: flex;
   gap: 20px;
   justify-content: center;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
 }
 
 /* Build Menu */
@@ -205,7 +223,13 @@ h4 {
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.1);
   min-width: 200px;
-  max-width: 250px;
+  width: 15vw;
+  max-width: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  max-height: 100%;
+  align-self: stretch;
 }
 
 .building-category {
@@ -236,7 +260,7 @@ h4 {
   width: 100%;
   padding: 15px 10px;
   margin: 0;
-  font-size: 12px;
+  font-size: clamp(10px, 1.2vw, 14px);
   font-weight: bold;
   line-height: 1.2;
   border-radius: 6px;
@@ -246,15 +270,15 @@ h4 {
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   color: white;
   text-align: center;
-  min-height: 140px;
+  min-height: clamp(100px, 12vh, 160px);
 }
 
 .building-btn .building-icon {
   width: 70%;
   flex-shrink: 0;
   object-fit: contain;
-  max-width: 120px;
-  max-height: 120px;
+  max-width: clamp(60px, 8vw, 120px);
+  max-height: clamp(60px, 8vw, 120px);
   padding: 5px;
 }
 
@@ -288,10 +312,8 @@ h4 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 400px;
-  max-width: 600px;
-  min-height: 400px;
-  max-height: 650px;
+  min-width: 0;
+  min-height: 0;
   position: relative;
   padding-top: 50px; /* Space for zoom controls */
 }
@@ -303,6 +325,7 @@ h4 {
   align-items: flex-start;
   width: 100%;
   height: 100%;
+  min-height: 0;
   padding: 10px;
   overflow: auto;
   position: relative;
@@ -627,7 +650,14 @@ h4 {
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.1);
   min-width: 200px;
-  max-width: 250px;
+  width: 15vw;
+  max-width: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  height: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
 }
 
 .tile-info h3 {

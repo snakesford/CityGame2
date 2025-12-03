@@ -3526,8 +3526,12 @@ function renderGrid() {
   let tileSize = Math.min(maxTileWidth, maxTileHeight);
   
   // Set minimum and maximum tile sizes for usability
+  // Scale max tile size based on viewport height for better responsiveness
+  const viewportHeight = window.innerHeight;
   const MIN_TILE_SIZE = 25; // Minimum 25px per tile (readable)
-  const MAX_TILE_SIZE = 50; // Maximum 50px per tile (comfortable size)
+  const BASE_MAX_TILE_SIZE = 50; // Base maximum 50px per tile
+  // Scale max tile size: 50px at 800px viewport, up to 80px at 1440px+ viewport
+  const MAX_TILE_SIZE = Math.min(80, Math.max(BASE_MAX_TILE_SIZE, Math.floor(viewportHeight * 0.055)));
   
   // Clamp tile size to min/max bounds
   // If grid is too large, tiles will be at minimum size and grid will scroll
@@ -8111,6 +8115,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('Error initializing game:', e);
     showMessage('Error loading game. Please refresh the page.');
   }
+});
+
+// Handle window resize to recalculate grid and tile sizes
+let resizeTimeout;
+window.addEventListener('resize', () => {
+  // Debounce resize events to avoid excessive recalculations
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    const mainGame = document.getElementById('main-game');
+    if (mainGame && mainGame.style.display !== 'none' && gameState.character) {
+      renderGrid();
+    }
+  }, 150); // Wait 150ms after resize stops
 });
 
 

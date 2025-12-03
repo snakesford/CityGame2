@@ -509,6 +509,171 @@ h4 {
   will-change: transform;
 }
 
+/* Mini Map */
+.mini-map {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 150px;
+  height: 150px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.mini-map-container {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.mini-map-viewport {
+  position: absolute;
+  border: 2px solid #FFD700;
+  background: rgba(255, 215, 0, 0.2);
+  pointer-events: all;
+  cursor: move;
+  z-index: 10;
+  box-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
+  transition: none;
+  user-select: none;
+}
+
+.mini-map-viewport.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.mini-map-cell {
+  background: rgba(100, 100, 100, 0.3);
+  border: none;
+  min-width: 1px;
+  min-height: 1px;
+}
+
+.mini-map-cell.cell-empty {
+  background: rgba(50, 50, 50, 0.2);
+}
+
+.mini-map-cell.cell-tepee {
+  background: #FF9800;
+}
+
+.mini-map-cell.cell-cabin {
+  background: #FFB74D;
+}
+
+.mini-map-cell.cell-brickHouse {
+  background: #D84315;
+}
+
+.mini-map-cell.cell-farm {
+  background: #4a7c2a;
+}
+
+.mini-map-cell.cell-advancedFarm {
+  background: #6b9e3d;
+}
+
+.mini-map-cell.cell-orchard {
+  background: #9CCC65;
+}
+
+.mini-map-cell.cell-lumberMill {
+  background: #8D6E63;
+}
+
+.mini-map-cell.cell-advancedLumberMill {
+  background: #A1887F;
+}
+
+.mini-map-cell.cell-quarry {
+  background: #9E9E9E;
+}
+
+.mini-map-cell.cell-clayPool {
+  background: #BCAAA4;
+}
+
+.mini-map-cell.cell-ironMine {
+  background: #757575;
+}
+
+.mini-map-cell.cell-coalMine {
+  background: #616161;
+}
+
+.mini-map-cell.cell-deepMine {
+  background: #757575;
+}
+
+.mini-map-cell.cell-smelter {
+  background: #A1887F;
+}
+
+.mini-map-cell.cell-baseMarker {
+  background: #AB47BC;
+}
+
+.mini-map-cell.cell-oreRefinery {
+  background: #9E9E9E;
+}
+
+.mini-map-cell.cell-owned {
+  box-shadow: inset 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* Town Center styles for mini map */
+.mini-map-cell.town-center-level-1 {
+  background: #A0522D;
+}
+
+.mini-map-cell.town-center-level-2 {
+  background: #BC8F8F;
+}
+
+.mini-map-cell.town-center-level-3 {
+  background: #DEB887;
+}
+
+.mini-map-cell.town-center-level-4 {
+  background: #FF8C00;
+}
+
+.mini-map-cell.town-center-level-5 {
+  background: #FFA500;
+}
+
+.mini-map-cell.town-center-level-6 {
+  background: #FFD700;
+}
+
+.mini-map-cell.town-center-level-7 {
+  background: #FFFF00;
+}
+
+.mini-map-cell.town-center-level-8 {
+  background: #FFE135;
+}
+
+.mini-map-cell.town-center-level-9 {
+  background: #FFF8DC;
+}
+
+.mini-map-cell.town-center-level-10 {
+  background: #FFFFFF;
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
 /* Zoom Controls */
 .zoom-controls {
   position: absolute;

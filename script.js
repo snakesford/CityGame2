@@ -3724,24 +3724,13 @@ function renderGrid() {
   // Render mini map
   renderMiniMap();
   
-  // Set up scroll listener for viewport indicator (throttled)
+  // Set up scroll listener for viewport indicator
   if (gridWrapper) {
     // Remove existing listener if any
     gridWrapper.removeEventListener('scroll', handleGridScroll);
     // Add new listener
     gridWrapper.addEventListener('scroll', handleGridScroll, { passive: true });
   }
-}
-
-// Handle grid scroll (throttled)
-function handleGridScroll() {
-  // Throttle updates to avoid performance issues
-  if (handleGridScroll.timeout) {
-    clearTimeout(handleGridScroll.timeout);
-  }
-  handleGridScroll.timeout = setTimeout(() => {
-    updateMiniMapViewport();
-  }, 50); // Update every 50ms max
 }
 
 // Render mini map
@@ -3819,6 +3808,9 @@ function renderMiniMap() {
   
   // Update viewport indicator
   updateMiniMapViewport();
+  
+  // Set up drag handlers for viewport
+  setupMiniMapViewportDrag();
 }
 
 // Update viewport indicator on mini map
@@ -3861,7 +3853,6 @@ function updateMiniMapViewport() {
   const marginTop = parseFloat(gridContainer.style.marginTop) || 0;
   
   // Calculate visible area in grid container coordinates (before zoom)
-  // Account for transform origin at 0,0 and margins
   const visibleLeft = (wrapperScrollLeft - marginLeft) / zoom;
   const visibleTop = (wrapperScrollTop - marginTop) / zoom;
   const visibleWidth = wrapperWidth / zoom;
@@ -3876,12 +3867,7 @@ function updateMiniMapViewport() {
     return;
   }
   
-  // Calculate which tiles are visible (accounting for grid gaps)
-  const minRow = bounds.minRow;
-  const minCol = bounds.minCol;
-  
-  // Calculate visible tile range
-  // Account for container padding (2px on each side = 4px total)
+  // Calculate which tiles are visible
   const containerPadding = 2;
   const visibleStartCol = Math.max(0, Math.floor((visibleLeft - containerPadding) / (tileSize + gapSize)));
   const visibleStartRow = Math.max(0, Math.floor((visibleTop - containerPadding) / (tileSize + gapSize)));
@@ -3908,6 +3894,143 @@ function updateMiniMapViewport() {
   miniMapViewport.style.top = `${viewportTop}px`;
   miniMapViewport.style.width = `${viewportWidth}px`;
   miniMapViewport.style.height = `${viewportHeight}px`;
+}
+
+// Set up drag handlers for mini map viewport
+function setupMiniMapViewportDrag() {
+  const miniMapViewport = document.getElementById('mini-map-viewport');
+  const miniMap = document.getElementById('mini-map');
+  if (!miniMapViewport || !miniMap) return;
+  
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let viewportStartLeft = 0;
+  let viewportStartTop = 0;
+  
+  miniMapViewport.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    viewportStartLeft = parseFloat(miniMapViewport.style.left) || 0;
+    viewportStartTop = parseFloat(miniMapViewport.style.top) || 0;
+    miniMapViewport.classList.add('dragging');
+    e.preventDefault();
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    
+    const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
+    
+    // Get mini map container bounds
+    const miniMapRect = miniMap.getBoundingClientRect();
+    const miniMapContainer = document.getElementById('mini-map-container');
+    if (!miniMapContainer) return;
+    
+    // Calculate new position
+    const newLeft = viewportStartLeft + deltaX;
+    const newTop = viewportStartTop + deltaY;
+    
+    // Get viewport dimensions
+    const viewportWidth = parseFloat(miniMapViewport.style.width) || 0;
+    const viewportHeight = parseFloat(miniMapViewport.style.height) || 0;
+    
+    // Get mini map container dimensions
+    const containerSize = 150;
+    const padding = 4;
+    
+    // Clamp viewport to mini map bounds
+    const minLeft = padding;
+    const minTop = padding;
+    const maxLeft = containerSize - padding - viewportWidth;
+    const maxTop = containerSize - padding - viewportHeight;
+    
+    const clampedLeft = Math.max(minLeft, Math.min(maxLeft, newLeft));
+    const clampedTop = Math.max(minTop, Math.min(maxTop, newTop));
+    
+    // Update viewport position
+    miniMapViewport.style.left = `${clampedLeft}px`;
+    miniMapViewport.style.top = `${clampedTop}px`;
+    
+    // Calculate which tile this corresponds to
+    const bounds = getMapBounds();
+    const numRows = bounds.maxRow - bounds.minRow + 1;
+    const numCols = bounds.maxCol - bounds.minCol + 1;
+    
+    if (numRows === 0 || numCols === 0) return;
+    
+    const miniGap = 1;
+    const availableSize = containerSize - padding * 2;
+    const maxCellSize = Math.floor((availableSize - miniGap * Math.max(numRows - 1, numCols - 1)) / Math.max(numRows, numCols));
+    const miniCellSize = Math.max(1, maxCellSize);
+    
+    // Calculate tile position from viewport center
+    const viewportCenterX = clampedLeft + viewportWidth / 2;
+    const viewportCenterY = clampedTop + viewportHeight / 2;
+    
+    const tileCol = Math.floor((viewportCenterX - padding) / (miniCellSize + miniGap));
+    const tileRow = Math.floor((viewportCenterY - padding) / (miniCellSize + miniGap));
+    
+    // Scroll main grid to this position
+    scrollGridToTile(tileRow, tileCol);
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      miniMapViewport.classList.remove('dragging');
+    }
+  });
+}
+
+// Scroll grid to a specific tile position
+function scrollGridToTile(row, col) {
+  const gridContainer = document.getElementById('grid-container');
+  const gridWrapper = document.getElementById('grid-wrapper');
+  if (!gridContainer || !gridWrapper) return;
+  
+  const bounds = getMapBounds();
+  const tileSize = parseFloat(gridContainer.dataset.tileSize) || 0;
+  const gapSize = 2;
+  const containerPadding = 2;
+  const zoom = gameState.zoomLevel || 1.0;
+  
+  if (tileSize === 0) return;
+  
+  // Calculate target position in grid container coordinates
+  const relativeRow = row - bounds.minRow;
+  const relativeCol = col - bounds.minCol;
+  
+  const targetX = containerPadding + (relativeCol * (tileSize + gapSize));
+  const targetY = containerPadding + (relativeRow * (tileSize + gapSize));
+  
+  // Get margin offset
+  const marginLeft = parseFloat(gridContainer.style.marginLeft) || 0;
+  const marginTop = parseFloat(gridContainer.style.marginTop) || 0;
+  
+  // Calculate scroll position (accounting for zoom and margins)
+  const scrollX = (targetX * zoom) + marginLeft - (gridWrapper.clientWidth / 2) + (tileSize * zoom / 2);
+  const scrollY = (targetY * zoom) + marginTop - (gridWrapper.clientHeight / 2) + (tileSize * zoom / 2);
+  
+  // Scroll to position
+  gridWrapper.scrollTo({
+    left: Math.max(0, scrollX),
+    top: Math.max(0, scrollY),
+    behavior: 'auto'
+  });
+}
+
+// Handle grid scroll (throttled)
+function handleGridScroll() {
+  // Throttle updates to avoid performance issues
+  if (handleGridScroll.timeout) {
+    clearTimeout(handleGridScroll.timeout);
+  }
+  handleGridScroll.timeout = setTimeout(() => {
+    updateMiniMapViewport();
+  }, 50); // Update every 50ms max
 }
 
 // Zoom functions

@@ -97,28 +97,6 @@
   <div id="main-game" style="display: none;">
   <h1>Build a City</h1>
 
-  <!-- Settings Button (Upper Left) -->
-  <button id="settings-btn" class="settings-btn" onclick="toggleSettings()" style="position: fixed; top: 10px; left: 10px; z-index: 1000; padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-    ⚙️ Settings
-  </button>
-
-  <!-- Book of Buildings Button (Below Settings) -->
-  <button id="book-btn" class="book-btn" onclick="toggleBookOfBuildings()" style="position: fixed; top: 55px; left: 10px; z-index: 1000; padding: 10px 15px; background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
-    <img src="images/book.png" alt="Book" style="width: 20px; height: 20px; vertical-align: middle;">
-    Book of Buildings
-  </button>
-
-  <!-- Quests Button (Below Book of Buildings) -->
-  <button id="quests-btn" class="quests-btn" onclick="toggleQuests()" style="position: fixed; top: 100px; left: 10px; z-index: 1000; padding: 10px 25px; background: linear-gradient(135deg, #9E9E9E 0%, #757575 100%); border: none; border-radius: 25px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px; min-width: 150px; justify-content: center;">
-    <img src="images/quests.png" alt="Quests" style="width: 20px; height: 20px; vertical-align: middle;">
-    Quests
-  </button>
-
-  <!-- Player Indicator (Upper Right) -->
-  <div id="player-indicator" class="player-indicator" style="position: fixed; top: 10px; right: 10px; z-index: 1000; display: none; align-items: center; gap: 10px; padding: 8px 15px; background: rgba(0,0,0,0.6); border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-    <div class="player-color-dot" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5);"></div>
-    <span class="player-character-text" style="color: white; font-weight: bold; font-size: 14px;"></span>
-  </div>
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="shop-modal" style="display: none;">
@@ -162,8 +140,23 @@
 
   <!-- Top HUD -->
   <div id="hud" class="hud">
-    <div id="character-indicator" class="character-indicator" style="text-align: center; margin-bottom: 10px; font-size: 18px; color: #FFD700; display: none;"></div>
-    <div style="text-align: center; margin-bottom: 10px; display: flex; gap: 10px; justify-content: center;">
+    <!-- Control Buttons Row with Character Indicator -->
+    <div style="display: flex; gap: 10px; justify-content: center; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
+      <button id="settings-btn" class="settings-btn" onclick="toggleSettings()" style="padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        ⚙️ Settings
+      </button>
+      <button id="book-btn" class="book-btn" onclick="toggleBookOfBuildings()" style="padding: 10px 15px; background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%); border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;">
+        <img src="images/book.png" alt="Book" style="width: 20px; height: 20px; vertical-align: middle;">
+        Book of Buildings
+      </button>
+      <button id="quests-btn" class="quests-btn" onclick="toggleQuests()" style="padding: 10px 25px; background: linear-gradient(135deg, #9E9E9E 0%, #757575 100%); border: none; border-radius: 25px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px; min-width: 150px; justify-content: center;">
+        <img src="images/quests.png" alt="Quests" style="width: 20px; height: 20px; vertical-align: middle;">
+        Quests
+      </button>
+      <div id="player-indicator" class="player-indicator" style="display: none; align-items: center; gap: 10px; padding: 8px 15px; background: rgba(0,0,0,0.6); border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        <div class="player-color-dot" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5);"></div>
+        <span class="player-character-text" style="color: white; font-weight: bold; font-size: 14px;"></span>
+      </div>
       <button id="shop-btn" class="shop-btn" onclick="toggleShop()">
         <img src="images/store.png" alt="Shop" style="width: 40px; height: 40px;">
       </button>

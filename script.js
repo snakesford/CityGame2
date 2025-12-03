@@ -4958,14 +4958,14 @@ function updateExpansionUI() {
 // Update UI
 function updateUI() {
   // Update character indicator
-  const charIndicator = document.getElementById('character-indicator');
-  if (charIndicator && gameState.character) {
-    const character = characterTypes[gameState.character];
-    charIndicator.textContent = `${character.icon} Playing as ${character.name}`;
-    charIndicator.style.display = 'block';
-  } else if (charIndicator) {
-    charIndicator.style.display = 'none';
-  }
+  // const charIndicator = document.getElementById('character-indicator');
+  // if (charIndicator && gameState.character) {
+  //   const character = characterTypes[gameState.character];
+  //   charIndicator.textContent = `${character.icon} Playing as ${character.name}`;
+  //   charIndicator.style.display = 'block';
+  // } else if (charIndicator) {
+  //   charIndicator.style.display = 'none';
+  // }
   
   // Update player indicator (upper right)
   updatePlayerIndicator();

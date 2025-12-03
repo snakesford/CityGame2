@@ -148,6 +148,20 @@ let shiftHeld = false;
 // HELPER FUNCTIONS
 // ============================================
 
+// Play a sound effect
+function playSound(soundFile, volume = 0.5) {
+  try {
+    const audio = new Audio(`Audio/${soundFile}`);
+    audio.volume = volume;
+    audio.play().catch(error => {
+      // Silently fail if audio cannot play (e.g., user hasn't interacted with page)
+      console.debug('Could not play sound:', soundFile, error);
+    });
+  } catch (error) {
+    console.debug('Error creating audio:', soundFile, error);
+  }
+}
+
 // Current grid size based on actual map dimensions
 function getTargetGridSize() {
   if (!gameState.map || gameState.map.length === 0) {
@@ -517,6 +531,12 @@ function toggleModal(modalId, onShow) {
   const isHidden = modal.style.display === 'none' || modal.style.display === '';
   modal.style.display = isHidden ? 'flex' : 'none';
   if (isHidden && onShow) onShow();
+  
+  // Play close sound when modal is being closed
+  if (!isHidden) {
+    playSound('switch_001.ogg', 0.5);
+  }
+  
   return isHidden;
 }
 
@@ -2417,6 +2437,9 @@ function purchaseTile(row, col) {
   gameState.resources.gold -= tileCost;
   tile.owned = true;
   
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
+  
   return true;
 }
 
@@ -2649,6 +2672,9 @@ function buyRandomExpansion() {
   // Deduct gold cost
   gameState.resources.gold -= expansionCost;
   
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
+  
   renderGrid();
   updateUI();
   showMessage(`Acquired ${numTiles} new tiles!`);
@@ -2794,6 +2820,9 @@ function placeBuilding(row, col, buildingType) {
       console.log(`   ❌ No patterns found in comprehensive scan`);
     }
   }
+  
+  // Play placement sound
+  playSound('drop_004.ogg', 0.6);
   
   return true;
 }
@@ -3017,8 +3046,12 @@ function getTownAtPosition(row, col) {
 // Get building count (total non-empty buildings, excluding town centers)
 function getBuildingCount() {
   let count = 0;
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
+  if (!gameState.map) return 0;
+  
+  const bounds = getMapBounds();
+  for (let row = bounds.minRow; row <= bounds.maxRow; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
       const tile = gameState.map[row][col];
       if (tile && tile.type !== "empty" && !tile.type.startsWith('townCenter_')) {
         count++;
@@ -3254,6 +3287,9 @@ function levelUpTown(townId) {
     updateUI();
   }
   
+  // Play upgrade sound
+  playSound('maximize_006.ogg', 0.6);
+  
   return true;
 }
 
@@ -3320,6 +3356,9 @@ function upgradeBuilding(row, col) {
   renderGrid();
   updateUI();
   updateTileInfo();
+  
+  // Play upgrade sound
+  playSound('maximize_006.ogg', 0.6);
   
   return true;
 }
@@ -6210,6 +6249,9 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
   updateUI();
   updateTileInfo();
   
+  // Play move sound
+  playSound('drop_004.ogg', 0.6);
+  
   return true;
 }
 
@@ -7163,6 +7205,9 @@ function executeTraderTrade(tradeId, eventKey) {
   // Deduct cost
   deductCost(trade.cost);
   
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
+  
   // Handle different trade types
   if (trade.type === 'resource_purchase') {
     // Add resources
@@ -7206,6 +7251,7 @@ function executeTraderTrade(tradeId, eventKey) {
     
     gameState.resources[resourceName] -= resourceAmount;
     gameState.resources.gold += trade.reward.gold;
+    
     showMessage(`Sold ${resourceAmount} ${resourceName} for ${trade.reward.gold} gold!`);
   }
   
@@ -7259,6 +7305,9 @@ function executeMerchantTrade(townId, tradeId) {
   
   // Execute trade
   deductCost(trade.cost);
+  
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
   
   // Apply reward
   if (trade.type === 'resource_trade') {
@@ -7835,6 +7884,9 @@ function executeMerchantResourceTrade(townId, resourceName, exchangeRate) {
     gameState.resources[resourceName] -= resourceAmount;
     gameState.resources.gold += goldReward;
     
+    // Play purchase sound
+    playSound('purchase.mov', 0.6);
+    
     // Update cooldown tracking
     const cooldown = gameState.merchantCooldowns[resourceName];
     cooldown.totalTraded += resourceAmount;
@@ -7880,10 +7932,16 @@ function purchaseUpgrade(upgradeKey, cost) {
   gameState.resources.gold -= cost;
   gameState.upgrades[upgradeKey] = true;
   
+  // Play purchase sound
+  playSound('purchase.mov', 0.6);
+  
   // Recalculate production to apply the upgrade
   calculateProduction();
   updateUI();
   updateShopUI();
+  
+  // Play upgrade sound
+  playSound('maximize_006.ogg', 0.6);
   
   const upgradeNames = {
     woodProduction: 'Wood Production Boost',

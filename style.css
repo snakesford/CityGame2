@@ -318,7 +318,6 @@ h4 {
   min-height: 0;
   max-height: calc(100vh - 250px); /* Limit height: viewport minus HUD, title, padding */
   position: relative;
-  padding-top: 50px; /* Space for zoom controls */
   overflow: hidden; /* Prevent overflow */
 }
 
@@ -495,7 +494,7 @@ h4 {
   min-height: 0;
   padding: 10px;
   overflow: auto;
-  position: relative;
+  position: relative; /* For positioning zoom controls */
 }
 
 .grid-container {
@@ -513,8 +512,8 @@ h4 {
 /* Zoom Controls */
 .zoom-controls {
   position: absolute;
-  top: 5px;
-  right: 10px;
+  top: 15px;
+  right: 15px;
   display: flex;
   flex-direction: row;
   align-items: center;

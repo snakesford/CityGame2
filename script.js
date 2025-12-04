@@ -1130,6 +1130,16 @@ const buildingTypes = {
     maxLevel: null,
     unlocked: true
   },
+  stonePit: {
+    displayName: "Stone Pit",
+    category: "stone",
+    baseCost: { wood: 80, stone: 0 }, // 2x Quarry base cost
+    costGrowthFactor: 1.3,
+    baseProduction: { wood: 0, stone: 0.6, population: 0, capacity: 0 }, // 2x Quarry production
+    productionGrowthFactor: 1.2,
+    maxLevel: null,
+    unlocked: true
+  },
   clayPool: {
     displayName: "Clay Pool",
     category: "stone",
@@ -1393,7 +1403,8 @@ const buildingIcons = {
   townCenter_L7: 'images/cabin.png',
   townCenter_L8: 'images/cabin.png',
   townCenter_L9: 'images/cabin.png',
-  townCenter_L10: 'images/cabin.png'
+  townCenter_L10: 'images/cabin.png',
+  stonePit: 'images/stonepit.png'
 };
 
 // Resource icons for requirements
@@ -1454,6 +1465,11 @@ function getCategoryColors(category, buildingType) {
       return {
         gradient: 'linear-gradient(135deg, #616161 0%, #757575 100%)',
         border: '#9E9E9E'
+      };
+    case 'stonePit':
+      return {
+        gradient: 'linear-gradient(135deg, #4e4e4e 0%, #6b6b6b 100%)',
+        border: '#8a8a8a'
       };
     case 'clayPool':
       return {
@@ -2389,6 +2405,7 @@ function resetBuildingUnlocks() {
     farm: true,
     lumberMill: true,
     quarry: true,
+    stonePit: true,
     ironMine: true,
     coalMine: true,
     clayPool: false,
@@ -2846,7 +2863,7 @@ function isMineType(buildingType) {
 
 // Check if a building type is a mineral building (quarry or any mine type)
 function isMineralType(buildingType) {
-  return buildingType === "quarry" || buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
+  return buildingType === "quarry" || buildingType === "stonePit" || buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
 }
 
 // Check if a 3x3 pattern matches the town pattern at the given center position

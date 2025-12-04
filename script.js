@@ -514,6 +514,21 @@ function migrateSaveData() {
     gameState.traderUpgrades = {};
   }
   
+  // Migrate old random events to include maxExpiresAt
+  if (gameState.randomEvents) {
+    for (const key in gameState.randomEvents) {
+      const event = gameState.randomEvents[key];
+      if (event && !event.maxExpiresAt) {
+        // Set maxExpiresAt to 7 minutes from spawn time
+        event.maxExpiresAt = event.spawnTime + (7 * 60 * 1000);
+        // Ensure expiresAt doesn't exceed maxExpiresAt
+        if (event.expiresAt > event.maxExpiresAt) {
+          event.expiresAt = event.maxExpiresAt;
+        }
+      }
+    }
+  }
+  
   // Restore building unlock states
   if (gameState.buildingUnlocks) {
     for (const [key, unlocked] of Object.entries(gameState.buildingUnlocks)) {
@@ -3504,11 +3519,13 @@ function spawnRandomEvent(eventType = 'wanderingTrader') {
   
   // Create event data
   const now = Date.now();
-  const eventDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const initialDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const maxDuration = 7 * 60 * 1000; // 7 minutes maximum stay
   gameState.randomEvents[key] = {
     type: eventType,
     spawnTime: now,
-    expiresAt: now + eventDuration,
+    expiresAt: now + initialDuration,
+    maxExpiresAt: now + maxDuration, // Maximum stay time (7 minutes)
     row: row,
     col: col
   };
@@ -3533,9 +3550,18 @@ function checkEventExpirations() {
   
   for (const key in gameState.randomEvents) {
     const event = gameState.randomEvents[key];
-    if (event && event.expiresAt && now >= event.expiresAt) {
-      delete gameState.randomEvents[key];
-      expired = true;
+    if (event) {
+      // Ensure expiresAt doesn't exceed maxExpiresAt (safety check)
+      if (event.maxExpiresAt && event.expiresAt > event.maxExpiresAt) {
+        event.expiresAt = event.maxExpiresAt;
+      }
+      
+      // Check if event has expired (use expiresAt or maxExpiresAt, whichever comes first)
+      const expirationTime = event.maxExpiresAt ? Math.min(event.expiresAt, event.maxExpiresAt) : event.expiresAt;
+      if (expirationTime && now >= expirationTime) {
+        delete gameState.randomEvents[key];
+        expired = true;
+      }
     }
   }
   
@@ -6058,6 +6084,7 @@ function initializeBuildMenu() {
 
 // Main game loop
 let lastAutoSave = Date.now();
+let lastRandomEventSpawn = Date.now();
 let gameLoopInterval = null;
 let merchantCooldownUpdateInterval = null;
 
@@ -6137,6 +6164,35 @@ function startGameLoop() {
       if (now - lastAutoSave >= 20000) {
         saveGame();
         lastAutoSave = now;
+      }
+      
+      // Spawn random event every hour (3600000 milliseconds)
+      const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+      if (now - lastRandomEventSpawn >= ONE_HOUR) {
+        // Only spawn if there are un-owned tiles available
+        const unOwnedTiles = [];
+        forEachTile((tile, row, col) => {
+          if (!tile.owned) {
+            unOwnedTiles.push({ row, col });
+          }
+        });
+        
+        if (unOwnedTiles.length > 0) {
+          // Check if there's already an event active
+          const activeEvents = Object.keys(gameState.randomEvents).length;
+          if (activeEvents === 0) {
+            // Spawn a random event (wandering trader for now)
+            spawnRandomEvent('wanderingTrader');
+            lastRandomEventSpawn = now;
+          } else {
+            // If there's already an event, wait a bit longer before trying again
+            // This prevents multiple events from spawning at once
+            lastRandomEventSpawn = now - (ONE_HOUR - 60000); // Reset to 1 minute before next check
+          }
+        } else {
+          // No un-owned tiles available, reset timer
+          lastRandomEventSpawn = now;
+        }
       }
       
       // Update tile info panel if a smelter is selected (to show smelting progress)
@@ -7476,10 +7532,23 @@ function openWanderingTraderModal(eventKey) {
   // Update time remaining
   const updateTimeRemaining = () => {
     const now = Date.now();
-    const remaining = Math.max(0, event.expiresAt - now);
+    // Ensure expiresAt doesn't exceed maxExpiresAt
+    if (event.maxExpiresAt && event.expiresAt > event.maxExpiresAt) {
+      event.expiresAt = event.maxExpiresAt;
+    }
+    
+    // Use the earliest expiration time (expiresAt or maxExpiresAt)
+    const expirationTime = event.maxExpiresAt ? Math.min(event.expiresAt, event.maxExpiresAt) : event.expiresAt;
+    const remaining = Math.max(0, expirationTime - now);
     const minutes = Math.floor(remaining / 60000);
     const seconds = Math.floor((remaining % 60000) / 1000);
-    timeRemainingEl.textContent = `Time remaining: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Show if at max time
+    let timeText = `Time remaining: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    if (event.maxExpiresAt && event.expiresAt >= event.maxExpiresAt) {
+      timeText += ' (Max time reached)';
+    }
+    timeRemainingEl.textContent = timeText;
     
     if (remaining <= 0) {
       closeWanderingTraderModal();
@@ -7645,6 +7714,29 @@ function executeTraderTrade(tradeId, eventKey) {
   
   // Deduct cost
   deductCost(trade.cost);
+  
+  // Extend trader timer by 1 minute when a trade is made (but not beyond max stay time)
+  const now = Date.now();
+  const oneMinute = 60 * 1000; // 1 minute in milliseconds
+  
+  // Ensure maxExpiresAt exists (for old saves)
+  if (!event.maxExpiresAt) {
+    event.maxExpiresAt = event.spawnTime + (7 * 60 * 1000); // 7 minutes max
+  }
+  
+  const newExpiresAt = Math.min(
+    event.expiresAt + oneMinute, // Add 1 minute
+    event.maxExpiresAt // But not beyond max (7 minutes)
+  );
+  
+  // Only extend if we haven't reached the max time
+  if (newExpiresAt > event.expiresAt && newExpiresAt <= event.maxExpiresAt) {
+    event.expiresAt = newExpiresAt;
+    showMessage("Trade completed! Trader stays 1 minute longer.");
+  } else if (event.expiresAt >= event.maxExpiresAt) {
+    // Already at max time
+    // Don't show message, just proceed with trade
+  }
   
   // Play purchase sound
   playSound('purchase.mov', 0.6);

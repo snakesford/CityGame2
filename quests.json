@@ -214,25 +214,6 @@
       ]
     },
     {
-      "id": "milestone_oreRefinery",
-      "title": "🏭 Milestone: Ore Processing",
-      "description": "Requirements:\n✔ Build 1 Deep Mine\n✔ Store 100 Stone\n\nReward: Unlocks Ore Refinery",
-      "reward": {},
-      "unlocksBuilding": "oreRefinery",
-      "requirements": [
-        {
-          "type": "buildingCount",
-          "buildingType": "deepMine",
-          "amount": 1
-        },
-        {
-          "type": "resource",
-          "resource": "stone",
-          "amount": 100
-        }
-      ]
-    },
-    {
       "id": "milestone_orchard",
       "title": "🌳 Milestone: Orchard Mastery",
       "description": "Requirements:\n✔ Build 1 Advanced Farm\n✔ Reach 20 population\n\nReward: Unlocks Orchard",

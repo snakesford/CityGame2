@@ -433,10 +433,6 @@ h4 {
   background: #AB47BC;
 }
 
-.mini-map-cell.cell-oreRefinery {
-  background: #9E9E9E;
-}
-
 /* Town center types in mini map */
 .mini-map-cell[class*="townCenter_L"] {
   background: #A0522D;
@@ -630,10 +626,6 @@ h4 {
 
 .mini-map-cell.cell-baseMarker {
   background: #AB47BC;
-}
-
-.mini-map-cell.cell-oreRefinery {
-  background: #9E9E9E;
 }
 
 .mini-map-cell.cell-owned {
@@ -980,16 +972,6 @@ h4 {
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
   border-color: #9CCC65;
-}
-
-.cell-oreRefinery {
-  background: 
-    url('images/gold.png'),
-    linear-gradient(135deg, #616161 0%, #757575 100%);
-  background-size: 95% 95%, cover;
-  background-position: center, center;
-  background-repeat: no-repeat, no-repeat;
-  border-color: #9E9E9E;
 }
 
 /* Tile Info Panel */

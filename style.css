@@ -405,6 +405,10 @@ h4 {
   background: #9E9E9E;
 }
 
+.mini-map-cell.cell-stonePit {
+  background: #8a8a8a;
+}
+
 .mini-map-cell.cell-clayPool {
   background: #BCAAA4;
 }
@@ -598,6 +602,10 @@ h4 {
 
 .mini-map-cell.cell-quarry {
   background: #9E9E9E;
+}
+
+.mini-map-cell.cell-stonePit {
+  background: #8a8a8a;
 }
 
 .mini-map-cell.cell-clayPool {
@@ -881,6 +889,16 @@ h4 {
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
   border-color: #9E9E9E;
+}
+
+.cell-stonePit {
+  background: 
+    url('images/stonepit.png'),
+    linear-gradient(135deg, #4e4e4e 0%, #6b6b6b 100%);
+  background-size: 95% 95%, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-color: #8a8a8a;
 }
 
 .cell-clayPool {

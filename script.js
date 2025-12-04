@@ -1541,7 +1541,7 @@ function seedUnbuildableTiles() {
   if (!gameState.map || gameState.map.length === 0) return;
   const totalTiles = GRID_SIZE * GRID_SIZE;
   const minCount = Math.max(3, Math.floor(totalTiles * 0.03));
-  const maxCount = Math.max(minCount, Math.floor(totalTiles * 0.07));
+  const maxCount = Math.max(minCount, Math.floor(totalTiles * 0.04));
   const targetCount = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
   const center = Math.floor(GRID_SIZE / 2);
   const safeRadius = 2; // leave a 5x5 area clear in the middle

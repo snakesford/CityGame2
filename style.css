@@ -413,6 +413,10 @@ h4 {
   background: #BCAAA4;
 }
 
+.mini-map-cell.cell-unbuildable {
+  background: #5a5a5a;
+}
+
 .mini-map-cell.cell-ironMine {
   background: #757575;
 }
@@ -606,6 +610,10 @@ h4 {
 
 .mini-map-cell.cell-clayPool {
   background: #BCAAA4;
+}
+
+.mini-map-cell.cell-unbuildable {
+  background: #5a5a5a;
 }
 
 .mini-map-cell.cell-ironMine {
@@ -891,6 +899,14 @@ h4 {
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
   border-color: #8a8a8a;
+}
+
+.cell-unbuildable {
+  background: #5f5f5f;
+  border: 2px solid #777777;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15);
+  cursor: not-allowed;
+  background-image: none !important;
 }
 
 .cell-clayPool {

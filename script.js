@@ -1532,6 +1532,39 @@ function initializeGrid() {
   GRID_SIZE = BASE_GRID_SIZE;
   gameState.map = [];
   expandMapToSize(GRID_SIZE);
+  seedUnbuildableTiles();
+}
+
+// Sprinkle random unbuildable tiles onto the fresh map.
+// Keeps a safe area around the center so early builds aren't blocked.
+function seedUnbuildableTiles() {
+  if (!gameState.map || gameState.map.length === 0) return;
+  const totalTiles = GRID_SIZE * GRID_SIZE;
+  const minCount = Math.max(3, Math.floor(totalTiles * 0.03));
+  const maxCount = Math.max(minCount, Math.floor(totalTiles * 0.07));
+  const targetCount = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+  const center = Math.floor(GRID_SIZE / 2);
+  const safeRadius = 2; // leave a 5x5 area clear in the middle
+  let placed = 0;
+  let attempts = 0;
+  const maxAttempts = totalTiles * 3;
+  
+  while (placed < targetCount && attempts < maxAttempts) {
+    const row = Math.floor(Math.random() * GRID_SIZE);
+    const col = Math.floor(Math.random() * GRID_SIZE);
+    attempts++;
+    
+    // Keep central area free for early game
+    if (Math.abs(row - center) <= safeRadius && Math.abs(col - center) <= safeRadius) continue;
+    
+    const tile = gameState.map[row][col];
+    if (tile && tile.type === "empty") {
+      tile.type = "unbuildable";
+      tile.level = 0;
+      tile.owned = false;
+      placed++;
+    }
+  }
 }
 
 // Calculate production for a building at a given level
@@ -2685,6 +2718,10 @@ function placeBuilding(row, col, buildingType) {
   
   // Get or create the tile (handles sparse coordinates)
   const tile = getOrCreateTile(row, col);
+  if (tile.type === "unbuildable") {
+    showMessage("Cannot place building - unbuildable terrain!");
+    return false;
+  }
   if (tile.type !== "empty") {
     showMessage("Cannot place building - tile is not empty!");
     return false;
@@ -3696,8 +3733,8 @@ function renderGrid() {
         cell.classList.add('cell-moving');
       }
       
-      // Make cells with buildings draggable
-      if (tile.type !== "empty") {
+      // Make cells with buildings draggable (but not unbuildable blockers)
+      if (tile.type !== "empty" && tile.type !== "unbuildable") {
         cell.draggable = true;
         cell.setAttribute('data-row', row);
         cell.setAttribute('data-col', col);
@@ -3709,7 +3746,7 @@ function renderGrid() {
       cell.addEventListener('dragleave', (e) => handleDragLeave(e));
       
       // Only add dragstart and dragend for cells with buildings
-      if (tile.type !== "empty") {
+      if (tile.type !== "empty" && tile.type !== "unbuildable") {
         cell.addEventListener('dragstart', (e) => handleDragStart(e, row, col));
         cell.addEventListener('dragend', (e) => handleDragEnd(e));
       }
@@ -5053,6 +5090,13 @@ function showCellTooltip(event, row, col) {
   }
   
   const tile = gameState.map[row][col];
+  
+  if (tile.type === "unbuildable") {
+    tooltip.innerHTML = `<strong>Unbuildable Terrain</strong><br><span style="font-size: 11px; color: #ccc;">You cannot place buildings here.</span>`;
+    tooltip.style.display = 'block';
+    positionTooltip(event, tooltip);
+    return;
+  }
   
   // Show ownership info for empty owned tiles
   if (tile.type === "empty") {

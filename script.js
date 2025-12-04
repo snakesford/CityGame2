@@ -5350,6 +5350,27 @@ function updateBuildMenu() {
   for (const [key, building] of Object.entries(buildingTypes)) {
     const btn = document.querySelector(`[data-building-type="${key}"]`);
     if (!btn) continue;
+
+    // Safety: if the building is still locked but its milestone requirements are now met,
+    // auto-unlock it so the player can place it without waiting for quest processing.
+    if (!building.unlocked && questDefinitions && questDefinitions.length > 0) {
+      const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
+      if (unlockQuest && Array.isArray(unlockQuest.requirements) && unlockQuest.requirements.length > 0) {
+        const allMet = unlockQuest.requirements.every(req => checkRequirement(req));
+        if (allMet) {
+          building.unlocked = true;
+          if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
+          gameState.buildingUnlocks[key] = true;
+          // Mark quest as completed if it exists so the UI stays in sync
+          const questEntry = Array.isArray(gameState.quests)
+            ? gameState.quests.find(q => q.id === unlockQuest.id)
+            : null;
+          if (questEntry) {
+            questEntry.completed = true;
+          }
+        }
+      }
+    }
     
     // Show all building buttons by default; if a building requires a specific character
     // and the player hasn't selected that character, keep the button visible but mark it disabled

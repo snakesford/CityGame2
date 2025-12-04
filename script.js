@@ -120,6 +120,20 @@ const buildingCombos = {
       note: 'This pattern can be rotated in any of the 4 cardinal directions. When the pattern is detected, the center Cabin will be converted into a Town Center (Level 1).'
     },
     reward: 'Creates a Town Center that unlocks quests, merchants, and increases your building cap by 5 per town level.'
+  },
+  superFurnace: {
+    id: 'superFurnace',
+    name: 'Super Furnace',
+    description: 'Form a super furnace by placing a Smelter at the center with at least 1 wood/coal building and 1 smeltable mineral (Clay Pool or Iron Mine) in the surrounding 8 positions.',
+    pattern: {
+      center: 'Smelter',
+      size: '3×3',
+      buildings: [
+        { position: 'Ring of 8', building: 'At least 1 wood/coal building (Lumber Mill, Advanced Lumber Mill, or Coal Mine) AND at least 1 smeltable mineral (Clay Pool or Iron Mine). Other positions can be any building or empty.' }
+      ],
+      note: 'The center Smelter will be converted into a Super Furnace when the pattern is detected. Super Furnace smelts twice as fast and produces double output.'
+    },
+    reward: 'Creates a Super Furnace that smelts 2x faster, produces 2x output, and has 2x fuel capacity.'
   }
 };
 
@@ -1270,6 +1284,27 @@ const buildingTypes = {
     smeltIronBarOutput: 1, // Iron bars produced per batch
     baseFuelCapacity: 100 // Base fuel storage capacity
   },
+  superFurnace: {
+    displayName: "Super Furnace",
+    category: "production",
+    baseCost: {},
+    costGrowthFactor: 1.0,
+    baseProduction: { wood: 0, stone: 0, clay: 0, iron: 0, bricks: 0, population: 0, capacity: 0 },
+    productionGrowthFactor: 1.0,
+    maxLevel: null,
+    unlocked: false, // Cannot be built directly - formed from pattern
+    smeltClayTime: 3000, // 3 seconds in milliseconds (faster than regular smelter)
+    smeltIronTime: 6000, // 6 seconds in milliseconds (faster than regular smelter)
+    smeltClayAmount: 2, // Amount of clay per smelt batch
+    smeltIronAmount: 10, // Amount of iron per smelt batch
+    smeltClayWoodAmount: 1, // Amount of wood fuel per clay batch
+    smeltIronWoodAmount: 15, // Amount of wood fuel per iron batch
+    smeltClayCoalAmount: 1, // Amount of coal fuel per 3 clay batches (1 coal = 3 batches)
+    smeltIronCoalAmount: 5, // Amount of coal fuel per iron batch
+    smeltBrickOutput: 2, // Bricks produced per batch (double output)
+    smeltIronBarOutput: 2, // Iron bars produced per batch (double output)
+    baseFuelCapacity: 200 // Base fuel storage capacity (double capacity)
+  },
   brickHouse: {
     displayName: "Brick House",
     category: "housing",
@@ -1408,6 +1443,7 @@ const buildingIcons = {
   deepMine: 'images/pickaxe.png',
   oreRefinery: 'images/gold.png',
   smelter: 'images/kiln.png',
+  superFurnace: 'images/kiln.png',
   baseMarker: 'images/baseMarker.png',
   townCenter_L1: 'images/cabin.png',
   townCenter_L2: 'images/cabin.png',
@@ -1515,6 +1551,11 @@ function getCategoryColors(category, buildingType) {
       return {
         gradient: 'linear-gradient(135deg, #8D6E63 0%, #A1887F 100%)',
         border: '#BCAAA4'
+      };
+    case 'superFurnace':
+      return {
+        gradient: 'linear-gradient(135deg, #BF360C 0%, #D84315 100%)',
+        border: '#E64A19'
       };
     case 'baseMarker':
       return {
@@ -1866,8 +1907,8 @@ function calculateProduction() {
       const tile = gameState.map[row] && gameState.map[row][col] ? gameState.map[row][col] : null;
       if (!tile || tile.type === "empty") continue;
       
-      // Handle smelter processing
-      if (tile.type === "smelter") {
+      // Handle smelter processing (including super furnace)
+      if (tile.type === "smelter" || tile.type === "superFurnace") {
         processSmelter(row, col, tile.level);
       }
       
@@ -2095,10 +2136,12 @@ function getResourceBoosts(resourceName) {
 // Process smelter conversion (clay -> bricks or iron -> iron bars)
 function processSmelter(row, col, level) {
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) return;
-  if (gameState.map[row][col].type !== "smelter") return;
+  const tileType = gameState.map[row][col].type;
+  if (tileType !== "smelter" && tileType !== "superFurnace") return;
   
   const smelter = ensureSmelterFields(getSmelter(row, col));
-  const building = buildingTypes.smelter;
+  // Use superFurnace building type if it's a super furnace, otherwise use smelter
+  const building = tileType === "superFurnace" ? buildingTypes.superFurnace : buildingTypes.smelter;
   const factor = Math.pow(building.productionGrowthFactor, level - 1);
   const fuelCapacity = building.baseFuelCapacity * factor;
   const now = Date.now();
@@ -2187,11 +2230,12 @@ function processSmelter(row, col, level) {
 // Load mineral to smelter (loads exactly one batch worth, up to 10 total)
 function loadMineralToSmelter(row, col, mineralType) {
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) return false;
-  if (gameState.map[row][col].type !== "smelter") return false;
+  const tileType = gameState.map[row][col].type;
+  if (tileType !== "smelter" && tileType !== "superFurnace") return false;
   
   const smelter = ensureSmelterFields(getSmelter(row, col));
   const smelterTile = gameState.map[row][col];
-  const building = buildingTypes.smelter;
+  const building = tileType === "superFurnace" ? buildingTypes.superFurnace : buildingTypes.smelter;
   const maxStorage = 10;
   
   if (smelter.queue.length >= maxStorage) return false;
@@ -2301,13 +2345,14 @@ function loadMineralToSmelter(row, col, mineralType) {
 // Add wood to smelter fuel storage
 function addFuelToSmelter(row, col) {
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) return false;
-  if (gameState.map[row][col].type !== "smelter") return false;
+  const tileType = gameState.map[row][col].type;
+  if (tileType !== "smelter" && tileType !== "superFurnace") return false;
   
   const smelter = getSmelter(row, col, false);
   if (!smelter) return false;
   
   const tile = gameState.map[row][col];
-  const building = buildingTypes.smelter;
+  const building = tileType === "superFurnace" ? buildingTypes.superFurnace : buildingTypes.smelter;
   const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
   const fuelCapacity = building.baseFuelCapacity * factor;
   
@@ -2329,13 +2374,14 @@ function addFuelToSmelter(row, col) {
 // Add coal to smelter fuel storage
 function addCoalToSmelter(row, col) {
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) return false;
-  if (gameState.map[row][col].type !== "smelter") return false;
+  const tileType = gameState.map[row][col].type;
+  if (tileType !== "smelter" && tileType !== "superFurnace") return false;
   
   const smelter = getSmelter(row, col, false);
   if (!smelter) return false;
   
   const tile = gameState.map[row][col];
-  const building = buildingTypes.smelter;
+  const building = tileType === "superFurnace" ? buildingTypes.superFurnace : buildingTypes.smelter;
   const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
   const fuelCapacity = building.baseFuelCapacity * factor;
   
@@ -2357,7 +2403,8 @@ function addCoalToSmelter(row, col) {
 // Remove a batch from smelter and refund resources
 function removeBatchFromSmelter(row, col) {
   if (!gameState.map || !gameState.map[row] || !gameState.map[row][col]) return false;
-  if (gameState.map[row][col].type !== "smelter") return false;
+  const tileType = gameState.map[row][col].type;
+  if (tileType !== "smelter" && tileType !== "superFurnace") return false;
   
   const smelter = ensureSmelterFields(getSmelter(row, col, false));
   if (!smelter || smelter.queue.length <= 0) return false;
@@ -2371,7 +2418,7 @@ function removeBatchFromSmelter(row, col) {
   const batchToRemove = smelter.queue.pop(); // Remove last item
   if (!batchToRemove) return false;
   
-  const building = buildingTypes.smelter;
+  const building = tileType === "superFurnace" ? buildingTypes.superFurnace : buildingTypes.smelter;
   
   // Refund resources based on mineral type
   if (batchToRemove.type === 'clay') {
@@ -2865,6 +2912,59 @@ function placeBuilding(row, col, buildingType) {
     }
   }
   
+  // Check for super furnace pattern whenever any building is placed
+  // The placed building could be part of a 3x3 pattern where the smelter center is
+  // anywhere from 1 tile away (if placed in ring) to 0 tiles away (if smelter itself)
+  let superFurnaceFound = false;
+  
+  // Use actual map bounds instead of GRID_SIZE
+  const bounds = getMapBounds();
+  
+  // Check all possible smelter center positions within 1 tile
+  const minRowSF = Math.max(bounds.minRow + 1, row - 1);
+  const maxRowSF = Math.min(bounds.maxRow - 1, row + 1);
+  const minColSF = Math.max(bounds.minCol + 1, col - 1);
+  const maxColSF = Math.min(bounds.maxCol - 1, col + 1);
+  
+  console.log(`🔥 Checking for super furnace patterns after placing ${buildingType} at (${row}, ${col})`);
+  console.log(`   Scanning smelter centers from (${minRowSF}, ${minColSF}) to (${maxRowSF}, ${maxColSF})`);
+  
+  // Check all possible smelter center positions
+  for (let r = minRowSF; r <= maxRowSF; r++) {
+    for (let c = minColSF; c <= maxColSF; c++) {
+      const tile = gameState.map[r] && gameState.map[r][c] ? gameState.map[r][c] : null;
+      
+      // Check if this position is a smelter (either existing or just placed)
+      const isSmelter = (r === row && c === col && buildingType === "smelter") || 
+                        (tile && tile.type === "smelter");
+      
+      if (isSmelter) {
+        console.log(`   Checking super furnace pattern with smelter center at (${r}, ${c})...`);
+        if (checkSuperFurnacePattern(r, c)) {
+          console.log(`   ✅ Super furnace pattern detected at (${r}, ${c})`);
+          superFurnaceFound = true;
+          break; // Pattern found, no need to check other positions
+        } else {
+          console.log(`   ❌ No super furnace pattern match at (${r}, ${c})`);
+        }
+      }
+    }
+    if (superFurnaceFound) break; // Pattern found, no need to check other positions
+  }
+  
+  // As a final comprehensive check, scan ALL smelters on the entire map
+  // This is a safety net to catch any patterns we might have missed
+  if (!superFurnaceFound) {
+    console.log(`   Performing comprehensive scan of all smelters on map...`);
+    const patternsFound = checkAllSmeltersForSuperFurnace();
+    if (patternsFound > 0) {
+      console.log(`   ✅ Found ${patternsFound} super furnace pattern(s) by comprehensive scan`);
+      superFurnaceFound = true;
+    } else {
+      console.log(`   ❌ No super furnace patterns found in comprehensive scan`);
+    }
+  }
+  
   // Play placement sound
   playSound('drop_004.ogg', 0.6);
   
@@ -2879,6 +2979,16 @@ function isMineType(buildingType) {
 // Check if a building type is a mineral building (quarry or any mine type)
 function isMineralType(buildingType) {
   return buildingType === "quarry" || buildingType === "stonePit" || buildingType === "ironMine" || buildingType === "coalMine" || buildingType === "deepMine";
+}
+
+// Check if a building type is a wood or coal building (for super furnace pattern)
+function isWoodOrCoalBuilding(buildingType) {
+  return buildingType === "lumberMill" || buildingType === "advancedLumberMill" || buildingType === "coalMine";
+}
+
+// Check if a building type is a smeltable mineral (clay or iron, for super furnace pattern)
+function isSmeltableMineral(buildingType) {
+  return buildingType === "clayPool" || buildingType === "ironMine";
 }
 
 // Check if a 3x3 pattern matches the town pattern at the given center position
@@ -2990,6 +3100,124 @@ function checkTownPattern(centerRow, centerCol) {
   }
   
   return -1;
+}
+
+// Check if a 3x3 pattern matches the super furnace pattern at the given center position
+// Pattern: Center must be a Smelter, and the 8 surrounding positions must have:
+// - At least 1 wood/coal building (lumberMill, advancedLumberMill, or coalMine)
+// - At least 1 smeltable mineral building (clayPool or ironMine)
+// Other positions can be any building or empty
+// Returns true if pattern matches, false otherwise
+function checkSuperFurnacePattern(centerRow, centerCol) {
+  // Check bounds - need 1 tile in each direction
+  const bounds = getMapBounds();
+  if (centerRow < bounds.minRow + 1 || centerRow > bounds.maxRow - 1 || 
+      centerCol < bounds.minCol + 1 || centerCol > bounds.maxCol - 1) {
+    return false;
+  }
+  
+  // Check if center is a Smelter
+  const centerTile = gameState.map[centerRow] && gameState.map[centerRow][centerCol];
+  if (!centerTile || centerTile.type !== "smelter") {
+    return false;
+  }
+  
+  // Check if center is already a super furnace
+  if (centerTile.type === "superFurnace") {
+    return false;
+  }
+  
+  // Define the 8 positions around the center (ring of 8)
+  const ringPositions = [
+    { row: centerRow - 1, col: centerCol - 1 }, // Top-left
+    { row: centerRow - 1, col: centerCol },     // Top
+    { row: centerRow - 1, col: centerCol + 1 }, // Top-right
+    { row: centerRow, col: centerCol + 1 },     // Right
+    { row: centerRow + 1, col: centerCol + 1 }, // Bottom-right
+    { row: centerRow + 1, col: centerCol },     // Bottom
+    { row: centerRow + 1, col: centerCol - 1 }, // Bottom-left
+    { row: centerRow, col: centerCol - 1 }      // Left
+  ];
+  
+  let hasWoodOrCoal = false;
+  let hasSmeltableMineral = false;
+  
+  // Check each position in the ring
+  for (const pos of ringPositions) {
+    // Check bounds
+    if (pos.row < bounds.minRow || pos.row > bounds.maxRow || 
+        pos.col < bounds.minCol || pos.col > bounds.maxCol) {
+      continue; // Skip out-of-bounds positions
+    }
+    
+    const tile = gameState.map[pos.row] && gameState.map[pos.row][pos.col];
+    if (!tile || tile.type === "empty") {
+      continue; // Empty positions are allowed
+    }
+    
+    // Check if it's a wood/coal building
+    if (isWoodOrCoalBuilding(tile.type)) {
+      hasWoodOrCoal = true;
+    }
+    
+    // Check if it's a smeltable mineral building
+    if (isSmeltableMineral(tile.type)) {
+      hasSmeltableMineral = true;
+    }
+  }
+  
+  // Pattern matches if we have both requirements
+  if (hasWoodOrCoal && hasSmeltableMineral) {
+    // Convert center Smelter to Super Furnace
+    centerTile.type = "superFurnace";
+    centerTile.level = centerTile.level || 1; // Preserve level if it exists
+    
+    console.log(`🔥 SUPER FURNACE CREATED!`);
+    console.log(`   Location: (${centerRow}, ${centerCol})`);
+    console.log(`   Has wood/coal building: ${hasWoodOrCoal}`);
+    console.log(`   Has smeltable mineral: ${hasSmeltableMineral}`);
+    
+    // Show message
+    if (typeof showMessage === 'function') {
+      showMessage("Super Furnace created! Smelts 2x faster with 2x output!");
+    }
+    
+    // Re-render grid to show changes
+    if (typeof renderGrid === 'function') {
+      renderGrid();
+    }
+    if (typeof updateUI === 'function') {
+      updateUI();
+    }
+    
+    return true;
+  }
+  
+  return false;
+}
+
+// Check all smelters on the map for super furnace patterns
+function checkAllSmeltersForSuperFurnace() {
+  let patternsFound = 0;
+  
+  const bounds = getMapBounds();
+  
+  // Check all tiles in the map bounds (with 1 tile margin for pattern checking)
+  for (let row = bounds.minRow + 1; row <= bounds.maxRow - 1; row++) {
+    if (!gameState.map[row]) continue;
+    for (let col = bounds.minCol + 1; col <= bounds.maxCol - 1; col++) {
+      const tile = gameState.map[row] && gameState.map[row][col] 
+        ? gameState.map[row][col] 
+        : null;
+      if (tile && tile.type === "smelter") {
+        if (checkSuperFurnacePattern(row, col)) {
+          patternsFound++;
+        }
+      }
+    }
+  }
+  
+  return patternsFound;
 }
 
 // Check all cabins on the map for town patterns
@@ -4624,10 +4852,10 @@ function updateTileInfo() {
     html += `</p>`;
   }
   
-  // Special handling for smelter
-  if (tile.type === "smelter") {
+  // Special handling for smelter (including super furnace)
+  if (tile.type === "smelter" || tile.type === "superFurnace") {
     const smelter = ensureSmelterFields(getSmelter(selectedTile.row, selectedTile.col));
-    const building = buildingTypes.smelter;
+    const building = tile.type === "superFurnace" ? buildingTypes.superFurnace : buildingTypes.smelter;
     const maxStorage = 10;
     const factor = Math.pow(building.productionGrowthFactor, tile.level - 1);
     const fuelCapacity = building.baseFuelCapacity * factor;
@@ -4938,7 +5166,9 @@ function updateTileInfo() {
           
           if (queueIndex >= 0 && queueIndex < smelter.queue.length) {
             const batchToRemove = smelter.queue[queueIndex];
-            const building = buildingTypes.smelter;
+            // Get the correct building type (smelter or superFurnace)
+            const tile = gameState.map[selectedTile.row][selectedTile.col];
+            const building = (tile && tile.type === "superFurnace") ? buildingTypes.superFurnace : buildingTypes.smelter;
             
             // Refund resources
             if (batchToRemove.type === 'clay') {
@@ -6157,6 +6387,14 @@ function startGameLoop() {
       
       // Update production rates
       calculateProduction();
+      
+      // Refresh tile info panel if a smelter or superFurnace is selected (to show real-time updates)
+      if (selectedTile) {
+        const tile = gameState.map[selectedTile.row] && gameState.map[selectedTile.row][selectedTile.col];
+        if (tile && (tile.type === "smelter" || tile.type === "superFurnace")) {
+          updateTileInfo();
+        }
+      }
       
       // Handle food consumption and population dynamics
       // Only consume food if population is below housing capacity

@@ -5447,6 +5447,12 @@ function updateBuildMenu() {
       btn.style.display = 'none';
       continue;
     }
+    
+    // Special-case: hide Deep Mine entirely unless the player is the Miner
+    if (key === 'deepMine' && gameState.character !== 'miner') {
+      btn.style.display = 'none';
+      continue;
+    }
 
     btn.style.display = 'block';
     const requiredCharacterMismatch = building.requiredCharacter && gameState.character !== building.requiredCharacter;

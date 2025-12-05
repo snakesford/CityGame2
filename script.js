@@ -5501,7 +5501,8 @@ function updateBuildMenu() {
       // Find the milestone quest that unlocks this building
       const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
       if (unlockQuest) {
-        btn.title = `Complete milestone quest to unlock: ${unlockQuest.title}`;
+        // Don't include quest text in the hover tooltip — show only building name
+        btn.title = building.displayName;
         
         // Add requirement icons if quest has requirements
         // Place requirements after the building name (which comes after the icon)
@@ -5576,7 +5577,8 @@ function updateBuildMenu() {
           btn.appendChild(reqContainer);
         }
       } else {
-        btn.title = `Complete milestone quest to unlock ${building.displayName}`;
+        // No specific quest found — keep tooltip minimal (building name only)
+        btn.title = building.displayName;
       }
     } else {
       btn.title = `${building.displayName} - Cost: ${cost.wood} wood${cost.stone > 0 ? `, ${cost.stone} stone` : ''}`;
@@ -6089,14 +6091,9 @@ function showBuildingTooltip(event, buildingType) {
     }
   }
   
-  // Show milestone quest info if locked
+  // Show minimal locked state if building is not unlocked (avoid showing quest titles)
   if (!building.unlocked) {
-    const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === buildingType);
-    if (unlockQuest) {
-      html += `<p style="margin: 3px 0; color: #ff9800;"><strong>To Unlock:</strong> Complete milestone quest "${unlockQuest.title}"</p>`;
-    } else {
-      html += `<p style="margin: 3px 0; color: #ff9800;"><strong>To Unlock:</strong> Complete milestone quest</p>`;
-    }
+    html += `<p style="margin: 3px 0; color: #ff9800;"><strong>Locked</strong></p>`;
   }
   
   tooltip.innerHTML = html;

@@ -130,10 +130,14 @@ let editMode = false;
 function formatNumber(num, decimals = 2) {
   const multiplier = Math.pow(10, decimals);
   num = Math.round(num * multiplier) / multiplier;
-  if (num >= 1e9) return (num / 1e9).toFixed(decimals) + 'B';
-  if (num >= 1e6) return (num / 1e6).toFixed(decimals) + 'M';
-  if (num >= 1e3) return (num / 1e3).toFixed(decimals) + 'k';
-  return num.toFixed(decimals);
+  
+  // Helper to remove trailing zeros after decimal point
+  const stripTrailingZeros = (str) => str.replace(/\.?0+$/, '');
+  
+  if (num >= 1e9) return stripTrailingZeros((num / 1e9).toFixed(decimals)) + 'B';
+  if (num >= 1e6) return stripTrailingZeros((num / 1e6).toFixed(decimals)) + 'M';
+  if (num >= 1e3) return stripTrailingZeros((num / 1e3).toFixed(decimals)) + 'k';
+  return stripTrailingZeros(num.toFixed(decimals));
 }
 
 // Alias for backward compatibility

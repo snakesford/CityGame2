@@ -5967,30 +5967,25 @@ function showBuildingTooltip(event, buildingType) {
   let html = `<strong style="color: ${categoryColor};">${building.displayName}</strong><br>`;
   
   // Cost
-  html += `<p style="margin: 3px 0;"><strong style="color: ${categoryColor};">Cost:</strong> `;
-  html += `<span style="color: ${affordable ? '#4CAF50' : '#f44336'}">`;
+  html += `<p style="margin: 3px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;"><strong style="color: ${categoryColor};">Cost:</strong> `;
+  html += `<span style="color: ${affordable ? '#4CAF50' : '#f44336'}; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">`;
     if (cost.wood > 0) {
-      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.wood)}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;">`;
+      html += `<span style="font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 4px;"><span>${formatNumber(cost.wood)}</span> <img src="images/wood-log.png" alt="Wood" style="width: 50px; height: 50px; vertical-align: middle;"></span>`;
     }
     if (cost.bricks > 0) {
-      if (cost.wood > 0) html += ` `;
-      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.bricks)}</span> <img src="images/claybricks.png" alt="Bricks" style="width: 50px; height: 50px; vertical-align: middle;">`;
+      html += `<span style="font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 4px;"><span>${formatNumber(cost.bricks)}</span> <img src="images/claybricks.png" alt="Bricks" style="width: 50px; height: 50px; vertical-align: middle;"></span>`;
     }
     if (cost.stone > 0) {
-      if (cost.wood > 0 || cost.bricks > 0) html += ` `;
-      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.stone)}</span> <img src="images/rock.png" alt="Stone" style="width: 50px; height: 50px; vertical-align: middle;">`;
+      html += `<span style="font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 4px;"><span>${formatNumber(cost.stone)}</span> <img src="images/rock.png" alt="Stone" style="width: 50px; height: 50px; vertical-align: middle;"></span>`;
     }
     if (cost.clay > 0) {
-      if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0) html += ` `;
-      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.clay)}</span> <img src="images/clay.png" alt="Clay" style="width: 50px; height: 50px; vertical-align: middle;">`;
+      html += `<span style="font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 4px;"><span>${formatNumber(cost.clay)}</span> <img src="images/clay.png" alt="Clay" style="width: 50px; height: 50px; vertical-align: middle;"></span>`;
     }
     if (cost.iron > 0) {
-      if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0) html += ` `;
-      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.iron)}</span> <img src="images/iron.png" alt="Iron" style="width: 50px; height: 50px; vertical-align: middle;">`;
+      html += `<span style="font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 4px;"><span>${formatNumber(cost.iron)}</span> <img src="images/iron.png" alt="Iron" style="width: 50px; height: 50px; vertical-align: middle;"></span>`;
     }
     if (cost.gold > 0) {
-      if (cost.wood > 0 || cost.bricks > 0 || cost.stone > 0 || cost.clay > 0 || cost.iron > 0) html += ` `;
-      html += `<span style="font-size: 20px; font-weight: bold;">${formatNumber(cost.gold)}</span> <img src="images/gold.png" alt="Gold" style="width: 50px; height: 50px; vertical-align: middle;">`;
+      html += `<span style="font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 4px;"><span>${formatNumber(cost.gold)}</span> <img src="images/gold.png" alt="Gold" style="width: 50px; height: 50px; vertical-align: middle;"></span>`;
     }
   html += `</span></p>`;
   

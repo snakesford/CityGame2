@@ -219,11 +219,12 @@ function expandMapToSize(targetSize) {
     if (!gameState.map[row]) gameState.map[row] = [];
     for (let col = 0; col < targetSize; col++) {
       if (!gameState.map[row][col]) {
-        gameState.map[row][col] = {
-          type: "empty",
-          level: 0,
-          owned: false
-        };
+          gameState.map[row][col] = {
+            type: "empty",
+            level: 0,
+            owned: false,
+            golded: false
+          };
       }
     }
   }
@@ -305,7 +306,8 @@ function getOrCreateTile(row, col) {
     gameState.map[row][col] = {
       type: "empty",
       level: 0,
-      owned: false
+      owned: false,
+      golded: false
     };
   }
   
@@ -1926,8 +1928,9 @@ function calculateProduction() {
         townBoost = 1.0 + (townLevel * 0.05); // 5% per level
       }
       
-      const combinedBoost = ownedBoost * townBoost;
-      
+      const goldBoost = tile.golded ? 2.0 : 1.0;
+      const combinedBoost = ownedBoost * townBoost * goldBoost;
+
       totalWood += production.wood * combinedBoost;
       totalStone += production.stone * combinedBoost;
       totalClay += production.clay * combinedBoost;
@@ -2514,6 +2517,37 @@ function purchaseTile(row, col) {
   // Play purchase sound
   playSound('purchase.mov', 0.6);
   
+  return true;
+}
+
+// Calculate gold cost to permanently 'gold' a building (doubling its stats)
+function getGoldCostForTile(tile) {
+  // Base cost scaled by building level; ensure a meaningful large cost
+  const base = 5000;
+  const levelFactor = Math.max(1, tile.level || 1);
+  return base * levelFactor;
+}
+
+// Permanently gold a building on the specified tile (returns true on success)
+function goldBuilding(row, col) {
+  const tile = getOrCreateTile(row, col);
+  if (!tile) return false;
+  if (!tile.type || tile.type === 'empty' || tile.type === 'baseMarker') return false;
+  if (tile.golded) return false; // Already golded
+
+  const cost = getGoldCostForTile(tile);
+  if (gameState.resources.gold < cost) return false;
+
+  gameState.resources.gold -= cost;
+  tile.golded = true;
+
+  // Play a gold sound if available
+  try { playSound('coin_stack.ogg', 0.6); } catch (e) {}
+
+  showMessage(`${buildingTypes[tile.type] ? buildingTypes[tile.type].displayName : 'Building'} gilded! Production permanently doubled.`);
+  updateUI();
+  renderGrid();
+  if (selectedTile && selectedTile.row === row && selectedTile.col === col) updateTileInfo();
   return true;
 }
 
@@ -3736,6 +3770,14 @@ function renderGrid() {
         cell.style.backgroundColor = bgColor;
         cell.style.boxShadow = `inset 0 0 10px ${hexToRgba(playerColor, 0.5)}`;
       }
+
+      // Golded (gilded) buildings get a special gold appearance
+      if (tile.golded) {
+        cell.classList.add('cell-gold');
+        // Append to existing title if present
+        if (cell.title) cell.title += ' · Golded (x2 production)';
+        else cell.title = 'Golded (x2 production)';
+      }
       
       // Check for random events on this tile
       const key = eventKey(row, col);
@@ -4602,16 +4644,17 @@ function updateTileInfo() {
   
   // Calculate actual production with owned boost
   const ownedBoost = tile.owned ? 1.05 : 1.0;
+  const goldBoost = tile.golded ? 2.0 : 1.0;
   const actualProduction = {
-    wood: production.wood * ownedBoost,
-    stone: production.stone * ownedBoost,
-    clay: production.clay * ownedBoost,
-    iron: production.iron * ownedBoost,
-    coal: production.coal * ownedBoost,
-    bricks: production.bricks * ownedBoost,
-    population: production.population * ownedBoost,
-    food: production.food * ownedBoost,
-    capacity: production.capacity * ownedBoost
+    wood: production.wood * ownedBoost * goldBoost,
+    stone: production.stone * ownedBoost * goldBoost,
+    clay: production.clay * ownedBoost * goldBoost,
+    iron: production.iron * ownedBoost * goldBoost,
+    coal: production.coal * ownedBoost * goldBoost,
+    bricks: production.bricks * ownedBoost * goldBoost,
+    population: production.population * ownedBoost * goldBoost,
+    food: production.food * ownedBoost * goldBoost,
+    capacity: production.capacity * ownedBoost * goldBoost
   };
   
   if (tile.owned) {
@@ -4624,6 +4667,18 @@ function updateTileInfo() {
     html += `<button id="purchase-tile-btn" style="margin: 10px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: ${canAffordTile ? '#FFD700' : '#666'}; border: 3px solid ${canAffordTile ? 'rgba(255,255,255,0.4)' : '#888'}; border-radius: 8px; cursor: ${canAffordTile ? 'pointer' : 'not-allowed'}; opacity: ${canAffordTile ? '1' : '0.5'}; transition: all 0.2s; font-weight: bold; font-size: 16px;" ${!canAffordTile ? 'disabled' : ''} onmouseover="if(this.style.opacity!=='0.5')this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">`;
     html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
     html += `<span style="font-weight: bold; font-size: 18px; color: ${canAffordTile ? '#000000' : '#ffffff'};">Purchase Tile - ${formatNumber(tileCost)}</span>`;
+    html += `</button>`;
+  }
+
+  // Gold (gild) action: allow player to permanently double this building's stats
+  const goldCost = getGoldCostForTile(tile);
+  if (tile.golded) {
+    html += `<p style="color: #FFD700; font-weight: bold; margin: 8px 0;">✨ Golded - Production permanently doubled</p>`;
+  } else {
+    const canAffordGold = gameState.resources.gold >= goldCost;
+    html += `<button id="gold-building-btn" style="margin: 10px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: ${canAffordGold ? '#FFD700' : '#444'}; border: 3px solid ${canAffordGold ? 'rgba(255,255,255,0.4)' : '#666'}; border-radius: 8px; cursor: ${canAffordGold ? 'pointer' : 'not-allowed'}; opacity: ${canAffordGold ? '1' : '0.5'}; transition: all 0.2s; font-weight: bold; font-size: 16px;" ${!canAffordGold ? 'disabled' : ''}>`;
+    html += `<img src="images/gold.png" alt="Gold" style="width: 28px; height: 28px; vertical-align: middle;">`;
+    html += `<span style="font-weight: bold; font-size: 16px; color: ${canAffordGold ? '#000' : '#fff'};">Gold Building - ${formatNumber(goldCost)}</span>`;
     html += `</button>`;
   }
   
@@ -4914,6 +4969,32 @@ function updateTileInfo() {
   
   infoPanel.innerHTML = html;
   
+  // Add event listener for gold (gild) button
+  const goldBtn = document.getElementById('gold-building-btn');
+  if (goldBtn) {
+    const newGoldBtn = goldBtn.cloneNode(true);
+    goldBtn.parentNode.replaceChild(newGoldBtn, goldBtn);
+    newGoldBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedTile) return;
+      const row = selectedTile.row;
+      const col = selectedTile.col;
+      const tile = getOrCreateTile(row, col);
+      if (!tile || tile.golded) {
+        showMessage('This building cannot be golded.');
+        return;
+      }
+      const success = goldBuilding(row, col);
+      if (success) {
+        updateTileInfo();
+        updateUI();
+      } else {
+        showMessage('Cannot gold building: insufficient gold or invalid target.');
+      }
+    });
+  }
+
   // Add event listener for add fuel button
   const addFuelBtn = document.getElementById('add-fuel-btn');
   if (addFuelBtn) {

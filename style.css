@@ -817,6 +817,20 @@ h4 {
   box-shadow: 0 0 5px currentColor;
 }
 
+/* Golded / gilded building appearance */
+.cell-gold {
+  position: relative;
+  overflow: hidden;
+  /* keep original tile art */
+  border: 2px solid #FFD700 !important;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.65), inset 0 0 6px rgba(255, 215, 0, 0.35) !important;
+}
+
+.cell-gold > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Housing - Orange */
 .cell-tepee {
   background: 

@@ -8115,7 +8115,15 @@ function updateQuestIndicator() {
     return;
   }
   
-  const hasUnclaimedQuests = gameState.quests.some(q => q.completed && !q.claimed);
+  // Check for unclaimed quests that require action (skip milestone quests that unlock buildings)
+  const hasUnclaimedQuests = gameState.quests.some(q => {
+    if (!q.completed || q.claimed) return false;
+    
+    // Find the quest definition to check if it unlocks a building
+    const questDef = questDefinitions.find(def => def.id === q.id);
+    // Only show indicator for quests that don't unlock buildings (i.e., quests that can be claimed)
+    return questDef && !questDef.unlocksBuilding;
+  });
   
   if (hasUnclaimedQuests) {
     // Add red dot indicator
@@ -8126,7 +8134,7 @@ function updateQuestIndicator() {
       questsBtn.appendChild(indicator);
     }
   } else {
-    // Remove indicator
+    // Remove indicator when all actionable quests are claimed
     const indicator = questsBtn.querySelector('.quest-indicator');
     if (indicator) {
       indicator.remove();

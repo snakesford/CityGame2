@@ -2928,9 +2928,9 @@ function placeBuilding(row, col, buildingType) {
     return false;
   }
   
-  // Check if tile is locked by a town
-  if (tile.townId) {
-    showMessage("Cannot place building on town-locked tile!");
+  // Cannot place on Town Center itself
+  if (tile.type && tile.type.startsWith('townCenter_')) {
+    showMessage("Cannot place building on Town Center!");
     return false;
   }
   
@@ -3626,7 +3626,7 @@ function createTown(centerRow, centerCol, rotation) {
   
   // Show message
   if (typeof showMessage === 'function') {
-    showMessage("Town Center created! The area is now locked.");
+    showMessage("Town Center created! You can now place extra buildings in this area.");
   }
   
   // Re-render grid to show changes
@@ -3979,9 +3979,9 @@ function removeBuilding(row, col) {
     return false;
   }
   
-  // Cannot remove buildings on town-locked tiles
-  if (tile.townId) {
-    showMessage("Cannot remove buildings from town-locked tiles!");
+  // Cannot remove Town Center
+  if (tile.type && tile.type.startsWith('townCenter_')) {
+    showMessage("Cannot remove Town Center!");
     return false;
   }
   
@@ -7682,15 +7682,9 @@ function moveBuilding(fromRow, fromCol, toRow, toCol) {
     return false;
   }
   
-  // Cannot move from town-locked tiles
-  if (fromTile.townId) {
-    showMessage("Cannot move buildings from town-locked tiles!");
-    return false;
-  }
-  
-  // Cannot move to town-locked tiles
-  if (toTile.townId) {
-    showMessage("Cannot move buildings to town-locked tiles!");
+  // Cannot move to Town Center tile
+  if (toTile.type && toTile.type.startsWith('townCenter_')) {
+    showMessage("Cannot move building to Town Center tile!");
     return false;
   }
   

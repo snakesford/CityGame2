@@ -124,12 +124,12 @@ const buildingCombos = {
   superFurnace: {
     id: 'superFurnace',
     name: 'Super Furnace',
-    description: 'Form a super furnace by placing a Smelter at the center with at least 1 wood/coal building and 1 smeltable mineral (Clay Pool or Iron Mine) in the surrounding 8 positions.',
+    description: 'Form a super furnace by placing a Smelter at the center with at least 2 wood/coal buildings and 2 smeltable minerals (Clay Pool or Iron Mine) in the surrounding 8 positions.',
     pattern: {
       center: 'Smelter',
       size: '3×3',
       buildings: [
-        { position: 'Ring of 8', building: 'At least 1 wood/coal building (Lumber Mill, Advanced Lumber Mill, or Coal Mine) AND at least 1 smeltable mineral (Clay Pool or Iron Mine). Other positions can be any building or empty.' }
+        { position: 'Ring of 8', building: 'At least 2 wood/coal buildings (Lumber Mill, Advanced Lumber Mill, or Coal Mine) AND at least 2 smeltable minerals (Clay Pool or Iron Mine). Other positions can be any building or empty.' }
       ],
       note: 'The center Smelter will be converted into a Super Furnace when the pattern is detected. Super Furnace smelts twice as fast and produces double output.'
     },
@@ -3139,8 +3139,8 @@ function checkSuperFurnacePattern(centerRow, centerCol) {
     { row: centerRow, col: centerCol - 1 }      // Left
   ];
   
-  let hasWoodOrCoal = false;
-  let hasSmeltableMineral = false;
+  let woodOrCoalCount = 0;
+  let smeltableMineralCount = 0;
   
   // Check each position in the ring
   for (const pos of ringPositions) {
@@ -3157,25 +3157,25 @@ function checkSuperFurnacePattern(centerRow, centerCol) {
     
     // Check if it's a wood/coal building
     if (isWoodOrCoalBuilding(tile.type)) {
-      hasWoodOrCoal = true;
+      woodOrCoalCount++;
     }
     
     // Check if it's a smeltable mineral building
     if (isSmeltableMineral(tile.type)) {
-      hasSmeltableMineral = true;
+      smeltableMineralCount++;
     }
   }
   
-  // Pattern matches if we have both requirements
-  if (hasWoodOrCoal && hasSmeltableMineral) {
+  // Pattern matches if we have at least 2 fuel sources and at least 2 smeltable minerals
+  if (woodOrCoalCount >= 2 && smeltableMineralCount >= 2) {
     // Convert center Smelter to Super Furnace
     centerTile.type = "superFurnace";
     centerTile.level = centerTile.level || 1; // Preserve level if it exists
     
     console.log(`🔥 SUPER FURNACE CREATED!`);
     console.log(`   Location: (${centerRow}, ${centerCol})`);
-    console.log(`   Has wood/coal building: ${hasWoodOrCoal}`);
-    console.log(`   Has smeltable mineral: ${hasSmeltableMineral}`);
+    console.log(`   Wood/coal buildings: ${woodOrCoalCount}`);
+    console.log(`   Smeltable minerals: ${smeltableMineralCount}`);
     
     // Show message
     if (typeof showMessage === 'function') {

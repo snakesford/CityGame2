@@ -95,8 +95,8 @@ const characterTypes = {
 // Selected building type for placement
 let selectedBuildingType = null;
 
-// Selected tile for info panel
-let selectedTile = null;
+// Selected tiles for info panel (array to support multi-selection)
+let selectedTiles = [];
 
 // Building combos data structure
 const buildingCombos = {
@@ -2583,7 +2583,8 @@ function checkUnlocks() {
 }
 
 // Purchase a tile to own it (protects from random events)
-function purchaseTile(row, col) {
+// shouldPlaySound: if true, plays purchase sound (default: true)
+function purchaseTile(row, col, shouldPlaySound = true) {
   // Get or create the tile (handles sparse coordinates)
   const tile = getOrCreateTile(row, col);
   if (tile.owned) return false; // Already owned
@@ -2594,10 +2595,85 @@ function purchaseTile(row, col) {
   gameState.resources.gold -= tileCost;
   tile.owned = true;
   
-  // Play purchase sound
-  playSound('purchase.mov', 0.6);
+  // Play purchase sound (only if requested)
+  if (shouldPlaySound) {
+    playSound('purchase.mov', 0.6);
+  }
   
   return true;
+}
+
+// Helper function to check if a tile is selected
+function isTileSelected(row, col) {
+  return selectedTiles.some(t => t.row === row && t.col === col);
+}
+
+// Helper function to toggle tile selection
+function toggleTileSelection(row, col) {
+  // Don't select already owned tiles
+  const tile = getOrCreateTile(row, col);
+  if (tile.owned) {
+    return; // Skip owned tiles
+  }
+  
+  const index = selectedTiles.findIndex(t => t.row === row && t.col === col);
+  if (index >= 0) {
+    // Remove from selection
+    selectedTiles.splice(index, 1);
+  } else {
+    // Add to selection
+    selectedTiles.push({ row, col });
+  }
+}
+
+// Purchase all selected tiles
+function purchaseSelectedTiles() {
+  if (selectedTiles.length === 0) return false;
+  
+  // Filter out already owned tiles and calculate cost
+  const unownedTiles = selectedTiles.filter(t => {
+    const tile = getOrCreateTile(t.row, t.col);
+    return !tile.owned;
+  });
+  
+  if (unownedTiles.length === 0) {
+    showMessage("All selected tiles are already owned.");
+    return false;
+  }
+  
+  const tileCost = 50; // Cost per tile
+  const totalCost = tileCost * unownedTiles.length;
+  
+  if (gameState.resources.gold < totalCost) {
+    showMessage(`Cannot purchase tiles: need ${totalCost} gold (have ${gameState.resources.gold}).`);
+    return false;
+  }
+  
+  // Purchase all unowned tiles (don't play sound for each individual purchase)
+  let purchasedCount = 0;
+  for (const t of unownedTiles) {
+    if (purchaseTile(t.row, t.col, false)) {
+      purchasedCount++;
+    }
+  }
+  
+  // Play purchase sound once after all purchases are complete
+  if (purchasedCount > 0) {
+    playSound('purchase.mov', 0.6);
+  }
+  
+  // Clear selection after purchase
+  selectedTiles = [];
+  
+  // Show success message
+  if (purchasedCount > 0) {
+    showMessage(`Purchased ${purchasedCount} tile${purchasedCount > 1 ? 's' : ''}!`);
+    renderGrid();
+    updateUI();
+    updateTileInfo();
+  }
+  
+  return purchasedCount > 0;
 }
 
 // Cost per tile for random expansion
@@ -4233,8 +4309,8 @@ function renderGrid() {
         }
       }
       
-      // Highlight selected cell
-      if (selectedTile && selectedTile.row === row && selectedTile.col === col) {
+      // Highlight selected cells
+      if (isTileSelected(row, col)) {
         cell.classList.add('cell-selected');
       }
       
@@ -4261,12 +4337,22 @@ function renderGrid() {
         cell.addEventListener('dragend', (e) => handleDragEnd(e));
       }
       
-      // Add click handler
-      cell.addEventListener('click', () => handleCellClick(row, col));
+      // Add shift+drag selection handlers (before click to prevent conflicts)
+      cell.addEventListener('mousedown', (e) => handleShiftDragStart(e, row, col));
       
-      // Add hover tooltip
-      cell.addEventListener('mouseenter', (e) => showCellTooltip(e, row, col));
+      // Add click handler (will be prevented if shift+drag is active)
+      cell.addEventListener('click', (e) => {
+        // Don't handle click if we're currently shift+dragging or just finished
+        if (!isShiftDragging && !shiftDragJustEnded) {
+          handleCellClick(row, col);
+        }
+      });
+      cell.addEventListener('mouseenter', (e) => {
+        handleShiftDragMove(e, row, col);
+        showCellTooltip(e, row, col);
+      });
       cell.addEventListener('mousemove', (e) => {
+        handleShiftDragMove(e, row, col);
         const tooltip = document.getElementById('tooltip');
         if (tooltip && tooltip.style.display === 'block') {
           positionTooltip(e, tooltip);
@@ -4535,6 +4621,9 @@ function setupMiniMapViewportDrag() {
   });
   
   document.addEventListener('mouseup', () => {
+    // End shift+drag selection
+    handleShiftDragEnd();
+    
     if (isDragging) {
       isDragging = false;
       miniMapViewport.classList.remove('dragging');
@@ -4679,6 +4768,67 @@ function updateZoomDisplay() {
 
 // Drag and drop handlers
 let draggedCell = null;
+
+// Shift+drag selection state
+let isShiftDragging = false;
+let lastDragSelectedCell = null; // Track last cell added during drag to avoid duplicates
+let shiftDragJustEnded = false; // Flag to prevent click after shift+drag ends
+
+// Handle shift+drag selection start
+function handleShiftDragStart(e, row, col) {
+  // Only start if Shift is held and not in edit mode and not dragging a building
+  if (e.shiftKey && !editMode && !selectedBuildingType && !draggedCell) {
+    // Don't start drag selection on owned tiles
+    const tile = getOrCreateTile(row, col);
+    if (tile.owned) {
+      return;
+    }
+    
+    isShiftDragging = true;
+    lastDragSelectedCell = { row, col };
+    // Add this tile to selection (toggle behavior)
+    toggleTileSelection(row, col);
+    renderGrid();
+    updateTileInfo();
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
+// Handle shift+drag selection during mouse move
+function handleShiftDragMove(e, row, col) {
+  if (isShiftDragging && e.shiftKey && !draggedCell) {
+    // Don't select owned tiles
+    const tile = getOrCreateTile(row, col);
+    if (tile.owned) {
+      return;
+    }
+    
+    // Only add if this is a different cell than the last one
+    if (!lastDragSelectedCell || lastDragSelectedCell.row !== row || lastDragSelectedCell.col !== col) {
+      // Add tile to selection (only if not already selected to avoid flicker)
+      if (!isTileSelected(row, col)) {
+        toggleTileSelection(row, col);
+        renderGrid();
+        updateTileInfo();
+      }
+      lastDragSelectedCell = { row, col };
+    }
+  }
+}
+
+// Handle shift+drag selection end
+function handleShiftDragEnd(e) {
+  if (isShiftDragging) {
+    isShiftDragging = false;
+    lastDragSelectedCell = null;
+    shiftDragJustEnded = true;
+    // Clear the flag after a short delay to allow click events to be ignored
+    setTimeout(() => {
+      shiftDragJustEnded = false;
+    }, 100);
+  }
+}
 
 function handleDragStart(e, row, col) {
   // Ensure grid is initialized
@@ -4861,8 +5011,21 @@ function handleCellClick(row, col) {
     if (tile.type && tile.type.startsWith('townCenter_') && tile.townId) {
       openTownCenterModal(tile.townId, row, col);
     } else {
-      // Select tile for info panel
-      selectedTile = { row, col };
+      // Don't select owned tiles
+      if (tile.owned) {
+        // For owned tiles, just show info without selecting
+        selectedTiles = [];
+        renderGrid();
+        updateTileInfo();
+        return;
+      }
+      
+      // Handle tile selection (shift+click toggles, normal click replaces)
+      if (shiftHeld) {
+        toggleTileSelection(row, col);
+      } else {
+        selectedTiles = [{ row, col }];
+      }
       renderGrid();
       updateTileInfo();
     }
@@ -4873,16 +5036,44 @@ function handleCellClick(row, col) {
       updateBuildingSelection();
       openTownCenterModal(tile.townId, row, col);
     } else {
-      // Clear selection and show tile info
+      // Don't select owned tiles
+      if (tile.owned) {
+        // For owned tiles, just show info without selecting
+        selectedBuildingType = null;
+        updateBuildingSelection();
+        selectedTiles = [];
+        renderGrid();
+        updateTileInfo();
+        return;
+      }
+      
+      // Clear building selection and handle tile selection
       selectedBuildingType = null;
       updateBuildingSelection();
-      selectedTile = { row, col };
+      if (shiftHeld) {
+        toggleTileSelection(row, col);
+      } else {
+        selectedTiles = [{ row, col }];
+      }
       renderGrid();
       updateTileInfo();
     }
   } else if (!selectedBuildingType && tile.type === "empty") {
-    // Select empty tile to show purchase option
-    selectedTile = { row, col };
+    // Handle empty tile selection (shift+click toggles, normal click replaces)
+    // Don't select owned tiles
+    if (tile.owned) {
+      // For owned tiles, just show info without selecting
+      selectedTiles = [];
+      renderGrid();
+      updateTileInfo();
+      return;
+    }
+    
+    if (shiftHeld) {
+      toggleTileSelection(row, col);
+    } else {
+      selectedTiles = [{ row, col }];
+    }
     renderGrid();
     updateTileInfo();
   }
@@ -4989,7 +5180,7 @@ function selectBuildingType(buildingType) {
     selectedBuildingType = null;
     } else {
     selectedBuildingType = buildingType;
-    selectedTile = null; // Clear tile selection when selecting building
+    selectedTiles = []; // Clear tile selection when selecting building
   }
   updateBuildingSelection();
   updateTileInfo();
@@ -5000,11 +5191,56 @@ function updateTileInfo() {
   const infoPanel = document.getElementById('tile-info');
   if (!infoPanel) return;
   
-  if (!selectedTile) {
+  if (selectedTiles.length === 0) {
     infoPanel.innerHTML = '<p>Select a building to place or click on a placed building to view details.</p>';
     return;
   }
   
+  // Handle multiple tile selection
+  if (selectedTiles.length > 1) {
+    const tileCost = 50; // Cost per tile
+    const unownedTiles = selectedTiles.filter(t => {
+      const tile = getOrCreateTile(t.row, t.col);
+      return !tile.owned;
+    });
+    const ownedCount = selectedTiles.length - unownedTiles.length;
+    const totalCost = tileCost * unownedTiles.length;
+    const canAffordAll = gameState.resources.gold >= totalCost;
+    
+    let html = '<div style="padding: 10px;">';
+    html += `<h3>${selectedTiles.length} Tiles Selected</h3>`;
+    
+    if (unownedTiles.length > 0) {
+      html += `<p style="margin: 10px 0;">${unownedTiles.length} unowned tile${unownedTiles.length > 1 ? 's' : ''} selected</p>`;
+      if (ownedCount > 0) {
+        html += `<p style="color: #4CAF50; margin: 5px 0;">${ownedCount} already owned</p>`;
+      }
+      html += `<p style="margin: 10px 0; font-weight: bold;">Total Cost: ${formatNumber(totalCost)} gold</p>`;
+      html += `<button id="purchase-tiles-btn" style="margin: 15px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: ${canAffordAll ? '#FFD700' : '#666'}; border: 3px solid ${canAffordAll ? 'rgba(255,255,255,0.4)' : '#888'}; border-radius: 8px; cursor: ${canAffordAll ? 'pointer' : 'not-allowed'}; opacity: ${canAffordAll ? '1' : '0.5'}; transition: all 0.2s; font-weight: bold; font-size: 16px;" ${!canAffordAll ? 'disabled' : ''} onmouseover="if(this.style.opacity!=='0.5')this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">`;
+      html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
+      html += `<span style="font-weight: bold; font-size: 18px; color: ${canAffordAll ? '#000000' : '#ffffff'};">Purchase ${unownedTiles.length} Tile${unownedTiles.length > 1 ? 's' : ''} (${formatNumber(totalCost)})</span>`;
+      html += `</button>`;
+    } else {
+      html += `<p style="color: #4CAF50; font-weight: bold;">All selected tiles are already owned.</p>`;
+    }
+    
+    html += `<p style="margin-top: 15px; font-size: 12px; color: #aaa;">Hold Shift and click tiles to add/remove from selection.</p>`;
+    html += `</div>`;
+    
+    infoPanel.innerHTML = html;
+    
+    // Add event listener for purchase button
+    const purchaseBtn = document.getElementById('purchase-tiles-btn');
+    if (purchaseBtn) {
+      purchaseBtn.addEventListener('click', () => {
+        purchaseSelectedTiles();
+      });
+    }
+    return;
+  }
+  
+  // Single tile selection (backward compatibility)
+  const selectedTile = selectedTiles[0];
   const tile = gameState.map[selectedTile.row][selectedTile.col];
   
   if (tile.type === "empty") {
@@ -5034,6 +5270,7 @@ function updateTileInfo() {
     if (purchaseBtn) {
       purchaseBtn.addEventListener('click', () => {
         if (selectedTile && purchaseTile(selectedTile.row, selectedTile.col)) {
+          selectedTiles = []; // Clear selection after purchase
           updateTileInfo();
           updateUI();
           renderGrid();
@@ -5741,10 +5978,13 @@ function updateTileInfo() {
   const removeBtn = document.getElementById('remove-btn');
   if (removeBtn) {
     removeBtn.addEventListener('click', () => {
-      removeBuilding(selectedTile.row, selectedTile.col);
-      selectedTile = null;
-      updateTileInfo();
-      showMessage("Building removed and 50% refunded!", 4000, true);
+      if (selectedTiles.length > 0) {
+        const tileToRemove = selectedTiles[0];
+        removeBuilding(tileToRemove.row, tileToRemove.col);
+        selectedTiles = [];
+        updateTileInfo();
+        showMessage("Building removed and 50% refunded!", 4000, true);
+      }
     });
   }
   
@@ -5753,6 +5993,13 @@ function updateTileInfo() {
   if (purchaseTileBtn) {
     purchaseTileBtn.addEventListener('click', () => {
       if (selectedTile && purchaseTile(selectedTile.row, selectedTile.col)) {
+        // If this was the only selected tile, clear selection; otherwise keep others selected
+        if (selectedTiles.length === 1) {
+          selectedTiles = [];
+        } else {
+          // Remove this tile from selection
+          selectedTiles = selectedTiles.filter(t => !(t.row === selectedTile.row && t.col === selectedTile.col));
+        }
         updateTileInfo();
         updateUI();
         renderGrid();
@@ -6516,7 +6763,7 @@ function resetGame() {
     updateSaveStatus();
     updateQuestIndicator();
     selectedBuildingType = null;
-    selectedTile = null;
+    selectedTiles = [];
     updateBuildingSelection();
     updateTileInfo();
     // Show character selection screen
@@ -6908,7 +7155,8 @@ function startGameLoop() {
       calculateProduction();
       
       // Refresh tile info panel if a smelter or superFurnace is selected (to show real-time updates)
-      if (selectedTile) {
+      if (selectedTiles.length > 0) {
+        const selectedTile = selectedTiles[0];
         const tile = gameState.map[selectedTile.row] && gameState.map[selectedTile.row][selectedTile.col];
         if (tile && (tile.type === "smelter" || tile.type === "superFurnace")) {
           updateTileInfo();
@@ -6991,7 +7239,8 @@ function startGameLoop() {
       }
       
       // Update tile info panel if a smelter is selected (to show smelting progress)
-      if (selectedTile) {
+      if (selectedTiles.length > 0) {
+        const selectedTile = selectedTiles[0];
         const tile = gameState.map[selectedTile.row] && gameState.map[selectedTile.row][selectedTile.col];
         if (tile && tile.type === "smelter") {
           updateTileInfo();
@@ -7387,7 +7636,7 @@ function toggleEditMode() {
   editMode = !editMode;
   tileBeingMoved = null;
   selectedBuildingType = null;
-  selectedTile = null;
+  selectedTiles = [];
   
   const editBtn = document.getElementById('edit-mode-btn');
   const editText = editBtn ? editBtn.querySelector('.edit-text') : null;
@@ -9432,12 +9681,13 @@ window.addEventListener('keydown', (e) => {
   
   // Handle Delete key to refund selected building
   if ((e.key === 'Delete' || e.key === 'Backspace') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-    if (selectedTile) {
-      const tile = gameState.map[selectedTile.row][selectedTile.col];
+    if (selectedTiles.length > 0) {
+      const tileToRemove = selectedTiles[0];
+      const tile = gameState.map[tileToRemove.row][tileToRemove.col];
       if (tile && tile.type !== "empty") {
         e.preventDefault();
-        removeBuilding(selectedTile.row, selectedTile.col);
-        selectedTile = null;
+        removeBuilding(tileToRemove.row, tileToRemove.col);
+        selectedTiles = [];
         renderGrid();
         updateTileInfo();
         showMessage("Building removed and 50% refunded!", 4000, true);
@@ -9500,7 +9750,7 @@ window.addEventListener('keydown', (e) => {
       editMode = false;
       tileBeingMoved = null;
       selectedBuildingType = null;
-      selectedTile = null;
+      selectedTiles = [];
       
       const editBtn = document.getElementById('edit-mode-btn');
       const editText = editBtn ? editBtn.querySelector('.edit-text') : null;
@@ -9520,6 +9770,8 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   if (e.key === 'Shift' && shiftHeld) {
     shiftHeld = false;
+    // End shift+drag selection if active
+    handleShiftDragEnd();
     // Clear building selection when Shift is released
     if (selectedBuildingType) {
       selectedBuildingType = null;

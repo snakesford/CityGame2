@@ -4818,7 +4818,7 @@ function updateTileInfo() {
     html += `<p style="color: #FFA500; font-weight: bold; margin: 5px 0;">⚠ This tile is not owned. Random events can affect unowned tiles.</p>`;
     html += `<button id="purchase-tile-btn" style="margin: 10px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: ${canAffordTile ? '#FFD700' : '#666'}; border: 3px solid ${canAffordTile ? 'rgba(255,255,255,0.4)' : '#888'}; border-radius: 8px; cursor: ${canAffordTile ? 'pointer' : 'not-allowed'}; opacity: ${canAffordTile ? '1' : '0.5'}; transition: all 0.2s; font-weight: bold; font-size: 16px;" ${!canAffordTile ? 'disabled' : ''} onmouseover="if(this.style.opacity!=='0.5')this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">`;
     html += `<img src="images/gold.png" alt="Gold" style="width: 35px; height: 35px; vertical-align: middle;">`;
-    html += `<span style="font-weight: bold; font-size: 18px; color: ${canAffordTile ? '#000000' : '#ffffff'};">Purchase Tile - ${formatNumber(tileCost)}</span>`;
+    html += `<span style="font-weight: bold; font-size: 18px; color: ${canAffordTile ? '#000000' : '#ffffff'};">Buy Tile ${formatNumber(tileCost)}</span>`;
     html += `</button>`;
   }
   
@@ -4926,7 +4926,20 @@ function updateTileInfo() {
     html += `<img src="images/wood-log.png" alt="Wood" style="width: 24px; height: 24px; vertical-align: middle;">`;
     html += `<span>Add ${formatNumber(woodToAdd)} Wood</span>`;
     html += `</button>`;
-    html += `<button id="add-coal-btn" style="margin-top: 8px; width: 100%; padding: 10px; background: ${canAddCoal ? '#212121' : 'rgba(100, 100, 100, 0.2)'}; border: 2px solid ${canAddCoal ? '#424242' : '#666'}; border-radius: 6px; cursor: ${canAddCoal ? 'pointer' : 'not-allowed'}; opacity: ${canAddCoal ? '1' : '0.5'}; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;" ${!canAddCoal ? 'disabled' : ''}>`;
+    // Make coal button more visible for super furnace (grey/black theme)
+    const isSuperFurnace = tile.type === "superFurnace";
+    const coalButtonBg = isSuperFurnace 
+      ? (canAddCoal ? '#4A4A4A' : 'rgba(74, 74, 74, 0.3)')
+      : (canAddCoal ? '#212121' : 'rgba(100, 100, 100, 0.2)');
+    const coalButtonBorder = isSuperFurnace
+      ? (canAddCoal ? '#6B6B6B' : '#666')
+      : (canAddCoal ? '#424242' : '#666');
+    const coalButtonGlow = isSuperFurnace && canAddCoal
+      ? '0 0 8px rgba(107, 107, 107, 0.6), 0 0 15px rgba(74, 74, 74, 0.4)'
+      : 'none';
+    const coalButtonTextColor = '#FFFFFF';
+    
+    html += `<button id="add-coal-btn" style="margin-top: 8px; width: 100%; padding: 10px; background: ${coalButtonBg}; border: 3px solid ${coalButtonBorder}; border-radius: 6px; cursor: ${canAddCoal ? 'pointer' : 'not-allowed'}; opacity: ${canAddCoal ? '1' : '0.5'}; color: ${coalButtonTextColor}; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; box-shadow: ${coalButtonGlow};" ${!canAddCoal ? 'disabled' : ''}>`;
     html += `<img src="images/coal.png" alt="Coal" style="width: 24px; height: 24px; vertical-align: middle;">`;
     html += `<span>Add ${formatNumber(coalToAdd)} Coal</span>`;
     html += `</button>`;
@@ -5106,6 +5119,72 @@ function updateTileInfo() {
   }
   
   html += `<button id="remove-btn"><img src="images/sell.png" alt="Sell" style="width: 30px; height: 30px; vertical-align: middle; margin-right: 5px;">50% refund</button>`;
+  
+  // Add Super Furnace information section
+  if (tile.type === "superFurnace") {
+    const building = buildingTypes.superFurnace;
+    const clayTimeSeconds = (building.smeltClayTime / 1000).toFixed(1);
+    const ironTimeSeconds = (building.smeltIronTime / 1000).toFixed(1);
+    
+    html += `<hr style="margin: 20px 0; border-color: rgba(255, 215, 0, 0.5);">`;
+    html += `<div style="padding: 15px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 165, 0, 0.15) 100%); border: 2px solid #FFD700; border-radius: 8px; margin: 15px 0;">`;
+    html += `<h3 style="color: #FFD700; margin-top: 0; margin-bottom: 12px; font-size: 18px; text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);">🔥 Super Furnace Guide</h3>`;
+    
+    html += `<div style="margin-bottom: 12px;">`;
+    html += `<strong style="color: #FFD700; display: block; margin-bottom: 6px;">⚡ Smelting Speed (2x Faster):</strong>`;
+    html += `<div style="padding-left: 15px; color: #FFFFFF; font-size: 13px; line-height: 1.6;">`;
+    html += `• Clay: <strong style="color: #FFD700;">${clayTimeSeconds}s</strong> per batch (vs 5s for regular smelter)<br>`;
+    html += `• Iron: <strong style="color: #FFD700;">${ironTimeSeconds}s</strong> per batch (vs 10s for regular smelter)`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    html += `<div style="margin-bottom: 12px;">`;
+    html += `<strong style="color: #FFD700; display: block; margin-bottom: 6px;">📦 Minerals Per Batch:</strong>`;
+    html += `<div style="padding-left: 15px; color: #FFFFFF; font-size: 13px; line-height: 1.6;">`;
+    html += `• Clay: <strong style="color: #FFD700;">${building.smeltClayAmount}</strong> clay per batch<br>`;
+    html += `• Iron: <strong style="color: #FFD700;">${building.smeltIronAmount}</strong> iron per batch`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    html += `<div style="margin-bottom: 12px;">`;
+    html += `<strong style="color: #FFD700; display: block; margin-bottom: 6px;">✨ Output (2x Production):</strong>`;
+    html += `<div style="padding-left: 15px; color: #FFFFFF; font-size: 13px; line-height: 1.6;">`;
+    html += `• Clay → <strong style="color: #FFD700;">${building.smeltBrickOutput}</strong> bricks per batch<br>`;
+    html += `• Iron → <strong style="color: #FFD700;">${building.smeltIronBarOutput}</strong> iron bars per batch`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    html += `<div style="margin-bottom: 12px;">`;
+    html += `<strong style="color: #FFD700; display: block; margin-bottom: 6px;">🔥 Fuel Requirements:</strong>`;
+    html += `<div style="padding-left: 15px; color: #FFFFFF; font-size: 13px; line-height: 1.6;">`;
+    html += `• Clay: <strong style="color: #8B4513;">${building.smeltClayWoodAmount}</strong> wood OR <strong style="color: #CCCCCC;">1</strong> coal (lasts 3 batches)<br>`;
+    html += `• Iron: <strong style="color: #8B4513;">${building.smeltIronWoodAmount}</strong> wood OR <strong style="color: #CCCCCC;">${building.smeltIronCoalAmount}</strong> coal`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    html += `<div style="margin-bottom: 12px;">`;
+    html += `<strong style="color: #FFD700; display: block; margin-bottom: 6px;">💾 Fuel Capacity:</strong>`;
+    html += `<div style="padding-left: 15px; color: #FFFFFF; font-size: 13px;">`;
+    html += `<strong style="color: #FFD700;">${building.baseFuelCapacity}</strong> fuel units (2x regular smelter)`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    html += `<div style="margin-bottom: 12px;">`;
+    html += `<strong style="color: #FFD700; display: block; margin-bottom: 6px;">📥 How to Load Minerals:</strong>`;
+    html += `<div style="padding-left: 15px; color: #FFFFFF; font-size: 13px; line-height: 1.6;">`;
+    html += `1. Click <strong style="color: #8B4513;">"Load Clay"</strong> or <strong style="color: #708090;">"Load Iron"</strong> buttons above<br>`;
+    html += `2. Ensure you have enough minerals and fuel<br>`;
+    html += `3. Batches are added to the queue (max 10)<br>`;
+    html += `4. Click <strong style="color: #FFD700;">"Harvest"</strong> when ready to collect output`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    html += `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 215, 0, 0.3);">`;
+    html += `<div style="color: #FFD700; font-size: 12px; font-style: italic;">💡 Tip: Coal is more efficient! Use the bright gold "Add Coal" button for better fuel efficiency.</div>`;
+    html += `</div>`;
+    
+    html += `</div>`;
+  }
   
   infoPanel.innerHTML = html;
   

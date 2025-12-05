@@ -55,7 +55,19 @@ let gameState = {
   randomEvents: {}, // Track active random events: {row_col: {type: 'wanderingTrader', spawnTime: timestamp, expiresAt: timestamp}}
   temporaryBoosts: {}, // Track temporary boosts: {boostType: {multiplier: number, expiresAt: timestamp}}
   popGrowthFoodThreshold: 20, // Need 20 surplus food over stable level to add 1 population
-  foodConsumptionPerPersonPerSecond: 0.1 // Each person eats 0.1 food per second
+  foodConsumptionPerPersonPerSecond: 0.1, // Each person eats 0.1 food per second
+  // Accumulator for decimal production (only add to resources when whole numbers are reached)
+  resourceAccumulators: {
+    wood: 0,
+    stone: 0,
+    clay: 0,
+    iron: 0,
+    gold: 0,
+    bricks: 0,
+    ironBars: 0,
+    coal: 0,
+    food: 0
+  }
 };
 
 // Player color definitions
@@ -459,6 +471,21 @@ function migrateSaveData() {
   if (!gameState.towns) gameState.towns = {};
   if (typeof gameState.globalBuildingCap !== 'number') gameState.globalBuildingCap = 20;
   if (typeof gameState.nextTownId !== 'number') gameState.nextTownId = 1;
+  
+  // Ensure resource accumulators exist for decimal tracking
+  if (!gameState.resourceAccumulators) {
+    gameState.resourceAccumulators = {
+      wood: 0,
+      stone: 0,
+      clay: 0,
+      iron: 0,
+      gold: 0,
+      bricks: 0,
+      ironBars: 0,
+      coal: 0,
+      food: 0
+    };
+  }
   
   // Recalculate building cap from existing towns (safety check)
   if (Object.keys(gameState.towns).length > 0) {
@@ -6142,16 +6169,26 @@ function startGameLoop() {
       // Check for expired events and boosts
       checkEventExpirations();
       
-      // Update resources based on production
+      // Update resources based on production (accumulate decimals, only apply whole numbers)
       if (gameState.rates) {
-        gameState.resources.wood += gameState.rates.wps || 0;
-        gameState.resources.stone += gameState.rates.sps || 0;
-        gameState.resources.clay += gameState.rates.cps || 0;
-        gameState.resources.iron += gameState.rates.ips || 0;
-        gameState.resources.gold += gameState.rates.gps || 0;
-        gameState.resources.bricks += gameState.rates.bps || 0;
-        gameState.resources.coal += gameState.rates.coalps || 0;
-        gameState.resources.food += gameState.rates.fps || 0;
+        // Add production to accumulators
+        gameState.resourceAccumulators.wood += gameState.rates.wps || 0;
+        gameState.resourceAccumulators.stone += gameState.rates.sps || 0;
+        gameState.resourceAccumulators.clay += gameState.rates.cps || 0;
+        gameState.resourceAccumulators.iron += gameState.rates.ips || 0;
+        gameState.resourceAccumulators.gold += gameState.rates.gps || 0;
+        gameState.resourceAccumulators.bricks += gameState.rates.bps || 0;
+        gameState.resourceAccumulators.coal += gameState.rates.coalps || 0;
+        gameState.resourceAccumulators.food += gameState.rates.fps || 0;
+        
+        // Apply whole numbers only and keep remainder
+        for (const resource in gameState.resourceAccumulators) {
+          const wholeAmount = Math.floor(gameState.resourceAccumulators[resource]);
+          if (wholeAmount > 0) {
+            gameState.resources[resource] += wholeAmount;
+            gameState.resourceAccumulators[resource] -= wholeAmount;
+          }
+        }
       }
       
       // Update production rates

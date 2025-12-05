@@ -2826,10 +2826,8 @@ function placeBuilding(row, col, buildingType) {
       for (let c = col - claimRadius; c <= col + claimRadius; c++) {
         // Check bounds and skip the center tile
         if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && !(r === row && c === col)) {
-          const targetTile = gameState.map[r][c];
-          if (targetTile) {
-            targetTile.owned = true;
-          }
+          const targetTile = getOrCreateTile(r, c);
+          targetTile.owned = true;
         }
       }
     }

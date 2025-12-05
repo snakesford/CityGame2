@@ -5011,9 +5011,10 @@ function handleCellClick(row, col) {
     if (tile.type && tile.type.startsWith('townCenter_') && tile.townId) {
       openTownCenterModal(tile.townId, row, col);
     } else {
-      // Don't select owned tiles
-      if (tile.owned) {
-        // For owned tiles, just show info without selecting
+      // Allow selection of buildings in town areas (townId set)
+      // Only prevent selection of empty owned tiles (expansion tiles)
+      if (tile.owned && tile.type === "empty") {
+        // For empty owned tiles, just show info without selecting
         selectedTiles = [];
         renderGrid();
         updateTileInfo();

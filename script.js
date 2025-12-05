@@ -157,6 +157,21 @@ const formatNumberWithDecimals = formatNumber;
 
 let tileBeingMoved = null; // {row, col, type, level}
 
+// Return a human-readable requirement string for display
+function formatRequirementText(req) {
+  if (!req || !req.type) return '';
+  if (req.type === 'buildingCount') {
+    const name = buildingTypes[req.buildingType]?.displayName || req.buildingType;
+    return `Build ${req.amount} ${name}${req.amount > 1 ? 's' : ''}`;
+  } else if (req.type === 'resource') {
+    const resName = req.resource.charAt(0).toUpperCase() + req.resource.slice(1);
+    return `Save ${formatNumber(req.amount)} ${resName}`;
+  } else if (req.type === 'population') {
+    return `Reach ${req.amount} population`;
+  }
+  return '';
+}
+
 // Shift key state for multiple building placement
 let shiftHeld = false;
 
@@ -5535,6 +5550,12 @@ function updateBuildMenu() {
           progressBarContainer.appendChild(progressBarFill);
           progressBarContainer.appendChild(progressBarText);
           reqContainer.appendChild(progressBarContainer);
+
+          // Insert a small header so the button shows "To Unlock:" then the requirements
+          const unlockHeader = document.createElement('div');
+          unlockHeader.style.cssText = 'font-size: 12px; color: #ff9800; font-weight: bold; text-align: center; margin-top: 6px; margin-bottom: 6px;';
+          unlockHeader.textContent = 'To Unlock:';
+          reqContainer.appendChild(unlockHeader);
           
           // Add individual requirement items (only show incomplete requirements)
           if (incompleteRequirements.length > 0) {
@@ -5543,8 +5564,9 @@ function updateBuildMenu() {
             
             incompleteRequirements.forEach(req => {
               const reqItem = document.createElement('div');
-              reqItem.style.cssText = 'display: flex; align-items: center; gap: 2px; position: relative; padding: 2px;';
-              
+              // Stack icon/amount above the descriptive text
+              reqItem.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; padding: 4px; background: rgba(255,255,255,0.02); border-radius: 6px;';
+
               // Create icon
               const icon = document.createElement('img');
               if (req.type === 'buildingCount') {
@@ -5558,15 +5580,20 @@ function updateBuildMenu() {
                 icon.alt = 'Population';
               }
               icon.style.cssText = 'width: 20px; height: 20px; vertical-align: middle;';
-              
+
               // Create amount text
               const amountText = document.createElement('span');
               amountText.textContent = req.amount;
-              amountText.style.cssText = 'font-size: 11px; color: white; font-weight: bold;';
-              
-              reqItem.appendChild(icon);
-              reqItem.appendChild(amountText);
-              
+              amountText.style.cssText = 'font-size: 12px; color: white; font-weight: bold;';
+
+              const topRow = document.createElement('div');
+              topRow.style.cssText = 'display:flex; align-items:center; gap:6px;';
+              topRow.appendChild(icon);
+              topRow.appendChild(amountText);
+
+              // For build-menu buttons we only show icon + amount; descriptive text is shown in tooltip only
+              reqItem.appendChild(topRow);
+
               reqItemsContainer.appendChild(reqItem);
             });
             
@@ -6091,9 +6118,46 @@ function showBuildingTooltip(event, buildingType) {
     }
   }
   
-  // Show minimal locked state if building is not unlocked (avoid showing quest titles)
+  // Show unlock requirements in tooltip if building is not unlocked (avoid showing quest titles)
   if (!building.unlocked) {
-    html += `<p style="margin: 3px 0; color: #ff9800;"><strong>Locked</strong></p>`;
+    const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === buildingType);
+    if (unlockQuest && Array.isArray(unlockQuest.requirements) && unlockQuest.requirements.length > 0) {
+      // Calculate overall progress
+      let totalProgress = 0;
+      unlockQuest.requirements.forEach(req => { totalProgress += getRequirementProgress(req); });
+      const overallProgress = totalProgress / unlockQuest.requirements.length;
+
+      html += `<div style="margin: 6px 0;">
+        <div style="font-size:12px; color:#ff9800; font-weight:bold;">To Unlock:</div>
+        <div style="width:100%; position:relative; background:rgba(0,0,0,0.25); border-radius:4px; height:12px; margin-top:6px; overflow:hidden;">
+          <div style="position:absolute; left:0; top:0; height:100%; background:linear-gradient(90deg,#4CAF50 0%,#66BB6A 100%); width:${overallProgress}%; border-radius:4px;"></div>
+          <div style="position:absolute; left:0; top:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:10px; color:white; font-weight:bold; text-shadow:1px 1px 2px rgba(0,0,0,0.8);">${Math.round(overallProgress)}%</div>
+        </div>`;
+
+      // Show individual incomplete requirements as icons + amounts
+      const incompleteRequirements = unlockQuest.requirements.filter(req => !checkRequirement(req));
+      if (incompleteRequirements.length > 0) {
+        html += `<div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center; margin-top:8px;">`;
+        incompleteRequirements.forEach(req => {
+          let iconSrc = '';
+          let alt = '';
+          if (req.type === 'buildingCount') { iconSrc = buildingIcons[req.buildingType] || ''; alt = buildingTypes[req.buildingType]?.displayName || req.buildingType; }
+          else if (req.type === 'resource') { iconSrc = resourceIcons[req.resource] || ''; alt = req.resource; }
+          else if (req.type === 'population') { iconSrc = resourceIcons.population || ''; alt = 'Population'; }
+          const text = formatRequirementText(req);
+          html += `<div style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px; background:rgba(255,255,255,0.03); border-radius:6px;">
+            <div style="display:flex; align-items:center; gap:6px;"><img src="${iconSrc}" alt="${alt}" style="width:20px;height:20px;vertical-align:middle;"><span style="font-size:12px; font-weight:bold;color:white;">${req.amount}</span></div>
+            <div style="font-size:12px; color:#ffea; text-align:center;">${text}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+    } else {
+      // Generic locked indicator when no specific requirements are available
+      html += `<p style="margin: 3px 0; color: #ff9800;"><strong>Locked</strong></p>`;
+    }
   }
   
   tooltip.innerHTML = html;

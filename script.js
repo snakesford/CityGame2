@@ -2797,8 +2797,8 @@ function placeBuilding(row, col, buildingType) {
     return false;
   }
   
-  // Check building cap (don't count town centers as they're not placed directly)
-  if (getBuildingCount() >= gameState.globalBuildingCap) {
+  // Check building cap (don't count town centers or base markers as they're not placed directly)
+  if (buildingType !== "baseMarker" && getBuildingCount() >= gameState.globalBuildingCap) {
     showMessage(`Building cap reached (${gameState.globalBuildingCap}). Level up towns to increase capacity.`);
     return false;
   }
@@ -2819,15 +2819,15 @@ function placeBuilding(row, col, buildingType) {
     getSmelter(row, col); // This creates and initializes the smelter
   }
   
-  // Claim surrounding tiles if it's a base marker (3x3 area)
+  // Purchase surrounding tiles if it's a base marker (3x3 area, excluding center)
   if (buildingType === "baseMarker") {
     const claimRadius = 1; // 1 tile in each direction = 3x3 total
     for (let r = row - claimRadius; r <= row + claimRadius; r++) {
       for (let c = col - claimRadius; c <= col + claimRadius; c++) {
-        // Check bounds
-        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+        // Check bounds and skip the center tile
+        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && !(r === row && c === col)) {
           const targetTile = gameState.map[r][c];
-          if (targetTile && !targetTile.owned) {
+          if (targetTile) {
             targetTile.owned = true;
           }
         }
@@ -3131,7 +3131,7 @@ function getBuildingCount() {
     if (!gameState.map[row]) continue;
     for (let col = bounds.minCol; col <= bounds.maxCol; col++) {
       const tile = gameState.map[row][col];
-      if (tile && tile.type !== "empty" && !tile.type.startsWith('townCenter_')) {
+      if (tile && tile.type !== "empty" && !tile.type.startsWith('townCenter_') && tile.type !== "baseMarker") {
         count++;
       }
     }

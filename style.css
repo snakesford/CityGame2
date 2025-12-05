@@ -1866,12 +1866,147 @@ h4 {
   background: #f44336;
   border-radius: 50%;
   border: 2px solid rgba(0,0,0,0.3);
-  animation: pulse 1s infinite;
+  box-shadow: 0 0 8px #f44336, 0 0 12px #f44336, 0 0 16px rgba(244, 67, 54, 0.6);
+  animation: questPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes questPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 8px #f44336, 0 0 12px #f44336, 0 0 16px rgba(244, 67, 54, 0.6);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.2);
+    box-shadow: 0 0 12px #f44336, 0 0 18px #f44336, 0 0 24px rgba(244, 67, 54, 0.8);
+  }
 }
 
 .quests-btn {
   position: relative;
 }
+
+/* Quest Completion Popup - Green Theme */
+.quest-completion-popup {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 3000;
+  animation: slideDown 0.4s ease;
+  pointer-events: none;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.quest-completion-content {
+  background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 50%, #1a4d2e 100%);
+  border: 3px solid #4CAF50;
+  border-radius: 30px;
+  padding: 15px 20px;
+  max-width: 350px;
+  min-width: 280px;
+  box-shadow: 
+    0 8px 25px rgba(0, 0, 0, 0.5),
+    0 0 25px rgba(76, 175, 80, 0.6),
+    0 0 40px rgba(76, 175, 80, 0.4),
+    inset 0 2px 8px rgba(255, 255, 255, 0.1);
+  animation: bubblePulse 3s ease-in-out infinite;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.quest-completion-content::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: bubbleShine 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bubblePulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 8px 25px rgba(0, 0, 0, 0.5),
+      0 0 25px rgba(76, 175, 80, 0.6),
+      0 0 40px rgba(76, 175, 80, 0.4),
+      inset 0 2px 8px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    transform: scale(1.01);
+    box-shadow: 
+      0 8px 25px rgba(0, 0, 0, 0.5),
+      0 0 30px rgba(76, 175, 80, 0.8),
+      0 0 50px rgba(76, 175, 80, 0.6),
+      inset 0 2px 8px rgba(255, 255, 255, 0.15);
+  }
+}
+
+@keyframes bubbleShine {
+  0%, 100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg);
+    opacity: 0.6;
+  }
+}
+
+.quest-completion-header {
+  margin-bottom: 8px;
+}
+
+.quest-completion-header h2 {
+  color: #4CAF50;
+  font-size: 18px;
+  margin: 0;
+  text-shadow: 0 0 10px rgba(76, 175, 80, 0.8), 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+.quest-completion-body h3 {
+  color: #fff;
+  font-size: 16px;
+  margin: 0 0 8px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  font-weight: bold;
+}
+
+.quest-completion-reward {
+  background: rgba(76, 175, 80, 0.3);
+  border: 2px solid #4CAF50;
+  border-radius: 15px;
+  padding: 8px 12px;
+  margin: 8px 0 0 0;
+  color: #fff;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3), inset 0 1px 3px rgba(255, 255, 255, 0.1);
+}
+
+.quest-completion-reward strong {
+  color: #81C784;
+}
+
+.quest-completion-reward span {
+  color: #FFD700;
+  font-weight: bold;
+}
+
 
 
 /* Load Game Modal */

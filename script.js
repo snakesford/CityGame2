@@ -8006,9 +8006,10 @@ function checkQuests() {
               updateBuildMenu();
             }
             
-            // Automatically claim reward when quest completes
-            claimQuestReward(questDef.id);
+            // Show completion popup
+            showQuestCompletionPopup(questDef);
             
+            // Update quest indicator to show red dot for unclaimed rewards
             updateQuestIndicator();
             // Update UI if quests modal is open
             const questsModal = document.getElementById('quests-modal');
@@ -8023,6 +8024,57 @@ function checkQuests() {
     });
   } catch (e) {
     console.error('Error in checkQuests:', e);
+  }
+}
+
+// Show quest completion popup
+function showQuestCompletionPopup(questDef) {
+  const popup = document.getElementById('quest-completion-popup');
+  const titleEl = document.getElementById('quest-completion-title');
+  const rewardEl = document.getElementById('quest-completion-reward-text');
+  
+  if (!popup || !titleEl || !rewardEl) return;
+  
+  // Set quest information
+  titleEl.textContent = questDef.title;
+  
+  // Format rewards
+  const rewardParts = [];
+  
+  // Show building unlock if this quest unlocks a building
+  if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
+    const unlockedBuilding = buildingTypes[questDef.unlocksBuilding];
+    const buildingIcon = buildingIcons[questDef.unlocksBuilding] || '';
+    rewardParts.push(`Unlocks ${unlockedBuilding.displayName}${buildingIcon ? ` <img src="${buildingIcon}" alt="${unlockedBuilding.displayName}" style="width: 24px; height: 24px; vertical-align: middle;">` : ''}`);
+  }
+  
+  // Show resource rewards
+  if (questDef.reward) {
+    Object.keys(questDef.reward).forEach(resource => {
+      const amount = questDef.reward[resource];
+      const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+      rewardParts.push(`${amount} ${resourceName}`);
+    });
+  }
+  
+  rewardEl.innerHTML = rewardParts.length > 0 ? rewardParts.join(', ') : 'None';
+  
+  // Show popup
+  popup.style.display = 'flex';
+  
+  // Auto-close after 4 seconds
+  setTimeout(() => {
+    if (popup.style.display === 'flex') {
+      closeQuestCompletionPopup();
+    }
+  }, 4000);
+}
+
+// Close quest completion popup
+function closeQuestCompletionPopup() {
+  const popup = document.getElementById('quest-completion-popup');
+  if (popup) {
+    popup.style.display = 'none';
   }
 }
 
@@ -8144,11 +8196,13 @@ function renderQuests() {
       const isClaimed = quest.claimed;
       
       // Filter based on current tab
-      if (currentQuestTab === 'incomplete' && isCompleted) {
-        return; // Skip completed quests in incomplete tab
+      // Incomplete tab: show quests that are not completed, OR completed but not claimed
+      if (currentQuestTab === 'incomplete' && isCompleted && isClaimed) {
+        return; // Skip completed and claimed quests in incomplete tab
       }
-      if (currentQuestTab === 'completed' && !isCompleted) {
-        return; // Skip incomplete quests in completed tab
+      // Completed tab: show only quests that are completed AND claimed
+      if (currentQuestTab === 'completed' && (!isCompleted || !isClaimed)) {
+        return; // Skip incomplete quests or unclaimed completed quests in completed tab
       }
       
       hasQuests = true;
@@ -8195,7 +8249,7 @@ function renderQuests() {
     
     if (!hasQuests) {
       if (currentQuestTab === 'incomplete') {
-        html = '<p style="text-align: center; color: #ccc; padding: 20px;">All quests completed! 🎉</p>';
+        html = '<p style="text-align: center; color: #ccc; padding: 20px;">All quests completed and rewards claimed! 🎉</p>';
       } else {
         html = '<p style="text-align: center; color: #ccc; padding: 20px;">No completed quests yet.</p>';
       }
@@ -9638,11 +9692,18 @@ window.addEventListener('keydown', (e) => {
   
   // Close menus and exit edit mode when Escape is pressed
   if (e.key === 'Escape') {
+    const questCompletionPopup = document.getElementById('quest-completion-popup');
     const shopModal = document.getElementById('shop-modal');
     const questsModal = document.getElementById('quests-modal');
     const loadModal = document.getElementById('load-modal');
     const settingsModal = document.getElementById('settings-modal');
     const townCenterModal = document.getElementById('town-center-modal');
+    
+    // Close quest completion popup first (highest priority)
+    if (questCompletionPopup && questCompletionPopup.style.display === 'flex') {
+      closeQuestCompletionPopup();
+      return;
+    }
     
     // Close shop if it's open
     if (shopModal && shopModal.style.display === 'flex') {

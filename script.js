@@ -8557,7 +8557,35 @@ function purchaseUpgrade(upgradeKey, cost) {
 }
 
 // Close modals when clicking outside
+// Prevent modal-close when a range slider is being dragged (drag may produce
+// pointer events that end outside the window and lead to an unintended
+// 'click' on the modal backdrop). We'll track pointer interactions on
+// `input[type=range]` elements and temporarily suppress the global click
+// handler right after a drag.
+let _suppressModalCloseFromRangeDrag = false;
+
+document.addEventListener('pointerdown', (e) => {
+  const t = e.target;
+  if (t && t.tagName === 'INPUT' && t.type === 'range') {
+    _suppressModalCloseFromRangeDrag = true;
+  }
+}, true);
+
+document.addEventListener('pointerup', (e) => {
+  const t = e.target;
+  if (t && t.tagName === 'INPUT' && t.type === 'range') {
+    // Keep suppression for a short time to ignore the ensuing click event
+    // that can fire after dragging ends (especially if pointer leaves
+    // window during drag).
+    setTimeout(() => { _suppressModalCloseFromRangeDrag = false; }, 200);
+  }
+}, true);
+
 window.addEventListener('click', (event) => {
+  // If recent pointer activity originated from a range input, ignore this
+  // click so dragging sliders doesn't close modals. Normal clicks will not
+  // be suppressed after the short timeout above.
+  if (_suppressModalCloseFromRangeDrag) return;
   const shopModal = document.getElementById('shop-modal');
   const townCenterModal = document.getElementById('town-center-modal');
   const shopContent = document.querySelector('.shop-content');

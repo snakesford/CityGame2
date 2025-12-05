@@ -8004,11 +8004,10 @@ function checkQuests() {
               if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
               gameState.buildingUnlocks[questDef.unlocksBuilding] = true;
               updateBuildMenu();
-              // Don't show popup for building unlock quests - just unlock silently
-            } else {
-              // Show completion popup only for quests that don't unlock buildings
-              showQuestCompletionPopup(questDef);
             }
+            
+            // Automatically claim reward when quest completes
+            claimQuestReward(questDef.id);
             
             updateQuestIndicator();
             // Update UI if quests modal is open
@@ -8980,65 +8979,6 @@ function executeMerchantTrade(townId, tradeId) {
   }
 }
 
-// Show quest completion popup
-function showQuestCompletionPopup(questDef) {
-  const popup = document.getElementById('quest-completion-popup');
-  const titleEl = document.getElementById('quest-completion-title');
-  const descEl = document.getElementById('quest-completion-description');
-  const rewardEl = document.getElementById('quest-completion-reward-text');
-  
-  if (!popup || !titleEl || !descEl || !rewardEl) return;
-  
-  // Set quest information
-  titleEl.textContent = questDef.title;
-  descEl.textContent = questDef.description;
-  
-  // Format rewards
-  const rewardParts = [];
-  
-  // Show building unlock if this quest unlocks a building
-  if (questDef.unlocksBuilding && buildingTypes[questDef.unlocksBuilding]) {
-    const unlockedBuilding = buildingTypes[questDef.unlocksBuilding];
-    const buildingIcon = buildingIcons[questDef.unlocksBuilding] || '';
-    rewardParts.push(`Unlocks ${unlockedBuilding.displayName}${buildingIcon ? ` <img src="${buildingIcon}" alt="${unlockedBuilding.displayName}" style="width: 24px; height: 24px; vertical-align: middle;">` : ''}`);
-  }
-  
-  // Show resource rewards
-  Object.keys(questDef.reward).forEach(resource => {
-    const amount = questDef.reward[resource];
-    const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
-    rewardParts.push(`${amount} ${resourceName}`);
-  });
-  
-  rewardEl.innerHTML = rewardParts.join(', ');
-  
-  // Show popup
-  popup.style.display = 'flex';
-  
-  // Auto-close after 5 seconds if not manually closed
-  setTimeout(() => {
-    if (popup.style.display === 'flex') {
-      closeQuestCompletionPopup();
-    }
-  }, 5000);
-}
-
-// Close quest completion popup and claim reward
-function closeQuestCompletionPopup() {
-  const popup = document.getElementById('quest-completion-popup');
-  if (popup) {
-    const titleEl = document.getElementById('quest-completion-title');
-    if (titleEl) {
-      const questTitle = titleEl.textContent;
-      // Find the quest by title and claim its reward
-      const questDef = questDefinitions.find(q => q.title === questTitle);
-      if (questDef) {
-        claimQuestReward(questDef.id);
-      }
-    }
-    popup.style.display = 'none';
-  }
-}
 
 // Update brick trade display
 // Generic resource trade update function
@@ -9698,18 +9638,11 @@ window.addEventListener('keydown', (e) => {
   
   // Close menus and exit edit mode when Escape is pressed
   if (e.key === 'Escape') {
-    const questCompletionPopup = document.getElementById('quest-completion-popup');
     const shopModal = document.getElementById('shop-modal');
     const questsModal = document.getElementById('quests-modal');
     const loadModal = document.getElementById('load-modal');
     const settingsModal = document.getElementById('settings-modal');
     const townCenterModal = document.getElementById('town-center-modal');
-    
-    // Close quest completion popup first (highest priority)
-    if (questCompletionPopup && questCompletionPopup.style.display === 'flex') {
-      closeQuestCompletionPopup();
-      return;
-    }
     
     // Close shop if it's open
     if (shopModal && shopModal.style.display === 'flex') {

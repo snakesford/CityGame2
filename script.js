@@ -5566,19 +5566,16 @@ function updateTileInfo() {
     // Show smelter upgrade choices (for both regular smelters and super furnaces)
     const upgradeLevelNeeded = smelterNeedsUpgradeChoice(tile.level, smelter.upgrades);
     if (upgradeLevelNeeded !== null) {
-      const upgradeCost = getSmelterUpgradeCost(upgradeLevelNeeded, isSuperFurnace);
-      const canAffordUpgrade = canAfford(upgradeCost);
-      
       html += `<hr style="margin: 20px 0; border-color: rgba(255, 215, 0, 0.5);">`;
       html += `<div style="padding: 15px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 165, 0, 0.15) 100%); border: 2px solid #FFD700; border-radius: 8px; margin: 15px 0;">`;
       html += `<h3 style="color: #FFD700; margin-top: 0; margin-bottom: 12px; font-size: 18px;">⭐ Level ${upgradeLevelNeeded} Upgrade Choice</h3>`;
       const buildingName = isSuperFurnace ? "super furnace" : "smelter";
-      html += `<p style="color: #FFFFFF; font-size: 13px; margin-bottom: 12px;">Choose one upgrade for your ${buildingName}:</p>`;
+      html += `<p style="color: #FFFFFF; font-size: 13px; margin-bottom: 12px;">Choose one upgrade for your ${buildingName} (free):</p>`;
       
       html += `<div style="display: flex; flex-direction: column; gap: 10px;">`;
       
       // Option 1: +2 Queue Slots
-      html += `<button id="smelter-upgrade-queueSlots" style="padding: 12px; background: ${canAffordUpgrade ? 'rgba(74, 144, 226, 0.3)' : 'rgba(74, 144, 226, 0.15)'}; border: 2px solid ${canAffordUpgrade ? '#4A90E2' : '#666'}; border-radius: 6px; cursor: ${canAffordUpgrade ? 'pointer' : 'not-allowed'}; color: white; text-align: left; transition: all 0.2s; opacity: ${canAffordUpgrade ? '1' : '0.5'};" ${!canAffordUpgrade ? 'disabled' : ''} onmouseover="${canAffordUpgrade ? "this.style.background='rgba(74, 144, 226, 0.5)'" : ''}" onmouseout="${canAffordUpgrade ? "this.style.background='rgba(74, 144, 226, 0.3)'" : ''}">`;
+      html += `<button id="smelter-upgrade-queueSlots" style="padding: 12px; background: rgba(74, 144, 226, 0.3); border: 2px solid #4A90E2; border-radius: 6px; cursor: pointer; color: white; text-align: left; transition: all 0.2s;" onmouseover="this.style.background='rgba(74, 144, 226, 0.5)'" onmouseout="this.style.background='rgba(74, 144, 226, 0.3)'">`;
       html += `<div style="display: flex; align-items: center; gap: 10px;">`;
       html += `<span style="font-size: 24px;">📦</span>`;
       html += `<div style="flex: 1;">`;
@@ -5589,7 +5586,7 @@ function updateTileInfo() {
       html += `</button>`;
       
       // Option 2: 10% Faster Smelting
-      html += `<button id="smelter-upgrade-smeltingSpeed" style="padding: 12px; background: ${canAffordUpgrade ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.15)'}; border: 2px solid ${canAffordUpgrade ? '#4CAF50' : '#666'}; border-radius: 6px; cursor: ${canAffordUpgrade ? 'pointer' : 'not-allowed'}; color: white; text-align: left; transition: all 0.2s; opacity: ${canAffordUpgrade ? '1' : '0.5'};" ${!canAffordUpgrade ? 'disabled' : ''} onmouseover="${canAffordUpgrade ? "this.style.background='rgba(76, 175, 80, 0.5)'" : ''}" onmouseout="${canAffordUpgrade ? "this.style.background='rgba(76, 175, 80, 0.3)'" : ''}">`;
+      html += `<button id="smelter-upgrade-smeltingSpeed" style="padding: 12px; background: rgba(76, 175, 80, 0.3); border: 2px solid #4CAF50; border-radius: 6px; cursor: pointer; color: white; text-align: left; transition: all 0.2s;" onmouseover="this.style.background='rgba(76, 175, 80, 0.5)'" onmouseout="this.style.background='rgba(76, 175, 80, 0.3)'">`;
       html += `<div style="display: flex; align-items: center; gap: 10px;">`;
       html += `<span style="font-size: 24px;">⚡</span>`;
       html += `<div style="flex: 1;">`;
@@ -5600,7 +5597,7 @@ function updateTileInfo() {
       html += `</button>`;
       
       // Option 3: +1 Harvest Output
-      html += `<button id="smelter-upgrade-harvestOutput" style="padding: 12px; background: ${canAffordUpgrade ? 'rgba(255, 152, 0, 0.3)' : 'rgba(255, 152, 0, 0.15)'}; border: 2px solid ${canAffordUpgrade ? '#FF9800' : '#666'}; border-radius: 6px; cursor: ${canAffordUpgrade ? 'pointer' : 'not-allowed'}; color: white; text-align: left; transition: all 0.2s; opacity: ${canAffordUpgrade ? '1' : '0.5'};" ${!canAffordUpgrade ? 'disabled' : ''} onmouseover="${canAffordUpgrade ? "this.style.background='rgba(255, 152, 0, 0.5)'" : ''}" onmouseout="${canAffordUpgrade ? "this.style.background='rgba(255, 152, 0, 0.3)'" : ''}">`;
+      html += `<button id="smelter-upgrade-harvestOutput" style="padding: 12px; background: rgba(255, 152, 0, 0.3); border: 2px solid #FF9800; border-radius: 6px; cursor: pointer; color: white; text-align: left; transition: all 0.2s;" onmouseover="this.style.background='rgba(255, 152, 0, 0.5)'" onmouseout="this.style.background='rgba(255, 152, 0, 0.3)'">`;
       html += `<div style="display: flex; align-items: center; gap: 10px;">`;
       html += `<span style="font-size: 24px;">✨</span>`;
       html += `<div style="flex: 1;">`;
@@ -5834,17 +5831,10 @@ function updateTileInfo() {
         const tile = gameState.map[selectedTile.row][selectedTile.col];
         const upgradeLevelNeeded = smelter && tile ? smelterNeedsUpgradeChoice(tile.level, smelter.upgrades) : null;
         if (upgradeLevelNeeded !== null) {
-          const isSuperFurnace = tile.type === "superFurnace";
-          const upgradeCost = getSmelterUpgradeCost(upgradeLevelNeeded, isSuperFurnace);
-          if (canAfford(upgradeCost)) {
-            deductCost(upgradeCost);
-            smelter.upgrades.push('queueSlots');
-            updateTileInfo();
-            updateUI();
-            showMessage("Upgrade chosen: +2 Queue Slots!");
-          } else {
-            showMessage("Cannot afford upgrade cost!");
-          }
+          smelter.upgrades.push('queueSlots');
+          updateTileInfo();
+          updateUI();
+          showMessage("Upgrade chosen: +2 Queue Slots!");
         }
       }
     });
@@ -5860,17 +5850,10 @@ function updateTileInfo() {
         const tile = gameState.map[selectedTile.row][selectedTile.col];
         const upgradeLevelNeeded = smelter && tile ? smelterNeedsUpgradeChoice(tile.level, smelter.upgrades) : null;
         if (upgradeLevelNeeded !== null) {
-          const isSuperFurnace = tile.type === "superFurnace";
-          const upgradeCost = getSmelterUpgradeCost(upgradeLevelNeeded, isSuperFurnace);
-          if (canAfford(upgradeCost)) {
-            deductCost(upgradeCost);
-            smelter.upgrades.push('smeltingSpeed');
-            updateTileInfo();
-            updateUI();
-            showMessage("Upgrade chosen: 10% Faster Smelting!");
-          } else {
-            showMessage("Cannot afford upgrade cost!");
-          }
+          smelter.upgrades.push('smeltingSpeed');
+          updateTileInfo();
+          updateUI();
+          showMessage("Upgrade chosen: 10% Faster Smelting!");
         }
       }
     });
@@ -5886,17 +5869,10 @@ function updateTileInfo() {
         const tile = gameState.map[selectedTile.row][selectedTile.col];
         const upgradeLevelNeeded = smelter && tile ? smelterNeedsUpgradeChoice(tile.level, smelter.upgrades) : null;
         if (upgradeLevelNeeded !== null) {
-          const isSuperFurnace = tile.type === "superFurnace";
-          const upgradeCost = getSmelterUpgradeCost(upgradeLevelNeeded, isSuperFurnace);
-          if (canAfford(upgradeCost)) {
-            deductCost(upgradeCost);
-            smelter.upgrades.push('harvestOutput');
-            updateTileInfo();
-            updateUI();
-            showMessage("Upgrade chosen: +1 Harvest Output!");
-          } else {
-            showMessage("Cannot afford upgrade cost!");
-          }
+          smelter.upgrades.push('harvestOutput');
+          updateTileInfo();
+          updateUI();
+          showMessage("Upgrade chosen: +1 Harvest Output!");
         }
       }
     });

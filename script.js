@@ -140,6 +140,234 @@ const buildingCombos = {
 // Edit mode state
 let editMode = false;
 
+// Tutorial data structure
+const tutorialSteps = [
+  {
+    title: "Welcome to City Builder!",
+    content: `
+      <h3>Welcome to City Builder!</h3>
+      <p>This tutorial will guide you through the key mechanics of building and managing your city.</p>
+      <p>You'll learn about:</p>
+      <ul>
+        <li>Resources and how to manage them</li>
+        <li>Population growth and food consumption</li>
+        <li>Building placement and costs</li>
+        <li>Production rates and upgrades</li>
+        <li>Housing capacity and population limits</li>
+      </ul>
+      <p>Let's get started!</p>
+    `
+  },
+  {
+    title: "Resources",
+    content: `
+      <h3>Resources</h3>
+      <p>Your city uses various resources to build and grow:</p>
+      <div class="tutorial-mechanic">
+        <p><strong>Basic Resources:</strong></p>
+        <ul>
+          <li><strong>Wood</strong> - Used for building most structures</li>
+          <li><strong>Stone</strong> - Required for advanced buildings</li>
+          <li><strong>Clay</strong> - Used for smelting into bricks</li>
+          <li><strong>Iron</strong> - Used for smelting into iron bars</li>
+          <li><strong>Coal</strong> - Efficient fuel for smelters</li>
+        </ul>
+        <p><strong>Processed Resources:</strong></p>
+        <ul>
+          <li><strong>Bricks</strong> - Made from clay in smelters</li>
+          <li><strong>Iron Bars</strong> - Made from iron in smelters</li>
+        </ul>
+        <p><strong>Special Resources:</strong></p>
+        <ul>
+          <li><strong>Gold</strong> - Used for upgrades and trading</li>
+          <li><strong>Food</strong> - Required for population growth</li>
+        </ul>
+      </div>
+      <p>Resources are displayed at the top of the screen and update in real-time as your buildings produce them.</p>
+    `
+  },
+  {
+    title: "Population & Food",
+    content: `
+      <h3>Population Growth & Food Consumption</h3>
+      <p>Your population is the lifeblood of your city. Here's how it works:</p>
+      <div class="tutorial-mechanic">
+        <p><strong>Population Growth:</strong></p>
+        <p>You need <strong>20 food surplus</strong> to gain <strong>+1 population</strong>.</p>
+        <p>Food surplus is calculated as: (Total Food Production - Food Consumption)</p>
+        <p>When you have 20 or more surplus food, your population increases by 1 and 20 food is consumed.</p>
+      </div>
+      <div class="tutorial-mechanic">
+        <p><strong>Food Consumption:</strong></p>
+        <p>Each person consumes <strong>0.1 food per second</strong>.</p>
+        <p>For example, with 10 people, you need 1.0 food per second to maintain your population.</p>
+        <p>If food production is below consumption, your population will not grow.</p>
+      </div>
+      <p><strong>Tip:</strong> Build Farms and Advanced Farms to produce food. Make sure your food production exceeds consumption to grow your population!</p>
+    `
+  },
+  {
+    title: "Buildings",
+    content: `
+      <h3>Building Placement & Costs</h3>
+      <p>Buildings are the foundation of your city. Here's how to use them:</p>
+      <div class="tutorial-mechanic">
+        <p><strong>Placing Buildings:</strong></p>
+        <ul>
+          <li>Select a building from the Build Menu on the left</li>
+          <li>Click on an empty tile on the grid to place it</li>
+          <li>You must have enough resources to afford the building</li>
+          <li>Hold Shift while clicking to place multiple buildings</li>
+        </ul>
+      </div>
+      <div class="tutorial-mechanic">
+        <p><strong>Building Costs:</strong></p>
+        <p>Each building has a cost in resources. For example:</p>
+        <ul>
+          <li><strong>Tepee:</strong> 20 wood (provides 3 housing capacity)</li>
+          <li><strong>Farm:</strong> 20 wood (produces 0.5 food/second)</li>
+          <li><strong>Lumber Mill:</strong> 35 wood (produces 0.6 wood/second)</li>
+          <li><strong>Quarry:</strong> 40 wood (produces 0.3 stone/second)</li>
+        </ul>
+        <p>Building costs increase with each level when you upgrade them.</p>
+      </div>
+      <p><strong>Tip:</strong> Start by building housing (Tepees) and food production (Farms) to support population growth!</p>
+    `
+  },
+  {
+    title: "Production",
+    content: `
+      <h3>Resource Production</h3>
+      <p>Buildings produce resources continuously over time:</p>
+      <div class="tutorial-mechanic">
+        <p><strong>How Production Works:</strong></p>
+        <ul>
+          <li>Each building produces resources at a specific rate (per second)</li>
+          <li>Production happens automatically - no manual collection needed</li>
+          <li>Resources accumulate in your inventory shown at the top</li>
+          <li>Production rates are displayed when you select a building</li>
+        </ul>
+      </div>
+      <div class="tutorial-mechanic">
+        <p><strong>Example Production Rates:</strong></p>
+        <ul>
+          <li><strong>Lumber Mill (Level 1):</strong> 0.6 wood/second</li>
+          <li><strong>Farm (Level 1):</strong> 0.5 food/second</li>
+          <li><strong>Quarry (Level 1):</strong> 0.3 stone/second</li>
+          <li><strong>Iron Mine (Level 1):</strong> 0.5 iron/second</li>
+        </ul>
+        <p>Higher level buildings produce more resources per second.</p>
+      </div>
+      <p><strong>Tip:</strong> Build multiple production buildings to increase your resource income!</p>
+    `
+  },
+  {
+    title: "Housing Capacity",
+    content: `
+      <h3>Housing Capacity & Population Limits</h3>
+      <p>Your population is limited by housing capacity:</p>
+      <div class="tutorial-mechanic">
+        <p><strong>How Housing Works:</strong></p>
+        <ul>
+          <li>Each housing building provides capacity for people</li>
+          <li><strong>Tepee:</strong> Provides 3 housing capacity</li>
+          <li><strong>Cabin:</strong> Provides 8 housing capacity</li>
+          <li><strong>Brick House:</strong> Provides 12 housing capacity</li>
+        </ul>
+        <p>Your population cannot exceed your total housing capacity.</p>
+      </div>
+      <div class="tutorial-mechanic">
+        <p><strong>Population Display:</strong></p>
+        <p>At the top of the screen, you'll see: <strong>Population / Housing Capacity</strong></p>
+        <p>For example: <strong>5 / 12</strong> means you have 5 people and can support up to 12.</p>
+        <p>You need to build more housing before your population can grow further.</p>
+      </div>
+      <p><strong>Tip:</strong> Always build housing before you reach capacity to allow continuous population growth!</p>
+    `
+  },
+  {
+    title: "Building Upgrades",
+    content: `
+      <h3>Upgrading Buildings</h3>
+      <p>Upgrading buildings increases their production and capacity:</p>
+      <div class="tutorial-mechanic">
+        <p><strong>How to Upgrade:</strong></p>
+        <ul>
+          <li>Click on a placed building to view its details</li>
+          <li>If the building can be upgraded, you'll see an "Upgrade" button</li>
+          <li>Click "Upgrade" and pay the required resources</li>
+          <li>The building's level increases and production improves</li>
+        </ul>
+      </div>
+      <div class="tutorial-mechanic">
+        <p><strong>Upgrade Benefits:</strong></p>
+        <ul>
+          <li>Higher production rates (more resources per second)</li>
+          <li>More housing capacity (for housing buildings)</li>
+          <li>Better efficiency overall</li>
+        </ul>
+        <p>Upgrade costs increase with each level, but the benefits are worth it!</p>
+      </div>
+      <p><strong>Tip:</strong> Focus on upgrading your most important production buildings first!</p>
+    `
+  },
+  {
+    title: "Character Bonuses",
+    content: `
+      <h3>Character-Specific Bonuses</h3>
+      <p>Your chosen character provides unique bonuses:</p>
+      <div class="tutorial-mechanic">
+        <p><strong>Miner Character:</strong></p>
+        <ul>
+          <li>20% discount on stone building upgrades</li>
+          <li>50% bonus to stone production</li>
+          <li>Access to unique buildings: Deep Mine & Ore Refinery</li>
+        </ul>
+      </div>
+      <div class="tutorial-mechanic">
+        <p><strong>Farmer Character:</strong></p>
+        <ul>
+          <li>20% discount on farm building placement</li>
+          <li>50% bonus to farming production</li>
+          <li>30% faster population growth</li>
+          <li>Access to unique buildings: Advanced Farm & Orchard</li>
+        </ul>
+      </div>
+      <p><strong>Tip:</strong> Choose your character based on your preferred playstyle - mining or farming!</p>
+    `
+  },
+  {
+    title: "You're Ready!",
+    content: `
+      <h3>Congratulations!</h3>
+      <p>You now understand the key mechanics of City Builder:</p>
+      <ul>
+        <li>✓ Resources and production</li>
+        <li>✓ Population growth (20 food = +1 population)</li>
+        <li>✓ Food consumption (0.1 per person/second)</li>
+        <li>✓ Building placement and costs</li>
+        <li>✓ Housing capacity limits</li>
+        <li>✓ Building upgrades</li>
+        <li>✓ Character bonuses</li>
+      </ul>
+      <div class="tutorial-mechanic">
+        <p><strong>Quick Start Tips:</strong></p>
+        <ol>
+          <li>Build Tepees for housing capacity</li>
+          <li>Build Farms to produce food</li>
+          <li>Build Lumber Mills for wood production</li>
+          <li>Keep food production above consumption to grow population</li>
+          <li>Upgrade buildings when you can afford it</li>
+        </ol>
+      </div>
+      <p><strong>Good luck building your city!</strong></p>
+    `
+  }
+];
+
+// Tutorial state
+let currentTutorialStep = 0;
+
 // Format number with shorthand (k/M/B) and optional decimal places
 function formatNumber(num, decimals = 2) {
   const multiplier = Math.pow(10, decimals);
@@ -6668,6 +6896,8 @@ function loadGameSlot(slot) {
       startGameLoop();
       hideLoadMenu();
       showMessage(`Game loaded from slot ${slot}!`);
+      // Show tutorial if enabled
+      checkAndShowTutorial();
       } catch (e) {
         console.error('Error loading game:', e);
         showMessage("Error loading save file.");
@@ -6716,63 +6946,88 @@ function loadGame() {
 
 // Reset game
 function resetGame() {
-  // Initialize upgrades object if it doesn't exist
-  if (!gameState.upgrades) {
-    gameState.upgrades = {
-      woodProduction: false,
-      stoneProduction: false,
-      clayProduction: false,
-      housingCapacity: false,
-      smeltingSpeed: false
-    };
-  }
-  showConfirmation('Are you sure you want to reset your game? This cannot be undone.').then(confirmed => {
+  showConfirmation('Are you sure you want to reset your game? This will delete your current save and return you to character selection. This cannot be undone.').then(confirmed => {
     if (confirmed) {
-      localStorage.removeItem('cityBuilderSave');
-      // Cycle to next save slot for new game
-      cycleToNextSaveSlot();
+      // Stop the game loop
+      if (gameLoopInterval) {
+        clearInterval(gameLoopInterval);
+        gameLoopInterval = null;
+      }
+      
+      // Delete current save slot
+      const currentSlot = getLastSaveSlot();
+      const slotKey = `cityBuilderSave_slot${currentSlot}`;
+      localStorage.removeItem(slotKey);
+      localStorage.removeItem('cityBuilderSave'); // Also remove old save format
+      
+      // Close any open modals
+      const modals = ['settings-modal', 'shop-modal', 'quests-modal', 'load-modal', 'tutorial-modal', 'town-center-modal', 'book-of-buildings-modal', 'wandering-trader-modal'];
+      modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+          modal.style.display = 'none';
+        }
+      });
+      
+      // Reset game state completely
       gameState = {
-      resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0, ironBars: 0, coal: 0, food: 0 },
-      rates: { wps: 0.3, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0, fps: 0 }, // Base 1 wps
-      smelters: {},
-      population: { current: 1, capacity: 0, foodShortageCounter: 0 },
-      map: [],
-      character: null, // Reset character selection
-      playerColor: null, // Reset player color
-      playerName: null, // Reset player name
-      timestamp: Date.now(),
-      upgrades: {
-        woodProduction: false,
-        stoneProduction: false,
-        clayProduction: false,
-        housingCapacity: false,
-        smeltingSpeed: false
-      },
-      quests: [],
-      merchantCooldowns: {
-        wood: { totalTraded: 0, cooldownStart: null },
-        stone: { totalTraded: 0, cooldownStart: null },
-        clay: { totalTraded: 0, cooldownStart: null }
-      },
-      foodConsumptionPerPersonPerSecond: 0.1,
-      popGrowthFoodThreshold: 20
-    };
-    resetBuildingUnlocks();
-    initializeQuests();
-    initializeGrid();
-    calculateProduction();
-    checkUnlocks();
-    checkQuests();
-    renderGrid();
-    updateUI();
-    updateSaveStatus();
-    updateQuestIndicator();
-    selectedBuildingType = null;
-    selectedTiles = [];
-    updateBuildingSelection();
-    updateTileInfo();
-    // Show character selection screen
-    showCharacterSelection();
+        resources: { wood: 50, stone: 0, clay: 0, iron: 0, gold: 0, bricks: 0, ironBars: 0, coal: 0, food: 0 },
+        rates: { wps: 0.3, sps: 0, cps: 0, ips: 0, gps: 0, bps: 0, fps: 0 },
+        smelters: {},
+        population: { current: 1, capacity: 0, foodShortageCounter: 0 },
+        map: [],
+        zoomLevel: 1.0,
+        character: null, // Reset character selection
+        playerColor: null, // Reset player color
+        playerName: null, // Reset player name
+        timestamp: Date.now(),
+        upgrades: {
+          woodProduction: false,
+          stoneProduction: false,
+          clayProduction: false,
+          housingCapacity: false,
+          smeltingSpeed: false
+        },
+        quests: [],
+        towns: {},
+        globalBuildingCap: 20,
+        nextTownId: 1,
+        merchantCooldowns: {
+          wood: { totalTraded: 0, cooldownStart: null },
+          stone: { totalTraded: 0, cooldownStart: null },
+          clay: { totalTraded: 0, cooldownStart: null }
+        },
+        randomEvents: {},
+        temporaryBoosts: {},
+        foodConsumptionPerPersonPerSecond: 0.1,
+        popGrowthFoodThreshold: 20
+      };
+      
+      // Reset other game state
+      selectedColor = null;
+      selectedBuildingType = null;
+      selectedTiles = [];
+      editMode = false;
+      
+      // Reset building unlocks
+      resetBuildingUnlocks();
+      
+      // Show character selection screen
+      showCharacterSelection();
+      
+      // Reset name input
+      const nameInput = document.getElementById('player-name-input');
+      if (nameInput) {
+        nameInput.value = '';
+      }
+      
+      // Reset tutorial toggle to checked
+      const tutorialToggle = document.getElementById('tutorial-toggle');
+      if (tutorialToggle) {
+        tutorialToggle.checked = true;
+      }
+      
+      showMessage('Game reset! Please select a character to start a new game.');
     }
   });
 }
@@ -6893,12 +7148,14 @@ function importSave(event) {
           updateQuestIndicator();
           initializeBuildMenu();
           updateBuildMenu();
-          initializeResourceTooltips();
-          setupExpansionButton();
-          setupZoomControls();
-          updateSaveSlots();
-          startGameLoop();
-          showMessage("Save file imported!");
+      initializeResourceTooltips();
+      setupExpansionButton();
+      setupZoomControls();
+      updateSaveSlots();
+      startGameLoop();
+      showMessage("Save file imported!");
+      // Show tutorial if enabled
+      checkAndShowTutorial();
         }
       });
     } catch (e) {
@@ -7535,6 +7792,10 @@ function selectCharacter(characterType) {
     }
   });
   
+  // Check tutorial toggle state BEFORE hiding the character selection screen
+  const tutorialToggle = document.getElementById('tutorial-toggle');
+  const shouldShowTutorial = tutorialToggle && tutorialToggle.checked;
+  
   // Hide selection screen and show main game
   hideCharacterSelection();
   
@@ -7571,9 +7832,24 @@ function selectCharacter(characterType) {
   
   // Start the game loop
   startGameLoop();
-  
+
   // Save the character selection
   saveGame();
+
+  // Show tutorial for new games - show immediately after map loads
+  if (isNewGame) {
+    // Check if tutorial toggle is checked, or if tutorial hasn't been completed
+    const showTutorial = shouldShowTutorial || !isTutorialCompleted();
+    
+    if (showTutorial) {
+      // Use requestAnimationFrame to ensure DOM is fully updated, then show tutorial
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          startTutorial();
+        });
+      });
+    }
+  }
 }
 
 // Update player indicator in upper right
@@ -8381,6 +8657,138 @@ function toggleQuests() {
     });
     renderQuests();
   });
+}
+
+// ============================================
+// TUTORIAL FUNCTIONS
+// ============================================
+
+// Check if tutorial has been completed
+function isTutorialCompleted() {
+  return localStorage.getItem('cityBuilderTutorialCompleted') === 'true';
+}
+
+// Mark tutorial as completed
+function markTutorialCompleted() {
+  localStorage.setItem('cityBuilderTutorialCompleted', 'true');
+}
+
+// Check if tutorial should be shown and show it
+function checkAndShowTutorial() {
+  // Show tutorial if it hasn't been completed yet
+  if (!isTutorialCompleted()) {
+    // Delay to ensure UI is fully rendered
+    setTimeout(() => {
+      startTutorial();
+    }, 1000);
+  }
+}
+
+// Start the tutorial
+function startTutorial() {
+  currentTutorialStep = 0;
+  const modal = document.getElementById('tutorial-modal');
+  if (!modal) {
+    console.error('Tutorial modal not found!');
+    return;
+  }
+  
+  // Ensure modal is visible and on top
+  modal.style.display = 'flex';
+  modal.style.zIndex = '10000'; // Very high z-index to ensure it's on top
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100%';
+  modal.style.height = '100%';
+  modal.style.visibility = 'visible';
+  modal.style.opacity = '1';
+  
+  // Show first step
+  showTutorialStep(0);
+  
+  // Play sound
+  try {
+    playSound('open_001.ogg', 0.5);
+  } catch (e) {
+    // Ignore sound errors
+  }
+  
+  console.log('Tutorial started - modal should be visible');
+}
+
+// Show a specific tutorial step
+function showTutorialStep(stepIndex) {
+  if (stepIndex < 0 || stepIndex >= tutorialSteps.length) return;
+  
+  currentTutorialStep = stepIndex;
+  const step = tutorialSteps[stepIndex];
+  
+  // Update title
+  const titleEl = document.getElementById('tutorial-title');
+  if (titleEl) {
+    titleEl.textContent = step.title;
+  }
+  
+  // Update content
+  const bodyEl = document.getElementById('tutorial-body');
+  if (bodyEl) {
+    bodyEl.innerHTML = step.content;
+  }
+  
+  // Update progress
+  const progressText = document.getElementById('tutorial-progress-text');
+  const progressFill = document.getElementById('tutorial-progress-fill');
+  if (progressText) {
+    progressText.textContent = `Step ${stepIndex + 1} of ${tutorialSteps.length}`;
+  }
+  if (progressFill) {
+    const percentage = ((stepIndex + 1) / tutorialSteps.length) * 100;
+    progressFill.style.width = percentage + '%';
+  }
+  
+  // Update navigation buttons
+  const prevBtn = document.getElementById('tutorial-prev-btn');
+  const nextBtn = document.getElementById('tutorial-next-btn');
+  
+  if (prevBtn) {
+    prevBtn.disabled = stepIndex === 0;
+  }
+  
+  if (nextBtn) {
+    if (stepIndex === tutorialSteps.length - 1) {
+      nextBtn.textContent = 'Finish';
+    } else {
+      nextBtn.textContent = 'Next';
+    }
+  }
+}
+
+// Navigate to next tutorial step
+function nextTutorialStep() {
+  if (currentTutorialStep < tutorialSteps.length - 1) {
+    showTutorialStep(currentTutorialStep + 1);
+  } else {
+    // Last step - finish tutorial
+    closeTutorial();
+  }
+}
+
+// Navigate to previous tutorial step
+function previousTutorialStep() {
+  if (currentTutorialStep > 0) {
+    showTutorialStep(currentTutorialStep - 1);
+  }
+}
+
+// Close tutorial
+function closeTutorial() {
+  const modal = document.getElementById('tutorial-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  markTutorialCompleted();
+  playSound('close_001.ogg', 0.5);
 }
 
 // Open Town Center modal
@@ -9822,6 +10230,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       setupZoomControls();
       updateSaveSlots();
       startGameLoop();
+      // Show tutorial if enabled when loading existing game
+      checkAndShowTutorial();
     }
   } catch (e) {
     console.error('Error initializing game:', e);

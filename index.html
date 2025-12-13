@@ -60,6 +60,15 @@
       <p id="name-preview-text" style="color: white; margin-top: 10px; font-size: 14px; opacity: 0.7;">Name will appear next to your character icon</p>
     </div>
     
+    <!-- Tutorial Toggle -->
+    <div class="tutorial-toggle-section" style="margin: 30px 0;">
+      <label style="display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; color: white; font-size: 16px;">
+        <input type="checkbox" id="tutorial-toggle" checked style="width: 20px; height: 20px; cursor: pointer;">
+        <span>Play tutorial when starting the game</span>
+      </label>
+      <p style="color: white; margin-top: 10px; font-size: 14px; opacity: 0.7; text-align: center;">The tutorial explains key game mechanics like population growth and resource management</p>
+    </div>
+    
     <div class="character-cards">
       <div class="character-card" data-character="miner">
         <div class="character-icon"><img src="images/pickaxe.png" alt="Miner" style="width: 80px; height: 80px;"></div>
@@ -131,6 +140,9 @@
           <button class="icon-btn" onclick="resetGame()">
             <img src="images/reset.png" alt="Reset" class="btn-icon">
             <span class="btn-text">Reset Game</span>
+          </button>
+          <button class="icon-btn" onclick="startTutorial()">
+            <span class="btn-text">📚 View Tutorial</span>
           </button>
           <p id="saveStatus" class="save-status"></p>
         </div>
@@ -541,6 +553,30 @@
         <div id="wandering-trader-content">
           <!-- Trader content will be populated dynamically -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial Modal -->
+  <div id="tutorial-modal" class="tutorial-modal" style="display: none; z-index: 6000;">
+    <div class="tutorial-content">
+      <div class="tutorial-header">
+        <h2 id="tutorial-title">Tutorial</h2>
+        <button class="tutorial-close" onclick="closeTutorial()">&times;</button>
+      </div>
+      <div class="tutorial-progress">
+        <span id="tutorial-progress-text">Step 1 of 9</span>
+        <div class="tutorial-progress-bar">
+          <div id="tutorial-progress-fill" class="tutorial-progress-fill"></div>
+        </div>
+      </div>
+      <div class="tutorial-body" id="tutorial-body">
+        <!-- Tutorial content will be populated dynamically -->
+      </div>
+      <div class="tutorial-navigation">
+        <button id="tutorial-prev-btn" class="tutorial-nav-btn" onclick="previousTutorialStep()" disabled>Previous</button>
+        <button id="tutorial-skip-btn" class="tutorial-nav-btn" onclick="closeTutorial()" style="background: rgba(200, 50, 50, 0.8);">Skip Tutorial</button>
+        <button id="tutorial-next-btn" class="tutorial-nav-btn" onclick="nextTutorialStep()">Next</button>
       </div>
     </div>
   </div>

@@ -4208,9 +4208,20 @@ function renderGrid() {
   // Scale max tile size: 50px at 800px viewport, up to 80px at 1440px+ viewport
   const MAX_TILE_SIZE = Math.min(80, Math.max(BASE_MAX_TILE_SIZE, Math.floor(viewportHeight * 0.055)));
   
-  // Clamp tile size to min/max bounds
-  // If grid is too large, tiles will be at minimum size and grid will scroll
-  tileSize = Math.max(MIN_TILE_SIZE, Math.min(MAX_TILE_SIZE, Math.floor(tileSize)));
+  // Check if grid at MAX_TILE_SIZE would fit on screen
+  const gridWidthAtMax = (MAX_TILE_SIZE * numCols) + (gapSize * Math.max(0, numCols - 1)) + padding;
+  const gridHeightAtMax = (MAX_TILE_SIZE * numRows) + (gapSize * Math.max(0, numRows - 1)) + padding;
+  const fitsAtMaxSize = gridWidthAtMax <= availableWidth && gridHeightAtMax <= availableHeight;
+  
+  // Only clamp to MAX_TILE_SIZE if the grid wouldn't fit at that size
+  // If the calculated size is larger and the grid fits, use the larger size to fill the screen
+  if (fitsAtMaxSize && tileSize > MAX_TILE_SIZE) {
+    // Grid fits at MAX_TILE_SIZE, so allow larger tiles to fill available space
+    tileSize = Math.floor(tileSize);
+  } else {
+    // Grid is too large or calculated size is within bounds - clamp to min/max
+    tileSize = Math.max(MIN_TILE_SIZE, Math.min(MAX_TILE_SIZE, Math.floor(tileSize)));
+  }
   
   // Calculate actual grid dimensions
   const gridWidth = (tileSize * numCols) + (gapSize * Math.max(0, numCols - 1)) + 4; // +4 for container padding
@@ -4720,14 +4731,31 @@ function applyZoom() {
     return;
   }
   
-  // Apply zoom transform
-  gridContainer.style.transform = `scale(${zoom})`;
+  // Create or get zoom wrapper to handle scrollable area
+  let zoomWrapper = gridContainer.parentElement;
+  if (!zoomWrapper || !zoomWrapper.classList.contains('zoom-wrapper')) {
+    // Create zoom wrapper if it doesn't exist
+    zoomWrapper = document.createElement('div');
+    zoomWrapper.className = 'zoom-wrapper';
+    zoomWrapper.style.position = 'relative';
+    zoomWrapper.style.width = '0';
+    zoomWrapper.style.height = '0';
+    gridContainer.parentNode.insertBefore(zoomWrapper, gridContainer);
+    zoomWrapper.appendChild(gridContainer);
+  }
   
   // Calculate zoomed dimensions
   const zoomedWidth = baseWidth * zoom;
   const zoomedHeight = baseHeight * zoom;
   const wrapperWidth = gridWrapper.clientWidth;
   const wrapperHeight = gridWrapper.clientHeight;
+  
+  // Set zoom wrapper dimensions to match zoomed size (creates proper scrollable area)
+  zoomWrapper.style.width = `${zoomedWidth}px`;
+  zoomWrapper.style.height = `${zoomedHeight}px`;
+  
+  // Apply zoom transform
+  gridContainer.style.transform = `scale(${zoom})`;
   
   // Always use top-left origin for consistent scrolling behavior
   gridContainer.style.transformOrigin = '0 0';
@@ -4749,12 +4777,12 @@ function applyZoom() {
     const offsetY = (wrapperHeight - zoomedHeight) / 2;
     
     // Use margin to center when zoomed out
-    gridContainer.style.marginLeft = `${Math.max(0, offsetX)}px`;
-    gridContainer.style.marginTop = `${Math.max(0, offsetY)}px`;
+    zoomWrapper.style.marginLeft = `${Math.max(0, offsetX)}px`;
+    zoomWrapper.style.marginTop = `${Math.max(0, offsetY)}px`;
   } else {
     // When zoomed in, no centering - allow full scrolling
-    gridContainer.style.marginLeft = '0';
-    gridContainer.style.marginTop = '0';
+    zoomWrapper.style.marginLeft = '0';
+    zoomWrapper.style.marginTop = '0';
   }
 }
 

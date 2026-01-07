@@ -4455,18 +4455,40 @@ function renderGrid() {
   const gridWidth = (tileSize * numCols) + (gapSize * Math.max(0, numCols - 1)) + 4; // +4 for container padding
   const gridHeight = (tileSize * numRows) + (gapSize * Math.max(0, numRows - 1)) + 4;
   
+  // Get current dimensions to check if they've changed
+  const currentWidth = parseFloat(gridContainer.dataset.baseWidth) || 0;
+  const currentHeight = parseFloat(gridContainer.dataset.baseHeight) || 0;
+  const dimensionsChanged = Math.abs(currentWidth - gridWidth) > 0.1 || Math.abs(currentHeight - gridHeight) > 0.1;
+  
   // Set grid template with fixed tile size
   gridContainer.style.gridTemplateColumns = `repeat(${numCols}, ${tileSize}px)`;
   gridContainer.style.gridTemplateRows = `repeat(${numRows}, ${tileSize}px)`;
-  gridContainer.style.width = `${gridWidth}px`;
-  gridContainer.style.height = `${gridHeight}px`;
   
-  // Store bounds and tile size for use in event handlers
+  // Store bounds and tile size for use in event handlers (before setting dimensions)
   gridContainer.dataset.minRow = bounds.minRow;
   gridContainer.dataset.minCol = bounds.minCol;
   gridContainer.dataset.tileSize = tileSize;
   gridContainer.dataset.baseWidth = gridWidth;
   gridContainer.dataset.baseHeight = gridHeight;
+  
+  // If dimensions haven't changed, temporarily remove transition class to prevent animation
+  // Then restore it after setting dimensions
+  if (!dimensionsChanged && currentWidth > 0) {
+    // Remove transition temporarily by adding a class that overrides it
+    gridContainer.classList.add('no-transition');
+    gridContainer.style.width = `${gridWidth}px`;
+    gridContainer.style.height = `${gridHeight}px`;
+    // Remove the class after browser has applied the styles
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        gridContainer.classList.remove('no-transition');
+      });
+    });
+  } else {
+    // Dimensions changed or first render - update normally
+    gridContainer.style.width = `${gridWidth}px`;
+    gridContainer.style.height = `${gridHeight}px`;
+  }
   
   // Apply zoom transform after dimensions are set
   applyZoom();

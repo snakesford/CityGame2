@@ -6641,24 +6641,40 @@ function getRequirementProgress(requirement) {
 }
 
 function updateBuildMenu() {
+  // Cache all buttons upfront to avoid repeated querySelector calls
+  const allButtons = document.querySelectorAll('[data-building-type]');
+  const buttonMap = new Map();
+  allButtons.forEach(btn => {
+    buttonMap.set(btn.getAttribute('data-building-type'), btn);
+  });
+  
+  // Cache unlock quest map to avoid repeated finds
+  const unlockQuestMap = new Map();
+  if (questDefinitions && questDefinitions.length > 0) {
+    questDefinitions.forEach(quest => {
+      if (quest.unlocksBuilding) {
+        unlockQuestMap.set(quest.unlocksBuilding, quest);
+      }
+    });
+  }
+
   for (const [key, building] of Object.entries(buildingTypes)) {
-    const btn = document.querySelector(`[data-building-type="${key}"]`);
+    const btn = buttonMap.get(key);
     if (!btn) continue;
 
+    const unlockQuest = unlockQuestMap.get(key);
+    
     // Safety: if the building is still locked but its milestone requirements are now met,
     // auto-unlock it so the player can place it without waiting for quest processing.
-    if (!building.unlocked && questDefinitions && questDefinitions.length > 0) {
-      const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
-      if (unlockQuest && Array.isArray(unlockQuest.requirements) && unlockQuest.requirements.length > 0) {
-        const allMet = unlockQuest.requirements.every(req => checkRequirement(req));
-        if (allMet) {
-          building.unlocked = true;
-          if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
-          gameState.buildingUnlocks[key] = true;
-          // Mark quest as completed if it exists so the UI stays in sync
-          const questEntry = Array.isArray(gameState.quests)
-            ? gameState.quests.find(q => q.id === unlockQuest.id)
-            : null;
+    if (!building.unlocked && unlockQuest && Array.isArray(unlockQuest.requirements) && unlockQuest.requirements.length > 0) {
+      const allMet = unlockQuest.requirements.every(req => checkRequirement(req));
+      if (allMet) {
+        building.unlocked = true;
+        if (!gameState.buildingUnlocks) gameState.buildingUnlocks = {};
+        gameState.buildingUnlocks[key] = true;
+        // Mark quest as completed if it exists so the UI stays in sync
+        if (Array.isArray(gameState.quests)) {
+          const questEntry = gameState.quests.find(q => q.id === unlockQuest.id);
           if (questEntry) {
             questEntry.completed = true;
           }
@@ -6688,11 +6704,9 @@ function updateBuildMenu() {
         buildingIcon.className = 'building-icon';
         // Insert icon at the beginning
         btn.insertBefore(buildingIcon, btn.firstChild);
-      } else {
-        // Ensure icon is at the beginning
-        if (buildingIcon !== btn.firstChild) {
-          btn.insertBefore(buildingIcon, btn.firstChild);
-        }
+      } else if (buildingIcon !== btn.firstChild) {
+        // Ensure icon is at the beginning (only move if needed)
+        btn.insertBefore(buildingIcon, btn.firstChild);
       }
     }
     
@@ -6715,89 +6729,82 @@ function updateBuildMenu() {
     
     if (requiredCharacterMismatch) {
       btn.title = `Requires ${building.requiredCharacter} character`;
-    }
-
-    if (!building.unlocked) {
-      // Find the milestone quest that unlocks this building
-      const unlockQuest = questDefinitions.find(q => q.unlocksBuilding === key);
-      if (unlockQuest) {
-        btn.title = `Complete milestone quest to unlock: ${unlockQuest.title}`;
+    } else if (!building.unlocked && unlockQuest) {
+      btn.title = `Complete milestone quest to unlock: ${unlockQuest.title}`;
+      
+      // Add requirement icons if quest has requirements
+      if (unlockQuest.requirements && unlockQuest.requirements.length > 0) {
+        const reqContainer = document.createElement('div');
+        reqContainer.className = 'building-requirements';
+        // Use CSS class styling instead of inline styles (matches our CSS)
         
-        // Add requirement icons if quest has requirements
-        // Place requirements after the building name (which comes after the icon)
-        if (unlockQuest.requirements && unlockQuest.requirements.length > 0) {
-          const reqContainer = document.createElement('div');
-          reqContainer.className = 'building-requirements';
-          reqContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 6px; width: 100%; box-sizing: border-box;';
+        // Filter out completed requirements
+        const incompleteRequirements = unlockQuest.requirements.filter(req => !checkRequirement(req));
+        
+        // Calculate overall progress (only count incomplete requirements for display)
+        let totalProgress = 0;
+        unlockQuest.requirements.forEach(req => {
+          totalProgress += getRequirementProgress(req);
+        });
+        const overallProgress = totalProgress / unlockQuest.requirements.length;
+        
+        // Add overall progress bar
+        const progressBarContainer = document.createElement('div');
+        progressBarContainer.style.cssText = 'width: 100%; position: relative; background: rgba(0,0,0,0.3); border-radius: 5px; height: 16px; overflow: hidden; box-sizing: border-box;';
+        
+        const progressBarFill = document.createElement('div');
+        progressBarFill.style.cssText = `position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); width: ${overallProgress}%; transition: width 0.3s ease; border-radius: 5px;`;
+        
+        const progressBarText = document.createElement('div');
+        progressBarText.style.cssText = 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold; z-index: 2; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);';
+        progressBarText.textContent = `${Math.round(overallProgress)}%`;
+        
+        progressBarContainer.appendChild(progressBarFill);
+        progressBarContainer.appendChild(progressBarText);
+        reqContainer.appendChild(progressBarContainer);
+        
+        // Add individual requirement items (only show incomplete requirements)
+        if (incompleteRequirements.length > 0) {
+          const reqItemsContainer = document.createElement('div');
+          reqItemsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center;';
           
-          // Filter out completed requirements
-          const incompleteRequirements = unlockQuest.requirements.filter(req => !checkRequirement(req));
-          
-          // Calculate overall progress (only count incomplete requirements for display)
-          let totalProgress = 0;
-          unlockQuest.requirements.forEach(req => {
-            totalProgress += getRequirementProgress(req);
+          incompleteRequirements.forEach(req => {
+            const reqItem = document.createElement('div');
+            reqItem.style.cssText = 'display: flex; align-items: center; gap: 4px; position: relative; padding: 3px;';
+            
+            // Create icon
+            const icon = document.createElement('img');
+            if (req.type === 'buildingCount') {
+              icon.src = buildingIcons[req.buildingType] || '';
+              icon.alt = buildingTypes[req.buildingType]?.displayName || '';
+            } else if (req.type === 'resource') {
+              icon.src = resourceIcons[req.resource] || '';
+              icon.alt = req.resource;
+            } else if (req.type === 'population') {
+              icon.src = resourceIcons.population || '';
+              icon.alt = 'Population';
+            }
+            icon.style.cssText = 'width: 24px; height: 24px; vertical-align: middle; flex-shrink: 0;';
+            
+            // Create amount text
+            const amountText = document.createElement('span');
+            amountText.textContent = req.amount;
+            amountText.style.cssText = 'font-size: 12px; color: white; font-weight: bold; white-space: nowrap;';
+            
+            reqItem.appendChild(icon);
+            reqItem.appendChild(amountText);
+            
+            reqItemsContainer.appendChild(reqItem);
           });
-          const overallProgress = totalProgress / unlockQuest.requirements.length;
           
-          // Add overall progress bar
-          const progressBarContainer = document.createElement('div');
-          progressBarContainer.style.cssText = 'width: 100%; position: relative; background: rgba(0,0,0,0.3); border-radius: 5px; height: 16px; overflow: hidden; box-sizing: border-box;';
-          
-          const progressBarFill = document.createElement('div');
-          progressBarFill.style.cssText = `position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); width: ${overallProgress}%; transition: width 0.3s ease; border-radius: 5px;`;
-          
-          const progressBarText = document.createElement('div');
-          progressBarText.style.cssText = 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold; z-index: 2; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);';
-          progressBarText.textContent = `${Math.round(overallProgress)}%`;
-          
-          progressBarContainer.appendChild(progressBarFill);
-          progressBarContainer.appendChild(progressBarText);
-          reqContainer.appendChild(progressBarContainer);
-          
-          // Add individual requirement items (only show incomplete requirements)
-          if (incompleteRequirements.length > 0) {
-            const reqItemsContainer = document.createElement('div');
-            reqItemsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center;';
-            
-            incompleteRequirements.forEach(req => {
-              const reqItem = document.createElement('div');
-              reqItem.style.cssText = 'display: flex; align-items: center; gap: 4px; position: relative; padding: 3px;';
-              
-              // Create icon
-              const icon = document.createElement('img');
-              if (req.type === 'buildingCount') {
-                icon.src = buildingIcons[req.buildingType] || '';
-                icon.alt = buildingTypes[req.buildingType]?.displayName || '';
-              } else if (req.type === 'resource') {
-                icon.src = resourceIcons[req.resource] || '';
-                icon.alt = req.resource;
-              } else if (req.type === 'population') {
-                icon.src = resourceIcons.population || '';
-                icon.alt = 'Population';
-              }
-              icon.style.cssText = 'width: 24px; height: 24px; vertical-align: middle; flex-shrink: 0;';
-              
-              // Create amount text
-              const amountText = document.createElement('span');
-              amountText.textContent = req.amount;
-              amountText.style.cssText = 'font-size: 12px; color: white; font-weight: bold; white-space: nowrap;';
-              
-              reqItem.appendChild(icon);
-              reqItem.appendChild(amountText);
-              
-              reqItemsContainer.appendChild(reqItem);
-            });
-            
-            reqContainer.appendChild(reqItemsContainer);
-          }
-          
-          // Append requirements at the end (after icon and name)
-          btn.appendChild(reqContainer);
+          reqContainer.appendChild(reqItemsContainer);
         }
-      } else {
-        btn.title = `Complete milestone quest to unlock ${building.displayName}`;
+        
+        // Append requirements at the end (after icon and name)
+        btn.appendChild(reqContainer);
       }
+    } else if (!building.unlocked) {
+      btn.title = `Complete milestone quest to unlock ${building.displayName}`;
     } else {
       btn.title = `${building.displayName} - Cost: ${cost.wood} wood${cost.stone > 0 ? `, ${cost.stone} stone` : ''}`;
     }

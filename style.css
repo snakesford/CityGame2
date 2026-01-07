@@ -207,50 +207,80 @@ h4 {
 /* Main Container */
 .main-container {
   display: flex;
+  flex-direction: column;
   gap: 20px;
-  justify-content: center;
-  align-items: flex-start; /* Align items to top so build menu can extend fully */
-  flex-wrap: nowrap;
   flex: 1;
   min-height: 0;
   padding: 10px;
+  padding-bottom: 280px; /* Add padding to account for fixed build menu */
   overflow-x: hidden;
-  overflow-y: auto; /* Allow scrolling if content is taller than viewport */
+  overflow-y: hidden;
+}
+
+/* Main Content Wrapper - contains grid and tile info side by side */
+.main-content-wrapper {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: flex-start;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Build Menu */
 .build-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   background: rgba(0,0,0,0.3);
-  padding: 20px;
-  border-radius: 8px;
+  padding: 18px 20px;
+  border-radius: 8px 8px 0 0;
   border: 1px solid rgba(255,255,255,0.1);
-  min-width: 200px;
-  width: 15vw;
-  max-width: 300px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex-shrink: 0;
-  /* Remove max-height constraint so it can extend fully */
-  align-self: flex-start; /* Align to top, allow natural height */
+  border-bottom: none;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: 270px;
+  z-index: 1000;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.5);
 }
 
-.building-category {
-  margin-bottom: 20px;
+.build-menu h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  text-align: center;
 }
 
-.building-category:last-child {
-  margin-bottom: 0;
+.build-menu-content {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  padding: 0 10px;
 }
 
 .building-category {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-flow: row;
+  gap: 8px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+  width: fit-content;
+  min-width: 140px;
 }
 
 .building-category h4 {
   grid-column: 1 / -1;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+  color: #FFD700;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  padding: 0 5px;
 }
 
 .building-btn {
@@ -258,30 +288,34 @@ h4 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 15px 10px;
+  padding: 12px 10px;
   margin: 0;
-  font-size: clamp(10px, 1.2vw, 14px);
+  font-size: 12px;
   font-weight: bold;
-  line-height: 1.2;
-  border-radius: 6px;
+  line-height: 1.3;
+  border-radius: 8px;
   cursor: pointer;
   border: 2px solid rgba(255,255,255,0.2);
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   color: white;
   text-align: center;
-  min-height: clamp(100px, 12vh, 100px);
+  min-height: 95px;
+  max-height: 95px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .building-btn .building-icon {
   width: 70%;
   flex-shrink: 0;
   object-fit: contain;
-  max-width: clamp(60px, 8vw, 120px);
-  max-height: clamp(60px, 8vw, 120px);
-  padding: 5px;
+  max-width: 45px;
+  max-height: 45px;
+  padding: 4px;
 }
 
 .building-btn:hover:not(:disabled) {
@@ -316,7 +350,6 @@ h4 {
   align-items: center;
   min-width: 0;
   min-height: 0;
-  max-height: calc(100vh - 250px); /* Limit height: viewport minus HUD, title, padding */
   position: relative;
   overflow: hidden; /* Prevent overflow */
 }
@@ -1032,7 +1065,6 @@ h4 {
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
-  max-height: calc(100vh - 250px); /* Match grid area height constraint */
   align-self: flex-start; /* Align to top */
   box-sizing: border-box;
 }
@@ -2203,14 +2235,52 @@ h4 {
 
 @media (max-width: 1200px) {
   .main-container {
+    padding-bottom: 250px; /* Adjust for smaller build menu height */
+  }
+  
+  .main-content-wrapper {
     flex-direction: column;
     align-items: center;
   }
   
-  .build-menu,
   .tile-info {
     max-width: 100%;
     width: 100%;
+  }
+  
+  .build-menu {
+    max-height: 220px;
+    padding: 15px 15px;
+  }
+  
+  .build-menu-content {
+    gap: 20px;
+    padding: 0 5px;
+  }
+  
+  .building-category {
+    min-width: 120px;
+    gap: 6px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .building-category h4 {
+    font-size: 12px;
+    margin-bottom: 10px;
+    grid-column: 1 / -1;
+  }
+  
+  .building-btn {
+    font-size: 11px;
+    min-height: 85px;
+    max-height: 85px;
+    padding: 10px 8px;
+    gap: 5px;
+  }
+  
+  .building-btn .building-icon {
+    max-width: 40px;
+    max-height: 40px;
   }
   
   .grid-wrapper {

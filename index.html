@@ -236,76 +236,81 @@
   </div>
 
   <div class="main-container">
-    <!-- Left Panel: Build Menu -->
-    <div id="build-menu" class="build-menu">
-      <h3>Build Menu</h3>
-      <div class="building-category">
-        <h4>Housing</h4>
-        <button class="building-btn" data-building-type="tepee"><br>Tepee</button>
-        <button class="building-btn" data-building-type="cabin" disabled><br>Cabin</button>
-        <button class="building-btn" data-building-type="brickHouse" disabled><br>Brick House</button>
-      </div>
-      <div class="building-category">
-        <h4>Farming</h4>
-        <button class="building-btn" data-building-type="farm"><br>Farm</button>
-        <button class="building-btn" data-building-type="advancedFarm"><br>Advanced Farm</button>
-        <button class="building-btn" data-building-type="orchard" disabled><br>Orchard</button>
-      </div>
-      <div class="building-category">
-        <h4>Wood Production</h4>
-        <button class="building-btn" data-building-type="lumberMill"><br>Lumber Mill</button>
-        <button class="building-btn" data-building-type="advancedLumberMill" disabled><br>Advanced Lumber Mill</button>
-      </div>
-      <div class="building-category">
-        <h4>Minerals</h4>
-        <button class="building-btn" data-building-type="quarry"><br>Quarry</button>
-        <button class="building-btn" data-building-type="stonePit"><br>Stone Pit</button>
-        <button class="building-btn" data-building-type="clayPool"><br>Clay Pool</button>
-        <button class="building-btn" data-building-type="ironMine"><br>Iron Mine</button>
-        <button class="building-btn" data-building-type="coalMine"><img src="images/coal.png" alt="Coal Mine" class="building-icon"><br>Coal Mine</button>
-        <button class="building-btn" data-building-type="deepMine" disabled>Deep Mine</button>
-        <button class="building-btn" data-building-type="oreRefinery" disabled><br>Ore Refinery</button>
-      </div>
-      <div class="building-category">
-        <h4>Production</h4>
-        <button class="building-btn" data-building-type="smelter"><br>Smelter</button>
-      </div>
-      <div class="building-category">
-        <h4>Special</h4>
-        <button class="building-btn" data-building-type="baseMarker"><br>Base Marker</button>
-      </div>
-    </div>
-
-    <!-- Center: Grid -->
-    <div class="grid-area-wrapper">
-      <div id="grid-wrapper" class="grid-wrapper">
-        <!-- Zoom Controls -->
-        <div class="zoom-controls">
-          <button id="zoom-in-btn" class="zoom-btn" onclick="zoomIn()" title="Zoom In (Mouse Wheel Up / +)">
-            <span style="font-size: 20px;">+</span>
-          </button>
-          <div class="zoom-level-display" id="zoom-level-display">100%</div>
-          <button id="zoom-out-btn" class="zoom-btn" onclick="zoomOut()" title="Zoom Out (Mouse Wheel Down / -)">
-            <span style="font-size: 20px;">−</span>
-          </button>
-          <button id="zoom-reset-btn" class="zoom-btn" onclick="resetZoom()" title="Reset Zoom (0)">
-            <span style="font-size: 16px;">⌂</span>
-          </button>
+    <!-- Top Section: Grid and Tile Info -->
+    <div class="main-content-wrapper">
+      <!-- Center: Grid -->
+      <div class="grid-area-wrapper">
+        <div id="grid-wrapper" class="grid-wrapper">
+          <!-- Zoom Controls -->
+          <div class="zoom-controls">
+            <button id="zoom-in-btn" class="zoom-btn" onclick="zoomIn()" title="Zoom In (Mouse Wheel Up / +)">
+              <span style="font-size: 20px;">+</span>
+            </button>
+            <div class="zoom-level-display" id="zoom-level-display">100%</div>
+            <button id="zoom-out-btn" class="zoom-btn" onclick="zoomOut()" title="Zoom Out (Mouse Wheel Down / -)">
+              <span style="font-size: 20px;">−</span>
+            </button>
+            <button id="zoom-reset-btn" class="zoom-btn" onclick="resetZoom()" title="Reset Zoom (0)">
+              <span style="font-size: 16px;">⌂</span>
+            </button>
+          </div>
+          <div id="grid-container" class="grid-container"></div>
         </div>
-        <div id="grid-container" class="grid-container"></div>
+        <!-- Mini Map -->
+        <div id="mini-map" class="mini-map">
+          <div id="mini-map-container" class="mini-map-container"></div>
+          <div id="mini-map-viewport" class="mini-map-viewport"></div>
+        </div>
       </div>
-      <!-- Mini Map -->
-      <div id="mini-map" class="mini-map">
-        <div id="mini-map-container" class="mini-map-container"></div>
-        <div id="mini-map-viewport" class="mini-map-viewport"></div>
+
+      <!-- Right Panel: Tile Info -->
+      <div id="tile-info" class="tile-info">
+        <h3>Building Info</h3>
+        <p>Select a building to place or click on a placed building to view details.</p>
+        
       </div>
     </div>
+  </div>
 
-    <!-- Right Panel: Tile Info -->
-    <div id="tile-info" class="tile-info">
-      <h3>Building Info</h3>
-      <p>Select a building to place or click on a placed building to view details.</p>
-      
+  <!-- Bottom Panel: Build Menu (Fixed at bottom of screen) -->
+  <div id="build-menu" class="build-menu">
+      <div class="build-menu-content">
+        <div class="building-category">
+          <h4>Housing</h4>
+          <button class="building-btn" data-building-type="tepee"><br>Tepee</button>
+          <button class="building-btn" data-building-type="cabin" disabled><br>Cabin</button>
+          <button class="building-btn" data-building-type="brickHouse" disabled><br>Brick House</button>
+        </div>
+        <div class="building-category">
+          <h4>Farming</h4>
+          <button class="building-btn" data-building-type="farm"><br>Farm</button>
+          <button class="building-btn" data-building-type="advancedFarm"><br>Advanced Farm</button>
+          <button class="building-btn" data-building-type="orchard" disabled><br>Orchard</button>
+        </div>
+        <div class="building-category">
+          <h4>Wood Production</h4>
+          <button class="building-btn" data-building-type="lumberMill"><br>Lumber Mill</button>
+          <button class="building-btn" data-building-type="advancedLumberMill" disabled><br>Advanced Lumber Mill</button>
+        </div>
+        <div class="building-category">
+          <h4>Minerals</h4>
+          <button class="building-btn" data-building-type="quarry"><br>Quarry</button>
+          <button class="building-btn" data-building-type="stonePit"><br>Stone Pit</button>
+          <button class="building-btn" data-building-type="clayPool"><br>Clay Pool</button>
+          <button class="building-btn" data-building-type="ironMine"><br>Iron Mine</button>
+          <button class="building-btn" data-building-type="coalMine"><img src="images/coal.png" alt="Coal Mine" class="building-icon"><br>Coal Mine</button>
+          <button class="building-btn" data-building-type="deepMine" disabled>Deep Mine</button>
+          <button class="building-btn" data-building-type="oreRefinery" disabled><br>Ore Refinery</button>
+        </div>
+        <div class="building-category">
+          <h4>Production</h4>
+          <button class="building-btn" data-building-type="smelter"><br>Smelter</button>
+        </div>
+        <div class="building-category">
+          <h4>Special</h4>
+          <button class="building-btn" data-building-type="baseMarker"><br>Base Marker</button>
+        </div>
+      </div>
     </div>
   </div>
     

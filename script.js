@@ -214,7 +214,7 @@ const tutorialSteps = [
       <div class="tutorial-mechanic">
         <p><strong>Placing Buildings:</strong></p>
         <ul>
-          <li>Select a building from the Build Menu on the left</li>
+          <li>Select a building from the Build Menu at the bottom</li>
           <li>Click on an empty tile on the grid to place it</li>
           <li>You must have enough resources to afford the building</li>
           <li>Hold Shift while clicking to place multiple buildings</li>

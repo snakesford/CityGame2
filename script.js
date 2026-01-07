@@ -6728,7 +6728,7 @@ function updateBuildMenu() {
         if (unlockQuest.requirements && unlockQuest.requirements.length > 0) {
           const reqContainer = document.createElement('div');
           reqContainer.className = 'building-requirements';
-          reqContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding: 4px; width: 100%;';
+          reqContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 6px; width: 100%; box-sizing: border-box;';
           
           // Filter out completed requirements
           const incompleteRequirements = unlockQuest.requirements.filter(req => !checkRequirement(req));
@@ -6742,13 +6742,13 @@ function updateBuildMenu() {
           
           // Add overall progress bar
           const progressBarContainer = document.createElement('div');
-          progressBarContainer.style.cssText = 'width: 100%; position: relative; background: rgba(0,0,0,0.3); border-radius: 4px; height: 12px; overflow: hidden;';
+          progressBarContainer.style.cssText = 'width: 100%; position: relative; background: rgba(0,0,0,0.3); border-radius: 5px; height: 16px; overflow: hidden; box-sizing: border-box;';
           
           const progressBarFill = document.createElement('div');
-          progressBarFill.style.cssText = `position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); width: ${overallProgress}%; transition: width 0.3s ease; border-radius: 4px;`;
+          progressBarFill.style.cssText = `position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%); width: ${overallProgress}%; transition: width 0.3s ease; border-radius: 5px;`;
           
           const progressBarText = document.createElement('div');
-          progressBarText.style.cssText = 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: white; font-weight: bold; z-index: 2; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);';
+          progressBarText.style.cssText = 'position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold; z-index: 2; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);';
           progressBarText.textContent = `${Math.round(overallProgress)}%`;
           
           progressBarContainer.appendChild(progressBarFill);
@@ -6758,11 +6758,11 @@ function updateBuildMenu() {
           // Add individual requirement items (only show incomplete requirements)
           if (incompleteRequirements.length > 0) {
             const reqItemsContainer = document.createElement('div');
-            reqItemsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center;';
+            reqItemsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center;';
             
             incompleteRequirements.forEach(req => {
               const reqItem = document.createElement('div');
-              reqItem.style.cssText = 'display: flex; align-items: center; gap: 2px; position: relative; padding: 2px;';
+              reqItem.style.cssText = 'display: flex; align-items: center; gap: 4px; position: relative; padding: 3px;';
               
               // Create icon
               const icon = document.createElement('img');
@@ -6776,12 +6776,12 @@ function updateBuildMenu() {
                 icon.src = resourceIcons.population || '';
                 icon.alt = 'Population';
               }
-              icon.style.cssText = 'width: 20px; height: 20px; vertical-align: middle;';
+              icon.style.cssText = 'width: 24px; height: 24px; vertical-align: middle; flex-shrink: 0;';
               
               // Create amount text
               const amountText = document.createElement('span');
               amountText.textContent = req.amount;
-              amountText.style.cssText = 'font-size: 11px; color: white; font-weight: bold;';
+              amountText.style.cssText = 'font-size: 12px; color: white; font-weight: bold; white-space: nowrap;';
               
               reqItem.appendChild(icon);
               reqItem.appendChild(amountText);

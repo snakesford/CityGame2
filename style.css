@@ -231,19 +231,18 @@ h4 {
 /* Build Menu */
 .build-menu {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
   background: rgba(0,0,0,0.3);
   padding: 20px;
-  border-radius: 8px 8px 0 0;
+  border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.1);
-  border-bottom: none;
-  width: 100%;
+  width: calc(100% - 40px);
   box-sizing: border-box;
   overflow-x: auto;
-  overflow-y: hidden;
-  max-height: 360px;
+  overflow-y: auto;
+  max-height: 400px;
   z-index: 1000;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.5);
 }
@@ -290,7 +289,7 @@ h4 {
   justify-content: flex-start;
   gap: 6px;
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   margin: 0;
   font-size: 13px;
   font-weight: bold;
@@ -302,7 +301,7 @@ h4 {
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   color: white;
   text-align: center;
-  min-height: 140px;
+  min-height: 150px;
   max-height: none;
   overflow: visible;
   box-sizing: border-box;
@@ -313,8 +312,8 @@ h4 {
   width: 65%;
   flex-shrink: 0;
   object-fit: contain;
-  max-width: 45px;
-  max-height: 45px;
+  max-width: 50px;
+  max-height: 50px;
   padding: 3px;
   margin: 0 auto;
   display: block;
@@ -2282,7 +2281,7 @@ h4 {
   }
   
   .build-menu {
-    max-height: 300px;
+    max-height: 340px;
     padding: 18px 15px;
   }
   
@@ -2305,14 +2304,14 @@ h4 {
   
   .building-btn {
     font-size: 11px;
-    min-height: 120px;
-    padding: 6px;
-    gap: 4px;
+    min-height: 130px;
+    padding: 8px;
+    gap: 5px;
   }
   
   .building-btn .building-icon {
-    max-width: 40px;
-    max-height: 40px;
+    max-width: 45px;
+    max-height: 45px;
   }
   
   .building-btn .building-requirements {
